@@ -1,26 +1,357 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+    --background: #fff7fb;
+    --foreground: #2a1b22;
+
+    --surface: #ffffff;
+    --surface-2: #f7e6f2;
+    --surface-3: #fff0f7;
+    --surface-soft: #fffaf4;
+
+    --border: #efd3e4;
+
+    --muted: #6b4b5a;
+    --muted-2: #8a6677;
+    --on-accent: #ffffff;
+
+    --pink-50: #fff2fa;
+    --pink-100: #f9ddeb;
+    --pink-200: #f6bfd5;
+    --pink-300: #f29ab9;
+    --pink-400: #e7779d;
+    --pink-500: #d65d85;
+    --pink-600: #bc4b72;
+    --pink-700: #943757;
+
+    --green-50: #f4f7ee;
+    --green-100: #e7eedb;
+    --green-200: #d7e3c3;
+    --green-500: #7b9a63;
+    --green-600: #637f4f;
+    --green-700: #425638;
+
+    --cream: #fff8ec;
+    --cream-2: #f7ecd9;
+
+    --link: var(--pink-600);
+    --link-hover: var(--pink-700);
+
+    --button: var(--pink-500);
+    --button-hover: var(--pink-600);
+    --button-active: var(--pink-700);
+    --button-text: var(--on-accent);
+
+    --button-secondary: var(--surface-2);
+    --button-secondary-hover: var(--pink-100);
+    --button-secondary-text: #3a2430;
+
+    --ring: rgba(214, 93, 133, 0.35);
+
+    --success: #637f4f;
+    --success-soft: #e7eedb;
+
+    --warning: #b7791f;
+    --warning-soft: #fff4d8;
+
+    --danger: #b8405f;
+    --danger-soft: #fde5ed;
+
+    --info: #6b6aa8;
+    --info-soft: #ecebff;
+
+    --held: #b7791f;
+    --held-soft: #fff4d8;
+
+    --requested: #6b6aa8;
+    --requested-soft: #ecebff;
+
+    --confirmed: #637f4f;
+    --confirmed-soft: #e7eedb;
+
+    --cancelled: #8a6677;
+    --cancelled-soft: #f3e8ee;
+
+    --rejected: #b8405f;
+    --rejected-soft: #fde5ed;
+
+    --completed: #425638;
+    --completed-soft: #edf4e6;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+
+    --color-surface: var(--surface);
+    --color-surface-2: var(--surface-2);
+    --color-surface-3: var(--surface-3);
+    --color-surface-soft: var(--surface-soft);
+    --color-border: var(--border);
+
+    --color-muted: var(--muted);
+    --color-muted-2: var(--muted-2);
+
+    --color-pink-50: var(--pink-50);
+    --color-pink-100: var(--pink-100);
+    --color-pink-200: var(--pink-200);
+    --color-pink-300: var(--pink-300);
+    --color-pink-400: var(--pink-400);
+    --color-pink-500: var(--pink-500);
+    --color-pink-600: var(--pink-600);
+    --color-pink-700: var(--pink-700);
+
+    --color-pink-main: var(--pink-500);
+    --color-dark-pink: var(--pink-700);
+
+    --color-green-50: var(--green-50);
+    --color-green-100: var(--green-100);
+    --color-green-200: var(--green-200);
+    --color-green-500: var(--green-500);
+    --color-green-600: var(--green-600);
+    --color-green-700: var(--green-700);
+
+    --color-light-green: var(--green-100);
+    --color-dark-green: var(--green-700);
+
+    --color-cream: var(--cream);
+    --color-cream-2: var(--cream-2);
+
+    --color-link: var(--link);
+    --color-link-hover: var(--link-hover);
+
+    --color-button: var(--button);
+    --color-button-hover: var(--button-hover);
+    --color-button-active: var(--button-active);
+    --color-button-text: var(--button-text);
+
+    --color-button-secondary: var(--button-secondary);
+    --color-button-secondary-hover: var(--button-secondary-hover);
+    --color-button-secondary-text: var(--button-secondary-text);
+
+    --color-ring: var(--ring);
+
+    --color-success: var(--success);
+    --color-success-soft: var(--success-soft);
+
+    --color-warning: var(--warning);
+    --color-warning-soft: var(--warning-soft);
+
+    --color-danger: var(--danger);
+    --color-danger-soft: var(--danger-soft);
+
+    --color-info: var(--info);
+    --color-info-soft: var(--info-soft);
+
+    --color-held: var(--held);
+    --color-held-soft: var(--held-soft);
+
+    --color-requested: var(--requested);
+    --color-requested-soft: var(--requested-soft);
+
+    --color-confirmed: var(--confirmed);
+    --color-confirmed-soft: var(--confirmed-soft);
+
+    --color-cancelled: var(--cancelled);
+    --color-cancelled-soft: var(--cancelled-soft);
+
+    --color-rejected: var(--rejected);
+    --color-rejected-soft: var(--rejected-soft);
+
+    --color-completed: var(--completed);
+    --color-completed-soft: var(--completed-soft);
+
+    --font-sans: var(--font-geist-sans);
+    --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@utility btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-button px-5 py-3 text-sm font-semibold text-button-text shadow-sm shadow-black/5 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-button-hover hover:shadow-md active:translate-y-0 active:bg-button-active active:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50;
+}
+
+@utility btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-button-secondary px-5 py-3 text-sm font-semibold text-button-secondary-text transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-button-secondary-hover active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50;
+}
+
+@utility btn-soft {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-green-200 bg-light-green px-5 py-3 text-sm font-semibold text-dark-green transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-green-200 active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50;
+}
+
+@utility btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-muted transition-all duration-200 ease-out hover:bg-surface-2 hover:text-foreground active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50;
+}
+
+@utility btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-danger px-5 py-3 text-sm font-semibold text-white shadow-sm shadow-black/5 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:brightness-95 hover:shadow-md active:translate-y-0 active:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50;
+}
+
+@utility link-default {
+    @apply relative inline-flex text-link no-underline transition-colors duration-200 hover:text-link-hover;
+}
+
+@utility link-muted {
+    @apply relative inline-flex text-muted no-underline transition-colors duration-200 hover:text-foreground;
+}
+
+@utility link-clean {
+    @apply inline-flex no-underline transition-colors duration-200;
+}
+
+@utility clickable {
+    @apply cursor-pointer transition-all duration-200 ease-out;
+}
+
+@utility card {
+    @apply rounded-2xl border border-border/50 bg-surface shadow-sm;
+}
+
+@utility card-soft {
+    @apply rounded-2xl border border-border/50 bg-surface-2 shadow-sm;
+}
+
+@utility input-field {
+    @apply w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-foreground outline-none transition-all duration-200 placeholder:text-muted-2 focus:border-pink-400 focus:ring-2 focus:ring-ring;
+}
+
+@utility label-text {
+    @apply text-sm font-semibold text-foreground;
+}
+
+@utility helper-text {
+    @apply text-xs leading-relaxed text-muted;
+}
+
+@utility status-held {
+    @apply rounded-full bg-held-soft px-3 py-1 text-xs font-semibold text-held;
+}
+
+@utility status-requested {
+    @apply rounded-full bg-requested-soft px-3 py-1 text-xs font-semibold text-requested;
+}
+
+@utility status-confirmed {
+    @apply rounded-full bg-confirmed-soft px-3 py-1 text-xs font-semibold text-confirmed;
+}
+
+@utility status-cancelled {
+    @apply rounded-full bg-cancelled-soft px-3 py-1 text-xs font-semibold text-cancelled;
+}
+
+@utility status-rejected {
+    @apply rounded-full bg-rejected-soft px-3 py-1 text-xs font-semibold text-rejected;
+}
+
+@utility status-completed {
+    @apply rounded-full bg-completed-soft px-3 py-1 text-xs font-semibold text-completed;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+    min-height: 100vh;
+    background:
+        radial-gradient(
+            circle at top left,
+            rgba(249, 221, 235, 0.65),
+            transparent 32rem
+        ),
+        radial-gradient(
+            circle at bottom right,
+            rgba(231, 238, 219, 0.55),
+            transparent 28rem
+        ),
+        var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+button {
+    cursor: pointer;
+    transition:
+        background-color 200ms ease,
+        border-color 200ms ease,
+        color 200ms ease,
+        box-shadow 200ms ease,
+        opacity 200ms ease,
+        transform 200ms ease,
+        filter 200ms ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+button:disabled {
+    cursor: not-allowed;
+}
+
+a {
+    -webkit-tap-highlight-color: transparent;
+}
+
+.link-default::after,
+.link-muted::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -0.15rem;
+    height: 2px;
+    width: 100%;
+    transform: scaleX(0);
+    transform-origin: left;
+    border-radius: 999px;
+    background: currentColor;
+    transition: transform 220ms ease;
+}
+
+.link-default:hover::after,
+.link-muted:hover::after {
+    transform: scaleX(1);
+}
+
+:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+}
+
+h1,
+h2,
+h3 {
+    font-family: var(--font-display), var(--font-sans), system-ui, sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    color: var(--foreground);
+    line-height: 1.15;
+}
+
+::selection {
+    background: var(--pink-200);
+    color: var(--foreground);
+}
+
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--pink-200);
+    border-radius: 999px;
+    border: 2px solid var(--background);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--pink-300);
 }
