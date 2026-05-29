@@ -1,0 +1,23 @@
+{
+    "name": "Vee's Nail Studio | Book an Appointment",
+    "short_name": "Vee's Nails Booking",
+    "description": "Vee's Nail Studio is run by a certified nail artist in downtown Toronto. Book an appointment today by visiting our website. We offer a wide range of nail services, including manicures, gel nails, and nail art. We are dedicated to providing high-quality services in a clean and welcoming environment. Book your appointment today and let us help you achieve the perfect nails!",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#fef1fe",
+    "theme_color": "#fef1fe",
+    "icons": [
+        {
+            "src": "/icon-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "/icon.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}
