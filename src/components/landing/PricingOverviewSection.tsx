@@ -2,12 +2,14 @@ import type { LandingPricingCard } from "@/types/landing";
 import SectionIntro from "@/components/landing/SectionIntro";
 
 export default function PricingOverviewSection({
+    id = "pricing",
     pricingCards,
 }: {
+    id?: string;
     pricingCards: LandingPricingCard[];
 }) {
     return (
-        <section className="px-5 sm:px-6">
+        <section id={id} className="px-5 sm:px-6">
             <div className="mx-auto max-w-6xl">
                 <div className="rounded-3xl border border-border/60 bg-surface-2/70 p-5 shadow-sm sm:p-8">
                     <SectionIntro

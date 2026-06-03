@@ -17,7 +17,7 @@ export default function PolicyAccordionCard({
                 type="button"
                 onClick={() => setOpen((value) => !value)}
                 aria-expanded={open}
-                className="grid w-full grid-cols-[1fr_auto] items-start gap-4 px-5 py-4 text-left"
+                className="grid w-full grid-cols-[1fr_auto] items-center gap-4 px-5 py-4 text-left"
             >
                 <span className="text-sm font-semibold sm:text-base">
                     {policy.title}

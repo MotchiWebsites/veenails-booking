@@ -2,11 +2,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { FiExternalLink, FiHeart, FiShield } from "react-icons/fi";
 
-export default function Footer() {
+export default function PublicFooter() {
     const currentYear = new Date().getFullYear();
 
     return (
-        <footer className="border-t border-border/60 bg-surface/70 px-5 py-10 sm:px-6">
+        <footer className="border-t border-border/60 bg-surface/95 px-5 py-10 sm:px-6 shadow-sm">
             <div className="mx-auto max-w-6xl">
                 <div className="grid gap-8 md:grid-cols-[1.2fr_0.8fr_0.8fr]">
                     {/* Brand */}
@@ -15,12 +15,12 @@ export default function Footer() {
                             href="/"
                             className="link-clean group inline-flex items-center gap-3 rounded-2xl"
                         >
-                            <div className="relative h-11 w-11 overflow-hidden rounded-full border border-border bg-background shadow-sm">
+                            <div className="relative h-12 w-12 overflow-hidden rounded-full border border-border shadow-sm">
                                 <Image
                                     src="/logo.png"
                                     alt="Vee's Nail Studio"
                                     fill
-                                    sizes="44px"
+                                    sizes="500px"
                                     className="object-cover"
                                 />
                             </div>
@@ -41,7 +41,7 @@ export default function Footer() {
                             account.
                         </p>
 
-                        <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-green-50 px-3 py-1.5 text-xs font-semibold text-dark-green">
+                        <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-pink-50 px-3 py-1.5 text-xs font-semibold text-pink-main">
                             <FiShield className="h-3.5 w-3.5" />
                             Secure appointment booking
                         </div>

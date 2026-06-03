@@ -3,18 +3,20 @@ import { FiArrowRight, FiCalendar } from "react-icons/fi";
 import AnimatedArrowLink from "../ui/AnimatedArrowLink";
 
 export default function LandingCTA({
+    id = "booking",
     primaryHref,
     primaryLabel,
     secondaryHref,
     secondaryLabel,
 }: {
+    id?: string;
     primaryHref: string;
     primaryLabel: string;
     secondaryHref: string;
     secondaryLabel: string;
 }) {
     return (
-        <section className="px-5 sm:px-6">
+        <section id={id} className="px-5 sm:px-6">
             <div className="mx-auto max-w-4xl rounded-3xl border border-border/60 bg-surface p-6 text-center shadow-sm sm:p-10">
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-surface-2 text-pink-main">
                     <FiCalendar className="h-6 w-6" />
@@ -30,11 +32,19 @@ export default function LandingCTA({
                     confirmation.
                 </p>
 
-                <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
-                    <Link href={secondaryHref} className="btn-secondary">
+                <div className="mt-7 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
+                    <Link
+                        href={secondaryHref}
+                        className="btn-secondary w-full sm:w-auto"
+                    >
                         {secondaryLabel}
                     </Link>
-                    <AnimatedArrowLink href={primaryHref}>{primaryLabel}</AnimatedArrowLink>
+                    <AnimatedArrowLink
+                        href={primaryHref}
+                        className="btn-primary w-full sm:w-auto"
+                    >
+                        {primaryLabel}
+                    </AnimatedArrowLink>
                 </div>
             </div>
         </section>

@@ -1,8 +1,11 @@
+import Reveal from "@/components/motion/Reveal";
+import FloatingSectionNav from "@/components/navigation/FloatingSectionNav";
+
 import LandingCTA from "@/components/landing/LandingCTA";
-import LandingHeader from "@/components/landing/LandingHeader";
 import LandingHero from "@/components/landing/hero/LandingHero";
 import PoliciesSection from "@/components/landing/PoliciesSection";
 import PricingOverviewSection from "@/components/landing/PricingOverviewSection";
+
 import { getUser } from "@/lib/auth/get-user";
 import { getLandingData } from "@/lib/data/landing";
 
@@ -20,34 +23,49 @@ export default async function PublicLandingPage() {
 
     return (
         <main className="min-h-screen bg-background text-foreground flex flex-col space-y-16 pb-16">
-            <LandingHeader
-                primaryHref={primaryHref}
-                primaryLabel={primaryLabel}
-                secondaryHref={secondaryHref}
-                secondaryLabel={secondaryLabel}
+            <FloatingSectionNav
+                items={[
+                    { id: "overview", label: "Overview" },
+                    { id: "pricing", label: "Pricing" },
+                    { id: "policies", label: "Policies" },
+                    { id: "booking", label: "Book Now" },
+                ]}
             />
 
-            <LandingHero
-                primaryHref={primaryHref}
-                primaryLabel={primaryLabel}
-                secondaryHref={secondaryHref}
-                secondaryLabel={secondaryLabel}
-                settings={landingData.settings}
-            />
+            <Reveal>
+                <LandingHero
+                    id="overview"
+                    primaryHref={primaryHref}
+                    primaryLabel={primaryLabel}
+                    secondaryHref={secondaryHref}
+                    secondaryLabel={secondaryLabel}
+                    settings={landingData.settings}
+                />
+            </Reveal>
 
-            <PricingOverviewSection pricingCards={landingData.pricingCards} />
+            <Reveal>
+                <PricingOverviewSection
+                    id="pricing"
+                    pricingCards={landingData.pricingCards}
+                />
+            </Reveal>
 
-            <PoliciesSection
-                policies={landingData.policies}
-                settings={landingData.settings}
-            />
+            <Reveal>
+                <PoliciesSection
+                    id="policies"
+                    policies={landingData.policies}
+                />
+            </Reveal>
 
-            <LandingCTA
-                primaryHref={primaryHref}
-                primaryLabel={primaryLabel}
-                secondaryHref={secondaryHref}
-                secondaryLabel={secondaryLabel}
-            />
+            <Reveal>
+                <LandingCTA
+                    id="booking"
+                    primaryHref={primaryHref}
+                    primaryLabel={primaryLabel}
+                    secondaryHref={secondaryHref}
+                    secondaryLabel={secondaryLabel}
+                />
+            </Reveal>
         </main>
     );
 }

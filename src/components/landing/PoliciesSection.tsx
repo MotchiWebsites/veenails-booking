@@ -4,14 +4,14 @@ import type { LandingPolicy, LandingSettings } from "@/types/landing";
 import { formatCurrency } from "@/lib/utils/money";
 
 export default function PoliciesSection({
+    id = "policies",
     policies,
-    settings,
 }: {
+    id?: string;
     policies: LandingPolicy[];
-    settings: LandingSettings;
 }) {
     return (
-        <section className="px-5 sm:px-6">
+        <section id={id} className="px-5 sm:px-6">
             <div className="mx-auto max-w-6xl">
                 <SectionIntro
                     eyebrow="Review our policies"
