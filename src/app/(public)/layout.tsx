@@ -7,7 +7,7 @@ export default async function PublicLayout({
 }: Readonly<{
     children: React.ReactNode;
 }>) {
-    const [user] = await Promise.all([getUser()]);
+    const user = await getUser();
 
     const primaryHref = user ? "/booking/new" : "/signup";
     const primaryLabel = user ? "Start Booking" : "Create Account";

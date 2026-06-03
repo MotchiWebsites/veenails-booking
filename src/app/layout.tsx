@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-
 import "./globals.css";
-
-// Public navigation moved into the (public) layout
 
 const geistSans = Geist({
     variable: "--font-geist-sans",
@@ -16,20 +13,21 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-    title: "Vee's Nail Studio | Book an appointment",
+    title: "Vee's Nail Studio | Book an Appointment",
     description:
-        "Vee's Nail Studio is run by a certified nail artist in downtown Toronto. Book an appointment today by visiting our website. We offer a wide range of nail services, including manicures, gel nails, and nail art. We are dedicated to providing high-quality services in a clean and welcoming environment. Book your appointment today and let us help you achieve the perfect nails!",
+        "Book your Vee's Nail Studio appointment through the secure online booking portal.",
 };
 
 export default function RootLayout({
     children,
-}: Readonly<{ children: React.ReactNode }>) {
+}: Readonly<{
+    children: React.ReactNode;
+}>) {
     return (
-        <html
-            lang="en"
-            className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-        >
-            <body className="min-h-full flex flex-col">{children}</body>
+        <html lang="en">
+            <body className={`${geistSans.variable} ${geistMono.variable}`}>
+                {children}
+            </body>
         </html>
     );
 }
