@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { requireUser } from "@/lib/auth/require-user";
+import { requireUser } from "@/features/auth/guards/require-user";
 
 type RequireAdminOptions = {
     loginRedirectTo?: string;
