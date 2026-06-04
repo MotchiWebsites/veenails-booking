@@ -36,7 +36,7 @@ export default function Reveal({
                           scale: 1,
                       }
             }
-            viewport={{ once: true, amount: 0.3 }}
+            viewport={{ once: true, amount: 0.15 }}
             transition={{
                 duration: 1.5,
                 delay,

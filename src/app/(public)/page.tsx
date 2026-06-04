@@ -6,7 +6,7 @@ import LandingHero from "@/components/landing/hero/LandingHero";
 import PoliciesSection from "@/components/landing/PoliciesSection";
 import PricingOverviewSection from "@/components/landing/PricingOverviewSection";
 
-import { getUser } from "@/lib/auth/get-user";
+import { getUser } from "@/features/auth/guards/get-user";
 import { getLandingData } from "@/lib/data/landing";
 
 export default async function PublicLandingPage() {

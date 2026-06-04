@@ -15,7 +15,7 @@ export default function PublicNavbar({
     className?: string;
 }) {
     return (
-        <header className="sticky top-0 z-40 backdrop-blur-sm bg-surface/80 border-b border-border/30 shadow-sm px-5 py-4 sm:px-6">
+        <header className={`sticky top-0 z-40 backdrop-blur-sm bg-surface/80 border-b border-border/30 shadow-sm px-5 py-4 sm:px-6 ${className}`}>
             <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
                 <Link
                     href="/"

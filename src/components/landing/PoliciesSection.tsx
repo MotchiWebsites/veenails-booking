@@ -1,7 +1,7 @@
 import PolicyAccordionCard from "@/components/landing/PolicyAccordionCard";
 import SectionIntro from "@/components/landing/SectionIntro";
-import type { LandingPolicy, LandingSettings } from "@/types/landing";
-import { formatCurrency } from "@/lib/utils/money";
+import type { LandingPolicy } from "@/types/landing";
+import Reveal from "../motion/Reveal";
 
 export default function PoliciesSection({
     id = "policies",
@@ -19,8 +19,10 @@ export default function PoliciesSection({
                     description="You will be asked to accept the current booking policies during checkout. They are also shown here as a reference."
                 />
                 <div className="mt-8 grid gap-4 md:grid-cols-2">
-                    {policies.map((policy) => (
-                        <PolicyAccordionCard key={policy.id} policy={policy} />
+                    {policies.map((policy, index) => (
+                        <Reveal key={policy.id} delay={index * 0.06}>
+                            <PolicyAccordionCard policy={policy} />
+                        </Reveal>
                     ))}
                 </div>
             </div>

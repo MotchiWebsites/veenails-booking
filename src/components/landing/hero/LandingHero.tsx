@@ -4,13 +4,13 @@ import {
     FiUser,
     FiCalendar,
     FiCheckCircle,
-    FiCreditCard,
     FiShield,
 } from "react-icons/fi";
 import type { LandingSettings } from "@/types/landing";
 import SectionIntro from "@/components/landing/SectionIntro";
 import HeroStep from "@/components/landing/hero/HeroStep";
 import AnimatedArrowLink from "@/components/ui/AnimatedArrowLink";
+import Reveal from "@/components/motion/Reveal";
 
 export default function LandingHero({
     id = "overview",
@@ -26,6 +26,24 @@ export default function LandingHero({
     secondaryLabel: string;
     settings: LandingSettings;
 }) {
+    const steps = [
+        {
+            icon: <FiUser className="h-4 w-4" />,
+            title: "Sign in or create an account",
+            description: "Your account allows you to manage appointments, payments, and preferences all in one place."
+        },
+        {
+            icon: <FiCalendar className="h-4 w-4" />,
+            title: "Pick an available time",
+            description: "Your selected slot is temporarily held while you complete the request."
+        },
+        {
+            icon: <FiCheckCircle className="h-4 w-4" />,
+            title: "Confirm services and policies",
+            description: "Pricing, design tiers, removals, and policies are shown before submission."
+        }
+    ];
+    
     return (
         <section
             id={id}
@@ -38,7 +56,7 @@ export default function LandingHero({
                 </div>
 
                 <h1 className="mt-5 max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl">
-                    Vee's Nail Studio | Book Your Appointment
+                    Vee&apos;s Nail Studio | Book Your Appointment
                 </h1>
 
                 <p className="mt-5 max-w-2xl text-sm leading-relaxed text-muted sm:text-base lg:text-lg">
@@ -80,29 +98,15 @@ export default function LandingHero({
                     />
 
                     <div className="mt-5 space-y-3">
-                        <HeroStep
-                            icon={<FiUser className="h-4 w-4" />}
-                            title="Sign in or create an account"
-                            description="Your account allows you to manage appointments, payments, and preferences all in one place."
-                        />
-
-                        <HeroStep
-                            icon={<FiCalendar className="h-4 w-4" />}
-                            title="Pick an available time"
-                            description="Your selected slot is temporarily held while you complete the request."
-                        />
-
-                        <HeroStep
-                            icon={<FiCheckCircle className="h-4 w-4" />}
-                            title="Confirm services and policies"
-                            description="Pricing, design tiers, removals, and policies are shown before submission."
-                        />
-
-                        <HeroStep
-                            icon={<FiCreditCard className="h-4 w-4" />}
-                            title="Send your deposit"
-                            description="Your booking is reviewed after you mark the e-transfer deposit as sent."
-                        />
+                        {steps.map((step, index) => (
+                            <Reveal key={index} delay={index * 0.06}>
+                                <HeroStep
+                                    icon={step.icon}
+                                    title={step.title}
+                                    description={step.description}
+                                />
+                            </Reveal>
+                        ))}
                     </div>
                 </div>
             </div>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import ToastProvider from "@/components/toast/ToastProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-    title: "Vee's Nail Studio | Book an Appointment",
+    title: "Book an Appointment | Vee's Nail Studio",
     description:
         "Book your Vee's Nail Studio appointment through the secure online booking portal.",
 };
@@ -24,9 +25,9 @@ export default function RootLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <html lang="en">
+        <html lang="en" data-scroll-behavior="smooth">
             <body className={`${geistSans.variable} ${geistMono.variable}`}>
-                {children}
+                <ToastProvider>{children}</ToastProvider>
             </body>
         </html>
     );

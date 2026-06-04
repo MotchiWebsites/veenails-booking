@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FiArrowRight, FiCalendar } from "react-icons/fi";
+import { FiCalendar } from "react-icons/fi";
 import AnimatedArrowLink from "../ui/AnimatedArrowLink";
 
 export default function LandingCTA({

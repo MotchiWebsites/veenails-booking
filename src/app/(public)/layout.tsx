@@ -1,6 +1,6 @@
 import PublicNavbar from "@/components/layout/PublicNavbar";
 import PublicFooter from "@/components/layout/PublicFooter";
-import { getUser } from "@/lib/auth/get-user";
+import { getUser } from "@/features/auth/guards/get-user";
 
 export default async function PublicLayout({
     children,
