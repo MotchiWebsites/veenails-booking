@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { FiCalendar } from "react-icons/fi";
-import AnimatedArrowLink from "../ui/AnimatedArrowLink";
+import AnimatedArrowLink from "../shared/ui/AnimatedArrowLink";
 
 export default function LandingCTA({
     id = "booking",

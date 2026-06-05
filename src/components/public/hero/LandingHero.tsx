@@ -7,10 +7,10 @@ import {
     FiShield,
 } from "react-icons/fi";
 import type { LandingSettings } from "@/types/landing";
-import SectionIntro from "@/components/landing/SectionIntro";
-import HeroStep from "@/components/landing/hero/HeroStep";
-import AnimatedArrowLink from "@/components/ui/AnimatedArrowLink";
-import Reveal from "@/components/motion/Reveal";
+import SectionIntro from "@/components/shared/ui/SectionIntro";
+import HeroStep from "@/components/public/hero/HeroStep";
+import AnimatedArrowLink from "@/components/shared/ui/AnimatedArrowLink";
+import Reveal from "@/components/shared/motion/Reveal";
 
 export default function LandingHero({
     id = "overview",

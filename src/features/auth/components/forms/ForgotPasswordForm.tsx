@@ -4,9 +4,9 @@ import { useActionState, useEffect, useMemo, useState } from "react";
 import AuthResultScreen from "@/features/auth/components/AuthResultScreen";
 import { routes } from "@/constants/routes";
 import { sendPasswordReset } from "@/features/auth/actions/auth";
-import { useToast } from "@/components/toast/ToastProvider";
-import AppForm from "@/components/form/AppForm";
-import FormField from "@/components/form/FormField";
+import { useToast } from "@/components/shared/toast/ToastProvider";
+import AppForm from "@/components/shared/form/AppForm";
+import FormField from "@/components/shared/form/FormField";
 import { isValidEmail } from "@/features/auth/validation/email";
 
 const initialState = {

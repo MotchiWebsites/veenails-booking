@@ -1,6 +1,6 @@
 import type { LandingPricingCard } from "@/types/landing";
-import SectionIntro from "@/components/landing/SectionIntro";
-import Reveal from "../motion/Reveal";
+import SectionIntro from "@/components/shared/ui/SectionIntro";
+import Reveal from "../shared/motion/Reveal";
 
 export default function PricingOverviewSection({
     id = "pricing",

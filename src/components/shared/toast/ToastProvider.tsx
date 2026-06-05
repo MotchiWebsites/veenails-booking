@@ -7,8 +7,8 @@ import {
     useMemo,
     useState,
 } from "react";
-import type { AppToast, ToastVariant } from "@/components/toast/toast-types";
-import ToastViewport from "@/components/toast/ToastViewport";
+import type { AppToast, ToastVariant } from "@/components/shared/toast/toast-types";
+import ToastViewport from "@/components/shared/toast/ToastViewport";
 
 type ToastInput = {
     title?: string;

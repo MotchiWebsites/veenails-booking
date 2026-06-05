@@ -1,13 +1,21 @@
-import Reveal from "@/components/motion/Reveal";
+import Reveal from "@/components/shared/motion/Reveal";
 import FloatingSectionNav from "@/components/navigation/FloatingSectionNav";
 
-import LandingCTA from "@/components/landing/LandingCTA";
-import LandingHero from "@/components/landing/hero/LandingHero";
-import PoliciesSection from "@/components/landing/PoliciesSection";
-import PricingOverviewSection from "@/components/landing/PricingOverviewSection";
+import LandingCTA from "@/components/public/LandingCTA";
+import LandingHero from "@/components/public/hero/LandingHero";
+import PoliciesSection from "@/components/public/PoliciesSection";
+import PricingOverviewSection from "@/components/public/PricingOverviewSection";
 
 import { getUser } from "@/features/auth/guards/get-user";
 import { getLandingData } from "@/lib/data/landing";
+import { buildMetadata } from "@/lib/seo/metadata";
+
+export const metadata = buildMetadata({
+    title: "Book an Appointment",
+    description:
+        "Request nail appointments, review services and policies, send your deposit, and manage booking updates with Vee’s Nail Studio.",
+    path: "/",
+});
 
 export default async function PublicLandingPage() {
     const [user, landingData] = await Promise.all([

@@ -13,7 +13,7 @@ export default function SectionIntro({
         <div
             className={
                 align === "center"
-                    ? "mx-auto max-w-2xl text-center"
+                    ? "mx-auto max-w-2xl md:text-center"
                     : "max-w-2xl text-left"
             }
         >

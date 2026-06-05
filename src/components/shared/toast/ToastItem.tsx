@@ -9,7 +9,7 @@ import {
     FiPlay,
     FiX,
 } from "react-icons/fi";
-import type { AppToast } from "@/components/toast/toast-types";
+import type { AppToast } from "@/components/shared/toast/toast-types";
 
 const variantStyles = {
     success: {

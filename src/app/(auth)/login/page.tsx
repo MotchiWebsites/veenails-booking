@@ -2,7 +2,15 @@ import Link from "next/link";
 import AuthCard from "@/features/auth/components/AuthCard";
 import LoginForm from "@/features/auth/components/forms/LoginForm";
 import { routes } from "@/constants/routes";
-import Reveal from "@/components/motion/Reveal";
+import Reveal from "@/components/shared/motion/Reveal";
+import { buildMetadata } from "@/lib/seo/metadata";
+
+export const metadata = buildMetadata({
+    title: "Sign In",
+    description: "Sign in to manage your bookings and account.",
+    path: "/login",
+    noIndex: true,
+});
 
 export default function LoginPage() {
     return (

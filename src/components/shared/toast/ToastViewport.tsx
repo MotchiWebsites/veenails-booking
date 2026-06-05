@@ -1,7 +1,7 @@
 "use client";
 
-import ToastItem from "@/components/toast/ToastItem";
-import type { AppToast } from "@/components/toast/toast-types";
+import ToastItem from "@/components/shared/toast/ToastItem";
+import type { AppToast } from "@/components/shared/toast/toast-types";
 
 export default function ToastViewport({
     toasts,

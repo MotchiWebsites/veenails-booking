@@ -1,7 +1,7 @@
-import PolicyAccordionCard from "@/components/landing/PolicyAccordionCard";
-import SectionIntro from "@/components/landing/SectionIntro";
+import PolicyAccordionCard from "@/components/public/PolicyAccordionCard";
+import SectionIntro from "@/components/shared/ui/SectionIntro";
 import type { LandingPolicy } from "@/types/landing";
-import Reveal from "../motion/Reveal";
+import Reveal from "../shared/motion/Reveal";
 
 export default function PoliciesSection({
     id = "policies",

@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { FiChevronDown, FiEye, FiEyeOff } from "react-icons/fi";
 
-import FieldHintToggle from "@/components/form/FieldHintToggle";
+import FieldHintToggle from "@/components/shared/form/FieldHintToggle";
 import { formatNorthAmericanPhone } from "@/features/auth/validation/phone";
 
 type BaseFieldProps = {

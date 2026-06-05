@@ -2,7 +2,15 @@ import Link from "next/link";
 import AuthCard from "@/features/auth/components/AuthCard";
 import ForgotPasswordForm from "@/features/auth/components/forms/ForgotPasswordForm";
 import { routes } from "@/constants/routes";
-import Reveal from "@/components/motion/Reveal";
+import Reveal from "@/components/shared/motion/Reveal";
+import { buildMetadata } from "@/lib/seo/metadata";
+
+export const metadata = buildMetadata({
+    title: "Reset Password",
+    description: "Request a password reset link for your booking account.",
+    path: "/forgot-password",
+    noIndex: true,
+});
 
 export default function ForgotPasswordPage() {
     return (
