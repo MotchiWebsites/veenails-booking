@@ -24,7 +24,7 @@ export default function AppForm({
     return (
         <form
             action={action}
-            className={`space-y-4 ${className}`}
+            className={`space-y-4 w-full mx-auto md:max-w-lg lg:max-w-xl ${className}`}
             onKeyDown={(event) => {
                 if (event.key !== "Enter") return;
 

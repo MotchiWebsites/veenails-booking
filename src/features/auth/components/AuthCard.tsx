@@ -14,7 +14,7 @@ export default function AuthCard({
     topAction?: React.ReactNode;
 }) {
     return (
-        <section className="w-full max-w-md">
+        <section className="w-full max-w-md md:max-w-lg lg:max-w-xl mx-auto">
             <div className="card overflow-hidden">
                 <div className="border-b border-border/60 bg-surface-2/60 px-5 py-5 text-center sm:px-6 sm:py-6">
                     {topAction ? (

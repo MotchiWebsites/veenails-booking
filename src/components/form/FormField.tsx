@@ -224,9 +224,9 @@ export default function FormField(props: FormFieldProps) {
                             className="absolute right-3 top-1/2 flex h-9 w-9 touch-manipulation -translate-y-1/2 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                         >
                             {showPassword ? (
-                                <FiEyeOff className="h-4 w-4" />
-                            ) : (
                                 <FiEye className="h-4 w-4" />
+                            ) : (
+                                <FiEyeOff className="h-4 w-4" />
                             )}
                         </button>
                     ) : null}

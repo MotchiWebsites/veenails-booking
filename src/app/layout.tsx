@@ -17,6 +17,19 @@ export const metadata: Metadata = {
     title: "Book an Appointment | Vee's Nail Studio",
     description:
         "Book your Vee's Nail Studio appointment through the secure online booking portal.",
+
+    applicationName: "Book | Vee's Nails",
+    appleWebApp: {
+        title: "Book | Vee's Nails",
+        capable: true,
+        statusBarStyle: "default",
+    },
+    metadataBase: new URL(
+        process.env.NEXT_PUBLIC_BASE_URL || "https://booking.veenailstudio.ca",
+    ),
+    alternates: {
+        canonical: "/",
+    },
 };
 
 export default function RootLayout({

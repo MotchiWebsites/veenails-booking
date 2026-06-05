@@ -1,12 +1,14 @@
 "use client";
 
-import Link from "next/link";
+import AuthResultScreen from "@/features/auth/components/AuthResultScreen";
 import { useActionState, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { updatePassword } from "@/features/auth/actions/auth";
 import AppForm from "@/components/form/AppForm";
 import FormField from "@/components/form/FormField";
 import PasswordRequirements from "@/components/form/PasswordRequirements";
 import { useToast } from "@/components/toast/ToastProvider";
+import AppLoadingScreen from "@/components/loading/AppLoadingScreen";
 import { isValidPassword } from "@/features/auth/validation/password";
 import { createClient } from "@/lib/supabase/client";
 import { routes } from "@/constants/routes";
@@ -40,6 +42,8 @@ export default function ResetPasswordForm() {
         updatePassword,
         initialState,
     );
+
+    const router = useRouter();
 
     useEffect(() => {
         let mounted = true;
@@ -79,32 +83,38 @@ export default function ResetPasswordForm() {
 
         if (state.success) {
             success(state.success, "Password updated");
+
+            // keep toast visible across navigation, then navigate to login
+            const t = setTimeout(() => router.push(routes.login), 400);
+
+            return () => clearTimeout(t);
         }
-    }, [error, success, state.error, state.messageId, state.success]);
+    }, [error, success, state.error, state.messageId, state.success, router]);
 
     if (loadingSession) {
         return (
-            <p className="text-center text-sm text-muted">
-                Verifying reset link…
-            </p>
+            <div className="w-full">
+                <AppLoadingScreen
+                    title="Verifying reset link"
+                    description="Please wait while we check your password reset session."
+                />
+            </div>
         );
     }
 
     if (!sessionAvailable) {
         return (
-            <div className="space-y-4 text-center">
-                <p className="text-sm leading-relaxed text-muted">
-                    This reset link is invalid or expired. Please request a new
-                    password reset email.
-                </p>
-
-                <Link
-                    href={routes.forgotPassword}
-                    className="btn-secondary w-full"
-                >
-                    Request New Reset Link
-                </Link>
-            </div>
+            <AuthResultScreen
+                variant="error"
+                title="Reset link expired"
+                description={
+                    "This reset link is invalid or expired. Request a new reset email to continue."
+                }
+                primaryActionLabel="Request New Reset Link"
+                primaryActionHref={routes.forgotPassword}
+                secondaryActionLabel="Back to Sign In"
+                secondaryActionHref={routes.login}
+            />
         );
     }
 

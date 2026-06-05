@@ -1,6 +1,14 @@
-export function getFriendlyAuthError(error: unknown): string {
-    const message = typeof error === "string" ? error : undefined;
+export function getFriendlyAuthError(message?: string) {
     const normalized = message?.toLowerCase() ?? "";
+
+    if (
+        normalized.includes("same password") ||
+        normalized.includes("different from the old password") ||
+        normalized.includes("new password should be different") ||
+        normalized.includes("same as the old password")
+    ) {
+        return "Your new password must be different from your current password.";
+    }
 
     if (
         normalized.includes("user already registered") ||

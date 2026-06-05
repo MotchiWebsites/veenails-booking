@@ -47,6 +47,9 @@ export default function ToastItem({
     const remainingRef = useRef(toast.duration);
     const lastFrameRef = useRef<number | null>(null);
     const animationFrameRef = useRef<number | null>(null);
+    const [visible, setVisible] = useState(false);
+
+    const EXIT_ANIM_MS = 200;
 
     const styles = variantStyles[toast.variant];
     const Icon = styles.icon;
@@ -71,7 +74,10 @@ export default function ToastItem({
                 );
 
                 if (remainingRef.current <= 0) {
-                    removeToast(toast.id);
+                    setVisible(false);
+
+                    setTimeout(() => removeToast(toast.id), EXIT_ANIM_MS);
+
                     return;
                 }
             }
@@ -88,13 +94,22 @@ export default function ToastItem({
         };
     }, [removeToast, toast.duration, toast.id, toast.paused]);
 
+    useEffect(() => {
+        // trigger entrance animation on mount
+        const raf = requestAnimationFrame(() => setVisible(true));
+
+        return () => cancelAnimationFrame(raf);
+    }, []);
+
     return (
         <div
             role="status"
-            className={`overflow-hidden rounded-2xl border shadow-lg shadow-black/5 backdrop-blur ${styles.wrapper}`}
+            className={`transform transition-all duration-200 ease-out ${
+                visible ? "opacity-100 translate-y-0 scale-100" : "opacity-0 -translate-y-2 scale-[0.995]"
+            } overflow-hidden rounded-2xl border shadow-lg shadow-black/5 backdrop-blur ${styles.wrapper}`}
         >
             <div className="grid grid-cols-[auto_1fr_auto] gap-3 px-4 py-3">
-                <Icon className="mt-0.5 h-5 w-5 shrink-0" />
+                <Icon className="mt-0.5 h-5 w-5 sm:h-6 sm:w-6 shrink-0" />
 
                 <div className="min-w-0">
                     {toast.title ? (
@@ -111,22 +126,26 @@ export default function ToastItem({
                         aria-label={
                             toast.paused ? "Resume toast" : "Pause toast"
                         }
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-white/45 transition-colors hover:bg-white/70"
+                        className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-white/45 transition-colors hover:bg-white/70"
                     >
                         {toast.paused ? (
-                            <FiPlay className="h-4 w-4" />
+                            <FiPlay className="h-4 w-4 sm:h-5 sm:w-5" />
                         ) : (
-                            <FiPause className="h-4 w-4" />
+                            <FiPause className="h-4 w-4 sm:h-5 sm:w-5" />
                         )}
                     </button>
 
                     <button
                         type="button"
-                        onClick={() => removeToast(toast.id)}
+                        onClick={() => {
+                            setVisible(false);
+
+                            setTimeout(() => removeToast(toast.id), EXIT_ANIM_MS);
+                        }}
                         aria-label="Dismiss toast"
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-white/45 transition-colors hover:bg-white/70"
+                        className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-white/45 transition-colors hover:bg-white/70"
                     >
-                        <FiX className="h-4 w-4" />
+                        <FiX className="h-4 w-4 sm:h-5 sm:w-5" />
                     </button>
                 </div>
             </div>

@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isValidEmail } from "@/features/auth/validation/email";
 import { getFriendlyAuthError } from "@/features/auth/lib/auth-errors";
+import { maskEmail } from "@/features/auth/lib/mask-email";
 
 import { normalizeNorthAmericanPhone } from "@/features/auth/validation/phone";
 import { getPasswordErrorMessage } from "@/features/auth/validation/password";
@@ -121,6 +122,33 @@ export async function signUpWithPassword(
     }
 
     const supabase = await createClient();
+    // Check server-side whether the email already has a profile/account.
+    try {
+        const adminSupabase = createAdminClient();
+
+        const { data: existingProfile, error: profileError } =
+            await adminSupabase
+                .from("profiles")
+                .select("id")
+                .eq("email", email)
+                .maybeSingle();
+
+        if (profileError) {
+            console.error("[signup] profile lookup failed", {
+                email,
+                error: profileError.message,
+            });
+        }
+
+        if (existingProfile) {
+            return {
+                error: "An account with this email already exists. Please sign in instead.",
+                messageId: createMessageId(),
+            };
+        }
+    } catch (err) {
+        console.error("[signup] profile check error", { email, err });
+    }
 
     const { error } = await supabase.auth.signUp({
         email,
@@ -157,6 +185,8 @@ export async function sendPasswordReset(
         .trim()
         .toLowerCase();
 
+    const maskedEmail = maskEmail(email);
+
     const genericSuccessMessage =
         "If an account exists for that email, we'll send a password reset link.";
 
@@ -178,7 +208,7 @@ export async function sendPasswordReset(
 
         if (profileError) {
             console.error("[password-reset] Profile lookup failed", {
-                email,
+                email: maskedEmail,
                 error: profileError.message,
             });
 
@@ -190,7 +220,7 @@ export async function sendPasswordReset(
 
         if (!profile) {
             console.info("[password-reset] Reset requested for unknown email", {
-                email,
+                email: maskedEmail,
             });
 
             return {
@@ -207,7 +237,7 @@ export async function sendPasswordReset(
 
         if (error) {
             console.error("[password-reset] Supabase reset email failed", {
-                email,
+                email: maskedEmail,
                 error: error.message,
             });
 
@@ -218,7 +248,7 @@ export async function sendPasswordReset(
         }
 
         console.info("[password-reset] Reset email requested", {
-            email,
+            email: maskedEmail,
             profileId: profile.id,
         });
 
@@ -228,7 +258,7 @@ export async function sendPasswordReset(
         };
     } catch (error) {
         console.error("[password-reset] Unexpected reset error", {
-            email,
+            email: maskedEmail,
             error,
         });
 
@@ -238,7 +268,6 @@ export async function sendPasswordReset(
         };
     }
 }
-
 export async function updatePassword(
     _prevState: AuthActionState,
     formData: FormData,
@@ -269,20 +298,38 @@ export async function updatePassword(
         };
     }
 
-    const supabase = await createClient();
+    try {
+        const supabase = await createClient();
 
-    const { error } = await supabase.auth.updateUser({
-        password,
-    });
+        const { error } = await supabase.auth.updateUser({
+            password,
+        });
 
-    if (error) {
+        if (error) {
+            console.error("[update-password] Supabase error", {
+                error: error.message,
+            });
+
+            return {
+                error: getFriendlyAuthError(error.message),
+                messageId: createMessageId(),
+            };
+        }
+
         return {
-            error: getFriendlyAuthError(error.message),
+            success: "Password updated. You can now sign in.",
+            messageId: createMessageId(),
+        };
+    } catch (error) {
+        console.error("[update-password] Unexpected error", {
+            error,
+        });
+
+        return {
+            error: "Could not update your password. Please try requesting a new reset link.",
             messageId: createMessageId(),
         };
     }
-
-    redirect(routes.dashboard);
 }
 
 export async function signOut() {

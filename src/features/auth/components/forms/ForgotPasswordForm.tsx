@@ -1,6 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
+import AuthResultScreen from "@/features/auth/components/AuthResultScreen";
+import { routes } from "@/constants/routes";
 import { sendPasswordReset } from "@/features/auth/actions/auth";
 import { useToast } from "@/components/toast/ToastProvider";
 import AppForm from "@/components/form/AppForm";
@@ -37,6 +39,22 @@ export default function ForgotPasswordForm() {
             success(state.success, "Check your email");
         }
     }, [error, success, state.error, state.messageId, state.success]);
+
+    if (state.success) {
+        return (
+            <AuthResultScreen
+                variant="info"
+                title="Check your email"
+                description={
+                    "If an account exists for that email, we'll send a password reset link. Follow the link in your email to reset your password."
+                }
+                primaryActionLabel="Back to Sign In"
+                primaryActionHref={routes.login}
+                secondaryActionLabel="Try another email"
+                secondaryActionHref={routes.forgotPassword}
+            />
+        );
+    }
 
     return (
         <AppForm action={formAction}>

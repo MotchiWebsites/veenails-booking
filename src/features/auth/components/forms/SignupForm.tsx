@@ -1,6 +1,9 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
+import AuthResultScreen from "@/features/auth/components/AuthResultScreen";
+import Link from "next/link";
+import { routes } from "@/constants/routes";
 
 import { signUpWithPassword } from "@/features/auth/actions/auth";
 import { formatNorthAmericanPhone } from "@/features/auth/validation/phone";
@@ -58,6 +61,21 @@ export default function SignupForm() {
             success(state.success, "Check your email");
         }
     }, [error, success, state.error, state.messageId, state.success]);
+    if (state.success) {
+        return (
+            <AuthResultScreen
+                variant="success"
+                title="Check your email"
+                description={
+                    "We sent a confirmation link to your email. Open it to finish creating your booking account."
+                }
+                primaryActionLabel="Go to Sign In"
+                primaryActionHref={routes.login}
+                secondaryActionLabel="Back to Home"
+                secondaryActionHref={routes.home}
+            />
+        );
+    }
 
     return (
         <div className="space-y-5">
@@ -169,8 +187,8 @@ export default function SignupForm() {
                 <FormCheckbox
                     id="acceptedTerms"
                     name="acceptedTerms"
-                    value={acceptedTerms}
-                    onValueChange={setAcceptedTerms}
+                    checked={acceptedTerms}
+                    onCheckedChange={setAcceptedTerms}
                     required
                 />
 
@@ -181,6 +199,23 @@ export default function SignupForm() {
                 >
                     {pending ? "Creating account..." : "Create Account"}
                 </button>
+
+                {state.error &&
+                state.error.toLowerCase().includes("already") ? (
+                    <div className="text-center">
+                        <p className="text-sm text-muted">
+                            An account with this email already exists.
+                        </p>
+                        <div className="mt-2">
+                            <Link
+                                href={routes.login}
+                                className="btn-ghost w-full sm:w-auto"
+                            >
+                                Sign in instead
+                            </Link>
+                        </div>
+                    </div>
+                ) : null}
 
                 {!canSubmit ? (
                     <p className="text-center text-xs leading-relaxed text-muted">

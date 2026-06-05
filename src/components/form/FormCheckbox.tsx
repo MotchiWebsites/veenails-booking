@@ -7,12 +7,18 @@ export default function FormCheckbox({
     required,
     value,
     onValueChange,
+    checked,
+    onCheckedChange,
 }: {
     id: string;
     name: string;
     required?: boolean;
+    // legacy prop names kept for compatibility
     value?: boolean;
     onValueChange?: (value: boolean) => void;
+    // preferred prop names
+    checked?: boolean;
+    onCheckedChange?: (value: boolean) => void;
 }) {
     return (
         <label
@@ -23,10 +29,14 @@ export default function FormCheckbox({
                 id={id}
                 name={name}
                 type="checkbox"
-                required={required}
                 className="peer sr-only"
-                checked={value}
-                onChange={(e) => onValueChange?.(e.target.checked)}
+                aria-required={required ? "true" : undefined}
+                checked={checked ?? value}
+                onChange={(e) => {
+                    const next = e.target.checked;
+                    onValueChange?.(next);
+                    onCheckedChange?.(next);
+                }}
             />
 
             <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-border bg-surface text-transparent transition-all duration-150 peer-checked:border-pink-main peer-checked:bg-pink-main peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background">
@@ -57,7 +67,7 @@ export default function FormCheckbox({
                     <span>Privacy Policy</span>
                     <FiExternalLink className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                 </Link>
-                .
+                . <span className="text-pink-main">*</span>
             </span>
         </label>
     );
