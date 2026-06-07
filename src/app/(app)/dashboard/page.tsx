@@ -12,6 +12,7 @@ import SectionIntro from "@/components/shared/ui/SectionIntro";
 import { buildMetadata } from "@/lib/seo/metadata";
 
 import { requireUser } from "@/features/auth/guards/require-user";
+import AnimatedArrowLink from "@/components/shared/ui/AnimatedArrowLink";
 
 export const metadata = buildMetadata({
     title: "Dashboard",
@@ -47,13 +48,12 @@ export default async function DashboardPage() {
                         />
 
                         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                            <Link href="/booking/new" className="btn-primary">
+                            <AnimatedArrowLink href="/booking/new" className="btn-primary">
                                 Start Booking
-                                <FiArrowRight className="h-4 w-4" />
-                            </Link>
+                            </AnimatedArrowLink>
 
                             <Link href="/profile" className="btn-secondary">
-                                Complete Profile
+                                Update Profile
                             </Link>
                         </div>
                     </div>

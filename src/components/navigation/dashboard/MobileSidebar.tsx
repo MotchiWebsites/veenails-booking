@@ -5,13 +5,14 @@ import Link from "next/link";
 
 import type { User } from "@supabase/supabase-js";
 
-import { FiHome, FiSettings, FiX } from "react-icons/fi";
+import { FiHome, FiX } from "react-icons/fi";
 import { CiHeart } from "react-icons/ci";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
 import DashboardNavItem from "@/components/navigation/dashboard/DashboardNavItem";
 import UserAvatar from "@/components/dashboard/UserAvatar";
 import { navItems } from "@/constants/dashboard/nav-items";
+import SignOutButton from "@/components/shared/auth/SignOutButton";
 
 export default function MobileSidebar({
     open,
@@ -143,7 +144,7 @@ export default function MobileSidebar({
 
                         <div className="space-y-3 border-t border-border/60 pt-4">
                             <div className="rounded-2xl bg-background p-3">
-                                <UserAvatar user={user} showGreeting />
+                                <UserAvatar user={user} />
                             </div>
 
                             <DashboardNavItem
@@ -153,12 +154,7 @@ export default function MobileSidebar({
                                 onClick={onClose}
                             />
 
-                            <DashboardNavItem
-                                href="/settings"
-                                label="Settings"
-                                icon={FiSettings}
-                                onClick={onClose}
-                            />
+                            <SignOutButton onBeforeSignOut={onClose} />
                         </div>
                     </motion.aside>
                 </motion.div>

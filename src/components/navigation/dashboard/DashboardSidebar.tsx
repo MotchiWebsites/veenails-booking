@@ -3,16 +3,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
-import {
-    FiChevronLeft,
-    FiChevronRight,
-    FiHome,
-    FiSettings,
-} from "react-icons/fi";
+import { FiChevronLeft, FiChevronRight, FiHome } from "react-icons/fi";
 import { CiHeart } from "react-icons/ci";
 import DashboardNavItem from "@/components/navigation/dashboard/DashboardNavItem";
 import UserAvatar from "@/components/dashboard/UserAvatar";
 import { navItems } from "@/constants/dashboard/nav-items";
+import SignOutButton from "@/components/shared/auth/SignOutButton";
 
 export default function DashboardSidebar({
     user,
@@ -133,12 +129,9 @@ export default function DashboardSidebar({
                     collapsed={collapsed}
                 />
 
-                <DashboardNavItem
-                    href="/settings"
-                    label="Settings"
-                    icon={FiSettings}
-                    collapsed={collapsed}
-                />
+                <div className={collapsed ? "flex justify-center px-2" : ""}>
+                    <SignOutButton collapsed={collapsed} />
+                </div>
 
                 <div
                     className={[
@@ -149,7 +142,6 @@ export default function DashboardSidebar({
                     <UserAvatar
                         user={user}
                         showText={!collapsed}
-                        showGreeting={!collapsed}
                     />
                 </div>
             </div>

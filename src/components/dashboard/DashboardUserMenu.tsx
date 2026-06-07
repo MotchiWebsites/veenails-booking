@@ -2,18 +2,15 @@
 
 import Link from "next/link";
 import { useRef, useState } from "react";
+
 import type { User } from "@supabase/supabase-js";
-import {
-    FiCalendar,
-    FiChevronDown,
-    FiHome,
-    FiSettings,
-    FiUser,
-    FiX,
-} from "react-icons/fi";
+
+import { FiCalendar, FiChevronDown, FiHome, FiUser, FiX } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
 import UserAvatar from "@/components/dashboard/UserAvatar";
+
 import { useClickAway } from "@/lib/hooks/use-click-away";
+import SignOutButton from "@/components/shared/auth/SignOutButton";
 
 function getDisplayName(user: User) {
     return (
@@ -42,12 +39,6 @@ const menuItems = [
         label: "Profile",
         description: "Update your account details",
         icon: FiUser,
-    },
-    {
-        href: "/settings",
-        label: "Settings",
-        description: "Manage account preferences",
-        icon: FiSettings,
     },
 ];
 
@@ -122,9 +113,9 @@ export default function DashboardUserMenu({ user }: { user: User }) {
                                         key={item.href}
                                         href={item.href}
                                         onClick={() => setOpen(false)}
-                                        className="group flex items-start gap-3 rounded-2xl px-3 py-3 transition-colors hover:bg-surface-2"
+                                        className="group flex items-start gap-3 rounded-2xl px-3 py-3 transition-colors hover:bg-surface-2 duration-300 ease-in-out"
                                     >
-                                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-pink-50 text-pink-main transition-colors group-hover:bg-pink-main group-hover:text-white">
+                                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-pink-50 text-pink-main duration-300 ease-in-out transition-colors group-hover:bg-pink-main group-hover:text-white">
                                             <Icon className="h-4 w-4" />
                                         </span>
 
@@ -139,6 +130,11 @@ export default function DashboardUserMenu({ user }: { user: User }) {
                                     </Link>
                                 );
                             })}
+                            <SignOutButton
+                                variant="button"
+                                onBeforeSignOut={() => setOpen(false)}
+                                className="mt-2"
+                            />
                         </div>
                     </motion.div>
                 ) : null}

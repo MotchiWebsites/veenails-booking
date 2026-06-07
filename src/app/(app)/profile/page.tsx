@@ -45,7 +45,7 @@ export default async function ProfilePage() {
             />
 
             <div>
-                <div className="mx-auto w-full max-w-lg lg:max-w-xl space-y-6">
+                <div className="mx-auto w-full max-w-xl lg:max-w-2xl xl:max-w-3xl space-y-6">
                     <Reveal>
                         <ProfileForm
                             displayName={profile.display_name}
