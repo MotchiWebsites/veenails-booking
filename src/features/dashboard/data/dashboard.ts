@@ -43,14 +43,13 @@ export async function getDashboardOverviewData(
                 .eq("user_id", userId)
                 .eq("status", "confirmed"),
 
-
             supabase
                 .from("user_credits")
-                .select("amount.sum()")
+                .select("amount")
                 .eq("user_id", userId)
                 .eq("active", true)
                 .is("expires_at", null)
-                .is("used_at", null)
+                .is("used_at", null),
         ]);
 
     if (pendingBookings.error) {
@@ -67,6 +66,12 @@ export async function getDashboardOverviewData(
 
     const profileEmail = profile?.email ?? fallbackEmail ?? "";
 
+    const creditTotal =
+        availableCredits.data?.reduce(
+            (total, credit) => total + Number(credit.amount || 0),
+            0,
+        ) ?? 0;
+    
     return {
         profile: {
             displayName:
@@ -76,7 +81,7 @@ export async function getDashboardOverviewData(
         stats: {
             pendingRequests: pendingBookings.count ?? 0,
             confirmedBookings: confirmedBookings.count ?? 0,
-            availableCredits: Number(availableCredits.data?.[0]?.sum ?? 0),
+            availableCredits: creditTotal,
         },
     };
 }
