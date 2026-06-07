@@ -9,6 +9,11 @@ export async function getCurrentProfile() {
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
+        console.error("[profile:getCurrentProfile.getUser]", {
+            message: userError?.message,
+            hasUser: Boolean(user),
+        });
+
         return null;
     }
 
@@ -19,6 +24,14 @@ export async function getCurrentProfile() {
         .single();
 
     if (error) {
+        console.error("[profile:getCurrentProfile.profile]", {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code,
+            userId: user.id,
+        });
+
         return null;
     }
 
