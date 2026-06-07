@@ -13,7 +13,7 @@ export const metadata = buildMetadata({
 
 export default async function DashboardPage() {
     const user = await requireUser();
-    const data = await getDashboardOverviewData(user.id);
+    const data = await getDashboardOverviewData(user.id, user.email);
 
     return <DashboardOverview data={data} />;
 }

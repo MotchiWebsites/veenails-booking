@@ -5,16 +5,29 @@ function getFallbackDisplayName(email?: string | null) {
     return email?.split("@")[0] || "Client";
 }
 
+function throwDashboardDataError(action: string, error: { message: string }) {
+    console.error(`[dashboard:${action}]`, {
+        message: error.message,
+    });
+
+    throw new Error("We couldn't load your dashboard right now.");
+}
+
 export async function getDashboardOverviewData(
     userId: string,
+    fallbackEmail?: string | null,
 ): Promise<DashboardOverviewData> {
     const supabase = await createClient();
 
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("display_name, email")
         .eq("id", userId)
         .single();
+
+    if (profileError) {
+        throwDashboardDataError("profile", profileError);
+    }
 
     const [pendingBookings, confirmedBookings, availableCredits] =
         await Promise.all([
@@ -22,7 +35,7 @@ export async function getDashboardOverviewData(
                 .from("bookings")
                 .select("id", { count: "exact", head: true })
                 .eq("user_id", userId)
-                .eq("status", "pending"),
+                .eq("status", "requested"),
 
             supabase
                 .from("bookings")
@@ -30,29 +43,40 @@ export async function getDashboardOverviewData(
                 .eq("user_id", userId)
                 .eq("status", "confirmed"),
 
+
             supabase
-                .from("credits")
-                .select("amount")
+                .from("user_credits")
+                .select("amount.sum()")
                 .eq("user_id", userId)
-                .eq("status", "available"),
+                .eq("active", true)
+                .is("expires_at", null)
+                .is("used_at", null)
         ]);
 
-    const creditTotal =
-        availableCredits.data?.reduce(
-            (total, credit) => total + Number(credit.amount || 0),
-            0,
-        ) ?? 0;
+    if (pendingBookings.error) {
+        throwDashboardDataError("pending-bookings", pendingBookings.error);
+    }
+
+    if (confirmedBookings.error) {
+        throwDashboardDataError("confirmed-bookings", confirmedBookings.error);
+    }
+
+    if (availableCredits.error) {
+        throwDashboardDataError("available-credits", availableCredits.error);
+    }
+
+    const profileEmail = profile?.email ?? fallbackEmail ?? "";
 
     return {
         profile: {
             displayName:
-                profile?.display_name || getFallbackDisplayName(profile?.email),
-            email: profile?.email || "",
+                profile?.display_name || getFallbackDisplayName(profileEmail),
+            email: profileEmail,
         },
         stats: {
             pendingRequests: pendingBookings.count ?? 0,
             confirmedBookings: confirmedBookings.count ?? 0,
-            availableCredits: creditTotal,
+            availableCredits: Number(availableCredits.data?.[0]?.sum ?? 0),
         },
     };
 }
