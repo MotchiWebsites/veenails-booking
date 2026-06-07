@@ -54,7 +54,11 @@ export function getFriendlyAuthError(message?: string) {
     }
 
     // rate limiting
-    if (normalized.includes("rate limit") || normalized.includes("too many") || normalized.includes("too many requests")) {
+    if (
+        normalized.includes("rate limit") ||
+        normalized.includes("too many") ||
+        normalized.includes("too many requests")
+    ) {
         return "Too many attempts. Please wait a bit before trying again.";
     }
 
@@ -66,6 +70,23 @@ export function getFriendlyAuthError(message?: string) {
     // email related fallback
     if (normalized.includes("email")) {
         return "Could not update this email. Please check the address and try again.";
+    }
+
+    // current password required or incorrect (fallback)
+    if (
+        normalized.includes("current password required") ||
+        normalized.includes("current_password") ||
+        normalized.includes("current password is required")
+    ) {
+        return "Please enter your current password to change your password.";
+    }
+
+    if (
+        normalized.includes("invalid current password") ||
+        normalized.includes("incorrect current password") ||
+        normalized.includes("current password is incorrect")
+    ) {
+        return "Your current password is incorrect.";
     }
 
     return "Something went wrong. Please try again.";

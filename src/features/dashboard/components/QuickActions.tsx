@@ -11,7 +11,7 @@ export default function QuickActions() {
                         Quick actions
                     </h2>
                     <p className="mt-1 text-sm text-muted sm:text-base">
-                        Common things you may need after signing in.
+                        
                     </p>
                 </div>
             </div>
