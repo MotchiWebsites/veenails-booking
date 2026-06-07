@@ -4,7 +4,7 @@ import PasswordChangeForm from "@/features/profile/components/PasswordChangeForm
 import Reveal from "@/components/shared/motion/Reveal";
 import SectionIntro from "@/components/shared/ui/SectionIntro";
 import { getCurrentProfile } from "@/features/profile/data/profile";
-import QuickActions from "@/components/dashboard/QuickActions";
+import QuickActions from "@/features/dashboard/components/QuickActions";
 import { buildMetadata } from "@/lib/seo/metadata";
 
 export const metadata = buildMetadata({
