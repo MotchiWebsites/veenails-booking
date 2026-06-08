@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCreditsPageData } from "@/features/credits/data/credits";
 import type { DashboardOverviewData } from "@/features/dashboard/types/dashboard";
 
 function getFallbackDisplayName(email?: string | null) {
@@ -29,7 +30,7 @@ export async function getDashboardOverviewData(
         throwDashboardDataError("profile", profileError);
     }
 
-    const [pendingBookings, confirmedBookings, availableCredits] =
+    const [pendingBookings, confirmedBookings, creditsPageData] =
         await Promise.all([
             supabase
                 .from("bookings")
@@ -43,13 +44,7 @@ export async function getDashboardOverviewData(
                 .eq("user_id", userId)
                 .eq("status", "confirmed"),
 
-            supabase
-                .from("user_credits")
-                .select("amount")
-                .eq("user_id", userId)
-                .eq("active", true)
-                .is("expires_at", null)
-                .is("used_at", null),
+            getCreditsPageData(userId),
         ]);
 
     if (pendingBookings.error) {
@@ -60,18 +55,8 @@ export async function getDashboardOverviewData(
         throwDashboardDataError("confirmed-bookings", confirmedBookings.error);
     }
 
-    if (availableCredits.error) {
-        throwDashboardDataError("available-credits", availableCredits.error);
-    }
-
     const profileEmail = profile?.email ?? fallbackEmail ?? "";
 
-    const creditTotal =
-        availableCredits.data?.reduce(
-            (total, credit) => total + Number(credit.amount || 0),
-            0,
-        ) ?? 0;
-    
     return {
         profile: {
             displayName:
@@ -81,7 +66,7 @@ export async function getDashboardOverviewData(
         stats: {
             pendingRequests: pendingBookings.count ?? 0,
             confirmedBookings: confirmedBookings.count ?? 0,
-            availableCredits: creditTotal,
+            availableCredits: creditsPageData.totalActiveAmount,
         },
     };
 }
