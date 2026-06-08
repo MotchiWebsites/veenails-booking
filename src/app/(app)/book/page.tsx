@@ -18,7 +18,7 @@ export default async function BookPage() {
             slots={slots}
             settings={settings}
             designTiers={designTiers}
-            checkoutHref={null}
+            checkoutHref="/book/checkout"
         />
     );
 }

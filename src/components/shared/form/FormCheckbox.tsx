@@ -9,6 +9,7 @@ export default function FormCheckbox({
     onValueChange,
     checked,
     onCheckedChange,
+    children,
 }: {
     id: string;
     name: string;
@@ -19,6 +20,7 @@ export default function FormCheckbox({
     // preferred prop names
     checked?: boolean;
     onCheckedChange?: (value: boolean) => void;
+    children?: React.ReactNode;
 }) {
     return (
         <label
@@ -47,27 +49,31 @@ export default function FormCheckbox({
             </span>
 
             <span className="flex-1">
-                I agree to the{" "}
-                <Link
-                    href="/legal/terms-of-service.pdf"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="link-default inline-flex items-center gap-1 font-semibold"
-                >
-                    <span>Terms of Service</span>
-                    <FiExternalLink className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                </Link>{" "}
-                and{" "}
-                <Link
-                    href="/legal/privacy-policy.pdf"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="link-default inline-flex items-center gap-1 font-semibold"
-                >
-                    <span>Privacy Policy</span>
-                    <FiExternalLink className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                </Link>
-                . <span className="text-pink-main">*</span>
+                {children ?? (
+                    <>
+                        I agree to the{" "}
+                        <Link
+                            href="/legal/terms-of-service.pdf"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="link-default inline-flex items-center gap-1 font-semibold"
+                        >
+                            <span>Terms of Service</span>
+                            <FiExternalLink className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                        </Link>{" "}
+                        and{" "}
+                        <Link
+                            href="/legal/privacy-policy.pdf"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="link-default inline-flex items-center gap-1 font-semibold"
+                        >
+                            <span>Privacy Policy</span>
+                            <FiExternalLink className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                        </Link>
+                        . <span className="text-pink-main">*</span>
+                    </>
+                )}
             </span>
         </label>
     );

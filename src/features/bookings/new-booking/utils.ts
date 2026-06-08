@@ -174,6 +174,16 @@ export function buildServiceOptionLabel(
     return serviceOption.label;
 }
 
+export function normalizeBookingFeeRate(rate: number | null | undefined) {
+    const numericRate = Number(rate ?? 0);
+
+    if (!Number.isFinite(numericRate) || numericRate <= 0) {
+        return 0;
+    }
+
+    return numericRate < 1 ? roundCurrency(numericRate * 100) : numericRate;
+}
+
 export function calculateEstimate(
     selections: BookingSelections,
     settings: BookingSettingsSummary,
@@ -194,9 +204,10 @@ export function calculateEstimate(
 
     const bookingFeeIncluded =
         settings?.bookingFeeMode === "included_in_price";
+    const bookingFeeRate = normalizeBookingFeeRate(settings?.bookingFeeRate);
     const rawBookingFee =
-        settings && settings.bookingFeeRate > 0
-            ? roundCurrency((subtotal * settings.bookingFeeRate) / 100)
+        settings && bookingFeeRate > 0
+            ? roundCurrency((subtotal * bookingFeeRate) / 100)
             : 0;
     const bookingFee = bookingFeeIncluded ? 0 : rawBookingFee;
     const total = subtotal + bookingFee;

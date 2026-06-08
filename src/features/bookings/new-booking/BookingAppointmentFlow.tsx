@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
@@ -13,6 +14,7 @@ import {
     FiExternalLink,
 } from "react-icons/fi";
 import SectionIntro from "@/components/shared/ui/SectionIntro";
+import { useToast } from "@/components/shared/toast/ToastProvider";
 import {
     bookingSteps,
     removalOptions,
@@ -36,6 +38,7 @@ import {
     formatSlotTimeRange,
     getDepositNote,
     getHoldNote,
+    normalizeBookingFeeRate,
     getReachableSteps,
     getSelectionSummary,
     getServiceOptionGroups,
@@ -44,6 +47,7 @@ import {
     groupSlotsByDay,
     isReviewReady,
 } from "@/features/bookings/new-booking/utils";
+import { writeBookingCheckoutDraft } from "@/lib/booking/checkout-draft";
 import { formatCurrency } from "@/lib/utils/money";
 
 const DEFAULT_BOOKING_FEE_RATE = 3;
@@ -71,8 +75,8 @@ export default function BookingAppointmentFlow({
     const [activeStep, setActiveStep] = useState<NewBookingStep>("time");
     const [selections, setSelections] =
         useState<BookingSelections>(initialSelections);
-    const [showCheckoutPlaceholder, setShowCheckoutPlaceholder] =
-        useState(false);
+    const router = useRouter();
+    const { error: showErrorToast } = useToast();
     const shouldReduceMotion = useReducedMotion();
 
     const stepRefs = useRef<Record<string, HTMLLIElement | null>>({});
@@ -126,7 +130,9 @@ export default function BookingAppointmentFlow({
     const reachableSteps = getReachableSteps(selections);
     const depositNote = getDepositNote(normalizedSettings);
     const holdNote = getHoldNote(normalizedSettings);
-    const bookingFeeRate = normalizedSettings.bookingFeeRate;
+    const bookingFeeRate = normalizeBookingFeeRate(
+        normalizedSettings.bookingFeeRate,
+    );
 
     const selectedServiceOptionLabel = buildServiceOptionLabel(
         estimate.service,
@@ -162,7 +168,6 @@ export default function BookingAppointmentFlow({
     }
 
     function handleSlotSelect(slotId: string) {
-        setShowCheckoutPlaceholder(false);
         setSelections((current) => ({
             ...current,
             slotId,
@@ -171,7 +176,6 @@ export default function BookingAppointmentFlow({
     }
 
     function handleRemovalSelect(removalId: BookingSelections["removalId"]) {
-        setShowCheckoutPlaceholder(false);
         setSelections((current) => ({
             ...current,
             removalId,
@@ -188,7 +192,6 @@ export default function BookingAppointmentFlow({
     }
 
     function handleServiceSelect(serviceId: ServiceConfig["id"]) {
-        setShowCheckoutPlaceholder(false);
         setSelections((current) => ({
             ...current,
             serviceId,
@@ -199,7 +202,6 @@ export default function BookingAppointmentFlow({
     }
 
     function handleServiceOptionGroupSelect(groupId: string) {
-        setShowCheckoutPlaceholder(false);
         setSelections((current) => ({
             ...current,
             serviceOptionGroupId: groupId,
@@ -209,7 +211,6 @@ export default function BookingAppointmentFlow({
     }
 
     function handleServiceOptionSelect(optionId: ServiceOption["id"]) {
-        setShowCheckoutPlaceholder(false);
         setSelections((current) => ({
             ...current,
             serviceOptionId: optionId,
@@ -226,7 +227,6 @@ export default function BookingAppointmentFlow({
     }
 
     function handleDesignTierSelect(tierId: DesignTier["id"]) {
-        setShowCheckoutPlaceholder(false);
         setSelections((current) => ({
             ...current,
             designTierId: tierId,
@@ -258,10 +258,31 @@ export default function BookingAppointmentFlow({
     }
 
     function handleCheckoutClick() {
-        // TODO: create the held booking, insert booking_line_items,
-        // set hold_expires_at from booking_settings.hold_minutes,
-        // then redirect to checkout once that route is implemented.
-        setShowCheckoutPlaceholder(true);
+        if (!checkoutHref || !summary.slot || !reviewReady) {
+            return;
+        }
+
+        try {
+            writeBookingCheckoutDraft({
+                version: 1,
+                savedAt: new Date().toISOString(),
+                slotId: selections.slotId,
+                removalId: selections.removalId,
+                serviceId: selections.serviceId,
+                serviceOptionGroupId: selections.serviceOptionGroupId,
+                serviceOptionId: selections.serviceOptionId,
+                designTierId: selections.designTierId,
+                slotStartsAt: summary.slot.startsAt,
+                slotEndsAt: summary.slot.endsAt,
+            });
+
+            router.push(checkoutHref);
+        } catch {
+            showErrorToast(
+                "We couldn't carry your booking selections into checkout. Please try again.",
+                "Checkout unavailable",
+            );
+        }
     }
 
     return (
@@ -1023,43 +1044,17 @@ export default function BookingAppointmentFlow({
 
                                         {reviewReady ? (
                                             <div className="space-y-3">
-                                                {checkoutHref ? (
-                                                    <Link
-                                                        href={checkoutHref}
-                                                        className="btn-primary w-full sm:w-auto"
-                                                    >
-                                                        Continue to Checkout
-                                                        <FiArrowRight
-                                                            className="h-4 w-4"
-                                                            aria-hidden="true"
-                                                        />
-                                                    </Link>
-                                                ) : (
-                                                    <button
-                                                        type="button"
-                                                        className="btn-primary w-full sm:w-auto"
-                                                        onClick={
-                                                            handleCheckoutClick
-                                                        }
-                                                    >
-                                                        Continue to Checkout
-                                                        <FiArrowRight
-                                                            className="h-4 w-4"
-                                                            aria-hidden="true"
-                                                        />
-                                                    </button>
-                                                )}
-
-                                                {showCheckoutPlaceholder ? (
-                                                    <div className="rounded-3xl border border-green-200 bg-green-50 p-4 text-sm leading-relaxed text-dark-green">
-                                                        Checkout is the next
-                                                        step. This flow
-                                                        currently stops here
-                                                        while the held-booking
-                                                        and payment handoff is
-                                                        implemented.
-                                                    </div>
-                                                ) : null}
+                                                <button
+                                                    type="button"
+                                                    className="btn-primary w-full sm:w-auto"
+                                                    onClick={handleCheckoutClick}
+                                                >
+                                                    Continue to Checkout
+                                                    <FiArrowRight
+                                                        className="h-4 w-4"
+                                                        aria-hidden="true"
+                                                    />
+                                                </button>
                                             </div>
                                         ) : (
                                             <div className="rounded-3xl border border-dashed border-border bg-background p-4 text-sm leading-relaxed text-muted">
