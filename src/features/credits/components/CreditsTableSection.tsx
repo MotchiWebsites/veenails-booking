@@ -198,13 +198,14 @@ export default function CreditsTableSection({
     return (
         <div className="overflow-hidden rounded-3xl border border-border/60 bg-surface shadow-sm">
             <div className="border-b border-border/50 bg-surface px-4 py-3 sm:px-5 sm:py-3.5">
-                <div className="flex flex-col gap-2.5 lg:flex-row lg:items-end lg:justify-between">
-                    <div className="min-w-0 flex-1">
-                        <label className="block min-w-0">
-                            <span className="text-sm font-semibold text-foreground">
-                                Search credits
-                            </span>
-                            <span className="relative mt-1.5 block">
+                <div>
+                    <label className="block min-w-0">
+                        <span className="text-sm font-semibold text-foreground">
+                            Search credits
+                        </span>
+
+                        <div className="mt-1.5 flex flex-col gap-2 sm:flex-row sm:items-center">
+                            <span className="relative block min-w-0 flex-1">
                                 <FiSearch className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
                                 <input
                                     type="search"
@@ -215,19 +216,19 @@ export default function CreditsTableSection({
                                     className="w-full rounded-xl border border-border/70 bg-background px-3 py-2 pl-10 text-sm text-foreground outline-none transition-all duration-200 placeholder:text-sm placeholder:text-muted-2 focus:border-pink-300 focus:ring-2 focus:ring-ring"
                                 />
                             </span>
-                        </label>
 
-                        <p className="mt-1.5 text-xs text-muted">
-                            Search by reason, booking reference, amount, or date.
-                        </p>
-                    </div>
+                            <span className="flex items-center sm:self-center">
+                                <span className="inline-flex min-w-24 items-center justify-center rounded-full border border-border/60 bg-background px-3 py-2 text-center text-xs font-medium leading-none text-muted">
+                                    {filteredCredits.length} credit
+                                    {filteredCredits.length === 1 ? "" : "s"}
+                                </span>
+                            </span>
+                        </div>
+                    </label>
 
-                    <div className="flex items-center self-start lg:self-center">
-                        <p className="inline-flex min-w-20 items-center justify-center rounded-full border border-border/60 bg-background px-3 py-1 text-center text-xs font-medium text-muted">
-                            {filteredCredits.length} credit
-                            {filteredCredits.length === 1 ? "" : "s"}
-                        </p>
-                    </div>
+                    <p className="mt-1.5 text-xs text-muted">
+                        Search by reason, booking reference, amount, or date.
+                    </p>
                 </div>
             </div>
 
