@@ -524,7 +524,7 @@ export default function BookingAppointmentFlow({
                                                                                 )
                                                                             }
                                                                             className={[
-                                                                                "clickable relative min-h-[10rem] rounded-3xl border p-4 text-left shadow-sm transition-all duration-200",
+                                                                                "clickable relative min-h-40 rounded-3xl border p-4 text-left shadow-sm transition-all duration-200",
                                                                                 selected
                                                                                     ? "border-pink-300 bg-pink-50 ring-2 ring-ring"
                                                                                     : "border-border/60 bg-background hover:border-pink-200 hover:bg-pink-50/70",
