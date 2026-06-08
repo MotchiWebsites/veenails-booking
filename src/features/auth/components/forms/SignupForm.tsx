@@ -10,12 +10,12 @@ import { formatNorthAmericanPhone } from "@/features/auth/validation/phone";
 import { isValidPassword } from "@/features/auth/validation/password";
 import { isValidEmail } from "@/features/auth/validation/email";
 
-import AppForm from "@/components/form/AppForm";
-import FormCheckbox from "@/components/form/FormCheckbox";
-import FormField from "@/components/form/FormField";
+import AppForm from "@/components/shared/form/AppForm";
+import FormCheckbox from "@/components/shared/form/FormCheckbox";
+import FormField from "@/components/shared/form/FormField";
 import GoogleSignInButton from "@/features/auth/components/GoogleSignInButton";
-import PasswordRequirements from "@/components/form/PasswordRequirements";
-import { useToast } from "@/components/toast/ToastProvider";
+import PasswordRequirements from "@/components/shared/form/PasswordRequirements";
+import { useToast } from "@/components/shared/toast/ToastProvider";
 
 const initialState = {
     error: "",

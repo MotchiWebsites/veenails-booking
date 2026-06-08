@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import ToastProvider from "@/components/toast/ToastProvider";
+import ToastProvider from "@/components/shared/toast/ToastProvider";
 import "./globals.css";
+import { buildMetadata, siteConfig } from "@/lib/seo/metadata";
 
 const geistSans = Geist({
     variable: "--font-geist-sans",
@@ -13,24 +14,13 @@ const geistMono = Geist_Mono({
     subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-    title: "Book an Appointment | Vee's Nail Studio",
+export const metadata: Metadata = buildMetadata({
+    title: `Book an Appointment`,
     description:
-        "Book your Vee's Nail Studio appointment through the secure online booking portal.",
-
-    applicationName: "Book | Vee's Nails",
-    appleWebApp: {
-        title: "Book | Vee's Nails",
-        capable: true,
-        statusBarStyle: "default",
-    },
-    metadataBase: new URL(
-        process.env.NEXT_PUBLIC_BASE_URL || "https://booking.veenailstudio.ca",
-    ),
-    alternates: {
-        canonical: "/",
-    },
-};
+        "Book and manage your Vee's Nail Studio appointments through a secure online booking portal.",
+    path: "/",
+    image: siteConfig.defaultImage,
+});
 
 export default function RootLayout({
     children,

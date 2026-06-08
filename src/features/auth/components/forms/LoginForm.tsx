@@ -6,10 +6,10 @@ import { useActionState, useEffect, useState } from "react";
 import { signInWithPassword } from "@/features/auth/actions/auth";
 import { routes } from "@/constants/routes";
 
-import AppForm from "@/components/form/AppForm";
-import FormField from "@/components/form/FormField";
+import AppForm from "@/components/shared/form/AppForm";
+import FormField from "@/components/shared/form/FormField";
 import GoogleSignInButton from "@/features/auth/components/GoogleSignInButton";
-import { useToast } from "@/components/toast/ToastProvider";
+import { useToast } from "@/components/shared/toast/ToastProvider";
 
 const initialState = {
     error: "",

@@ -1,11 +1,14 @@
 import type { MetadataRoute } from "next";
 
+function getSiteUrl() {
+    const raw = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_BASE_URL;
+    if (!raw) return "http://localhost:3000";
+    if (/^https?:\/\//i.test(raw)) return raw.replace(/\/$/, "");
+    return `https://${raw.replace(/\/$/, "")}`;
+}
+
 export default function sitemap(): MetadataRoute.Sitemap {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
-        ? process.env.NEXT_PUBLIC_BASE_URL.startsWith("http")
-            ? process.env.NEXT_PUBLIC_BASE_URL
-            : `https://${process.env.NEXT_PUBLIC_BASE_URL}`
-        : "http://localhost:3000";
+    const baseUrl = getSiteUrl();
 
     return [
         {
@@ -13,18 +16,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
             lastModified: new Date(),
             changeFrequency: "weekly",
             priority: 1,
-        },
-        {
-            url: `${baseUrl}/legal/privacy-policy.pdf`,
-            lastModified: new Date(),
-            changeFrequency: "yearly",
-            priority: 0.3,
-        },
-        {
-            url: `${baseUrl}/legal/terms-of-service.pdf`,
-            lastModified: new Date(),
-            changeFrequency: "yearly",
-            priority: 0.3,
         },
     ];
 }
