@@ -43,6 +43,14 @@ type PolicyRow = Pick<
     "id" | "title" | "description"
 >;
 
+type BookingLineItemInsert =
+    Database["public"]["Tables"]["booking_line_items"]["Insert"];
+
+type BookingLineItemDraft = Omit<
+    BookingLineItemInsert,
+    "booking_id" | "id" | "created_at" | "updated_at"
+>;
+
 function nextMessageId() {
     return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
@@ -141,13 +149,12 @@ function buildLineItems({
 }: {
     draft: BookingSelections;
     designTier: DesignTierRow | null;
-}) {
+}): BookingLineItemDraft[] {
     const removal = getRemovalOption(draft.removalId);
     const service = getService(draft.serviceId);
     const serviceOption = getServiceOption(service, draft.serviceOptionId);
 
-    const lineItems: Database["public"]["Tables"]["booking_line_items"]["Insert"][] =
-        [];
+    const lineItems: BookingLineItemDraft[] = [];
 
     if (removal && removal.price > 0) {
         lineItems.push({
@@ -164,7 +171,8 @@ function buildLineItems({
         lineItems.push({
             item_type: "service",
             label_snapshot: buildServiceLineItemLabel(service, serviceOption),
-            description_snapshot: serviceOption.helperText ?? service.description,
+            description_snapshot:
+                serviceOption.helperText ?? service.description,
             quantity: 1,
             unit_price: serviceOption.price,
             active: true,
@@ -223,7 +231,9 @@ export async function submitBookingCheckout(
     const user = await getUser();
 
     if (!user) {
-        return state({ error: "Please sign in before confirming your deposit." });
+        return state({
+            error: "Please sign in before confirming your deposit.",
+        });
     }
 
     const draft = parseDraft(getFormString(formData, "draft"));
@@ -250,36 +260,46 @@ export async function submitBookingCheckout(
 
     const admin = createAdminClient();
 
-    const [settingsResult, designTiersResult, policiesResult] = await Promise.all([
-        admin
-            .from("booking_settings")
-            .select(
-                "deposit_amount, booking_fee_mode, booking_fee_rate, hold_minutes, etransfer_email",
-            )
-            .eq("id", 1)
-            .eq("active", true)
-            .maybeSingle()
-            .overrideTypes<BookingSettingsRow | null>(),
-        admin
-            .from("design_tiers")
-            .select("id, name, description, price")
-            .eq("active", true)
-            .overrideTypes<DesignTierRow[]>(),
-        admin
-            .from("policies")
-            .select("id, title, description")
-            .eq("active", true)
-            .eq("policy_type", "booking")
-            .overrideTypes<PolicyRow[]>(),
-    ]);
+    const [settingsResult, designTiersResult, policiesResult] =
+        await Promise.all([
+            admin
+                .from("booking_settings")
+                .select(
+                    "deposit_amount, booking_fee_mode, booking_fee_rate, hold_minutes, etransfer_email",
+                )
+                .eq("id", 1)
+                .eq("active", true)
+                .maybeSingle()
+                .overrideTypes<BookingSettingsRow | null>(),
+
+            admin
+                .from("design_tiers")
+                .select("id, name, description, price")
+                .eq("active", true)
+                .overrideTypes<DesignTierRow[]>(),
+
+            admin
+                .from("policies")
+                .select("id, title, description")
+                .eq("active", true)
+                .eq("policy_type", "booking")
+                .overrideTypes<PolicyRow[]>(),
+        ]);
 
     if (settingsResult.error) {
         console.error("[bookings:checkout.settings]", settingsResult.error);
-        return state({ error: "We couldn't load booking settings. Please try again." });
+
+        return state({
+            error: "We couldn't load booking settings. Please try again.",
+        });
     }
 
     if (designTiersResult.error) {
-        console.error("[bookings:checkout.design-tiers]", designTiersResult.error);
+        console.error(
+            "[bookings:checkout.design-tiers]",
+            designTiersResult.error,
+        );
+
         return state({
             error: "We couldn't validate your design tier. Please try again.",
         });
@@ -287,6 +307,7 @@ export async function submitBookingCheckout(
 
     if (policiesResult.error) {
         console.error("[bookings:checkout.policies]", policiesResult.error);
+
         return state({
             error: "We couldn't verify the booking policies. Please try again.",
         });
@@ -300,20 +321,22 @@ export async function submitBookingCheckout(
         });
     }
 
-    const designTiers: DesignTier[] = (designTiersResult.data ?? []).map((tier) => ({
-        id: tier.id,
-        label: tier.name,
-        description: tier.description ?? undefined,
-        price: Number(tier.price ?? 0),
-        imageSrc: null,
-        imageAlt: `${tier.name} design tier preview`,
-    }));
+    const designTiers: DesignTier[] = (designTiersResult.data ?? []).map(
+        (tier) => ({
+            id: tier.id,
+            label: tier.name,
+            description: tier.description ?? undefined,
+            price: Number(tier.price ?? 0),
+            imageSrc: null,
+            imageAlt: `${tier.name} design tier preview`,
+        }),
+    );
 
     const selectedDesignTier =
         draft.designTierId && draft.removalId !== "removal_only"
-            ? (designTiersResult.data ?? []).find(
+            ? ((designTiersResult.data ?? []).find(
                   (tier) => tier.id === draft.designTierId,
-              ) ?? null
+              ) ?? null)
             : null;
 
     if (draft.removalId !== "removal_only" && !selectedDesignTier) {
@@ -356,13 +379,27 @@ export async function submitBookingCheckout(
         designTier: selectedDesignTier,
     });
 
+    if (lineItems.length === 0) {
+        return state({
+            error: "Your booking does not include any valid services. Please review your selections.",
+        });
+    }
+
     let bookingId: string | null = null;
+
+    const slotId = draft.slotId;
+
+    if (!slotId) {
+        return state({
+            error: "Please select an appointment time before checking out.",
+        });
+    }
 
     try {
         const { data: lockedSlot, error: lockError } = await admin
             .from("availability_slots")
             .update({ status: "requested" })
-            .eq("id", draft.slotId)
+            .eq("id", slotId)
             .eq("status", "available")
             .eq("active", true)
             .select("id, starts_at, ends_at")
@@ -388,14 +425,9 @@ export async function submitBookingCheckout(
                 hold_expires_at: holdExpiresAt,
                 deposit_amount: normalizedSettings.depositAmount,
                 deposit_status: "marked_sent",
-                subtotal_amount: estimate.subtotal,
                 booking_fee_rate: normalizedSettings.bookingFeeRate,
                 booking_fee_mode: normalizedSettings.bookingFeeMode,
-                booking_fee_amount: estimate.bookingFee,
-                estimated_total: estimate.total,
                 final_total: 0,
-                amount_paid: 0,
-                amount_due: estimate.total,
                 client_notes: null,
             })
             .select("id")
@@ -407,15 +439,17 @@ export async function submitBookingCheckout(
 
         bookingId = booking.id;
 
+        const lineItemsToInsert: BookingLineItemInsert[] = lineItems.map(
+            (item) => ({
+                ...item,
+                booking_id: booking.id,
+                added_by: user.id,
+            }),
+        );
+
         const { error: lineItemError } = await admin
             .from("booking_line_items")
-            .insert(
-                lineItems.map((item) => ({
-                    ...item,
-                    booking_id: booking.id,
-                    added_by: user.id,
-                })),
-            );
+            .insert(lineItemsToInsert);
 
         if (lineItemError) {
             throw lineItemError;
@@ -454,24 +488,30 @@ export async function submitBookingCheckout(
             }
         }
 
-        const { error: eventError } = await admin.from("booking_events").insert({
-            booking_id: booking.id,
-            actor_type: "client",
-            actor_user_id: user.id,
-            event_type: "booking_requested",
-            message: "Client submitted booking request and marked deposit as sent.",
-            metadata: {
-                slotId: draft.slotId,
-                startsAt: lockedSlot.starts_at,
-                endsAt: lockedSlot.ends_at,
-                removal: removal.label,
-                service: service?.label ?? null,
-                serviceOption:
-                    buildServiceOptionLabel(service, serviceOption) ?? null,
-                designTier: selectedDesignTier?.name ?? null,
-                depositAmount: normalizedSettings.depositAmount,
-            },
-        });
+        const { error: eventError } = await admin
+            .from("booking_events")
+            .insert({
+                booking_id: booking.id,
+                actor_type: "client",
+                actor_user_id: user.id,
+                event_type: "booking_requested",
+                message:
+                    "Client submitted booking request and marked deposit as sent.",
+                metadata: {
+                    slotId: draft.slotId,
+                    startsAt: lockedSlot.starts_at,
+                    endsAt: lockedSlot.ends_at,
+                    removal: removal.label,
+                    service: service?.label ?? null,
+                    serviceOption:
+                        buildServiceOptionLabel(service, serviceOption) ?? null,
+                    designTier: selectedDesignTier?.name ?? null,
+                    depositAmount: normalizedSettings.depositAmount,
+                    estimatedSubtotal: estimate.subtotal,
+                    estimatedBookingFee: estimate.bookingFee,
+                    estimatedTotal: estimate.total,
+                },
+            });
 
         if (eventError) {
             throw eventError;
@@ -491,11 +531,11 @@ export async function submitBookingCheckout(
         });
     } catch (error) {
         console.error("[bookings:checkout.submit]", error);
-        await cleanupFailedBooking(admin, bookingId, draft.slotId);
+
+        await cleanupFailedBooking(admin, bookingId, slotId);
 
         return state({
-            error:
-                "We couldn't send your booking request right now. Please try again.",
+            error: "We couldn't send your booking request right now. Please try again.",
         });
     }
 }
