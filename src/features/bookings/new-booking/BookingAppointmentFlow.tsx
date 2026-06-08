@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
     FiArrowLeft,
@@ -74,6 +74,26 @@ export default function BookingAppointmentFlow({
     const [showCheckoutPlaceholder, setShowCheckoutPlaceholder] =
         useState(false);
     const shouldReduceMotion = useReducedMotion();
+
+    const stepRefs = useRef<Record<string, HTMLLIElement | null>>({});
+    const hasMountedRef = useRef(false);
+
+    useEffect(() => {
+        if (!hasMountedRef.current) {
+            hasMountedRef.current = true;
+            return;
+        }
+
+        const activeElement = stepRefs.current[activeStep];
+
+        if (!activeElement) return;
+
+        activeElement.scrollIntoView({
+            behavior: "smooth",
+            block: "nearest",
+            inline: "center",
+        });
+    }, [activeStep]);
 
     const groupedSlots = useMemo(() => groupSlotsByDay(slots), [slots]);
     const normalizedSettings = useMemo(
@@ -259,73 +279,105 @@ export default function BookingAppointmentFlow({
                 className={
                     activeStep === "review"
                         ? "mx-auto max-w-4xl"
-                        : "grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.9fr)]"
+                        : "grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.85fr)]"
                 }
             >
-                <div className="space-y-6 min-w-0">
-                    <section className="rounded-3xl border border-border/60 bg-surface p-4 shadow-sm sm:p-5">
-                        <ol className="grid gap-3 sm:grid-cols-5">
-                            {bookingSteps.map((step) => {
-                                const status = getStepStatus(
-                                    step.id,
-                                    activeStep,
-                                    selections,
-                                );
-                                const interactive = canOpenStep(
-                                    step.id,
-                                    selections,
-                                );
+                <div className="min-w-0 space-y-6">
+                    <section className="rounded-3xl border border-border/60 bg-surface p-3 shadow-sm sm:p-4">
+                        <div className="overflow-x-auto pb-1 [-ms-overflow-style:none] scrollbar-none [&::-webkit-scrollbar]:hidden">
+                            <ol className="flex min-w-max gap-3">
+                                {bookingSteps.map((step) => {
+                                    const status = getStepStatus(
+                                        step.id,
+                                        activeStep,
+                                        selections,
+                                    );
 
-                                return (
-                                    <li key={step.id}>
-                                        <button
-                                            type="button"
-                                            className={[
-                                                "flex w-full flex-col rounded-2xl border px-4 py-3 text-left transition-all duration-200",
-                                                status === "current"
-                                                    ? "border-pink-300 bg-pink-50 shadow-sm"
-                                                    : "",
-                                                status === "complete"
-                                                    ? "border-green-200 bg-green-50"
-                                                    : "",
-                                                status === "skipped"
-                                                    ? "border-border/50 bg-background text-muted"
-                                                    : "",
-                                                status === "upcoming"
-                                                    ? "border-border/60 bg-background"
-                                                    : "",
-                                                interactive
-                                                    ? "clickable hover:border-pink-200 hover:bg-pink-50/70"
-                                                    : "cursor-not-allowed opacity-70",
-                                            ].join(" ")}
-                                            disabled={!interactive}
-                                            aria-current={
-                                                status === "current"
-                                                    ? "step"
-                                                    : undefined
-                                            }
-                                            onClick={() => updateStep(step.id)}
+                                    const interactive = canOpenStep(
+                                        step.id,
+                                        selections,
+                                    );
+
+                                    const statusLabel =
+                                        status === "skipped"
+                                            ? "Skipped"
+                                            : status === "complete"
+                                              ? "Ready"
+                                              : status === "current"
+                                                ? "Current step"
+                                                : "Coming up";
+
+                                    return (
+                                        <li
+                                            key={step.id}
+                                            ref={(el) => {
+                                                stepRefs.current[step.id] = el;
+                                            }}
+                                            className="w-44 shrink-0 sm:w-50"
                                         >
-                                            <span className="text-xs font-semibold uppercase tracking-[0.24em] text-muted">
-                                                {getStepNumber(step.id)}
-                                            </span>
-                                            <span className="mt-2 text-sm font-semibold text-foreground">
-                                                {step.label}
-                                            </span>
-                                            <span className="mt-1 text-xs text-muted">
-                                                {status === "skipped"
-                                                    ? "Skipped"
-                                                    : status === "complete"
-                                                      ? "Ready"
-                                                      : status === "current"
-                                                        ? "Current step"
-                                                        : "Coming up"}
-                                            </span>
-                                        </button>
-                                    </li>
-                                );
-                            })}
-                        </ol>
+                                            <button
+                                                type="button"
+                                                disabled={!interactive}
+                                                aria-current={
+                                                    status === "current"
+                                                        ? "step"
+                                                        : undefined
+                                                }
+                                                onClick={() =>
+                                                    updateStep(step.id)
+                                                }
+                                                className={[
+                                                    "group flex h-full w-full flex-col rounded-2xl border px-4 py-3 text-left transition-all duration-200",
+                                                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                                                    status === "current"
+                                                        ? "border-pink-300 bg-pink-50 shadow-sm"
+                                                        : "",
+                                                    status === "complete"
+                                                        ? "border-green-200 bg-green-50"
+                                                        : "",
+                                                    status === "skipped"
+                                                        ? "border-border/50 bg-background text-muted"
+                                                        : "",
+                                                    status === "upcoming"
+                                                        ? "border-border/60 bg-background"
+                                                        : "",
+                                                    interactive
+                                                        ? "clickable hover:border-pink-200 hover:bg-pink-50/70"
+                                                        : "cursor-not-allowed opacity-70",
+                                                ].join(" ")}
+                                            >
+                                                <span className="flex items-center justify-between gap-3">
+                                                    <span className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-muted">
+                                                        {getStepNumber(step.id)}
+                                                    </span>
+
+                                                    <span
+                                                        className={[
+                                                            "h-2 w-2 rounded-full",
+                                                            status === "current"
+                                                                ? "bg-pink-main"
+                                                                : status ===
+                                                                    "complete"
+                                                                  ? "bg-green-500"
+                                                                  : "bg-border",
+                                                        ].join(" ")}
+                                                        aria-hidden="true"
+                                                    />
+                                                </span>
+
+                                                <span className="mt-3 line-clamp-1 text-sm font-semibold text-foreground">
+                                                    {step.label}
+                                                </span>
+
+                                                <span className="mt-1 text-xs text-muted">
+                                                    {statusLabel}
+                                                </span>
+                                            </button>
+                                        </li>
+                                    );
+                                })}
+                            </ol>
+                        </div>
                     </section>
 
                     <section className="rounded-3xl border border-border/60 bg-surface p-5 shadow-sm sm:p-6 lg:p-7">
@@ -451,7 +503,7 @@ export default function BookingAppointmentFlow({
                                                                                 )
                                                                             }
                                                                             className={[
-                                                                                "clickable rounded-3xl border p-4 text-left shadow-sm transition-all duration-200",
+                                                                                "clickable relative min-h-[10rem] rounded-3xl border p-4 text-left shadow-sm transition-all duration-200",
                                                                                 selected
                                                                                     ? "border-pink-300 bg-pink-50 ring-2 ring-ring"
                                                                                     : "border-border/60 bg-background hover:border-pink-200 hover:bg-pink-50/70",
@@ -459,31 +511,39 @@ export default function BookingAppointmentFlow({
                                                                                 " ",
                                                                             )}
                                                                         >
-                                                                            <div className="flex items-start justify-between gap-3">
-                                                                                <div>
-                                                                                    <p className="text-sm font-semibold text-dark-green">
-                                                                                        {formatSlotShortDate(
-                                                                                            slot.startsAt,
-                                                                                        )}
-                                                                                    </p>
-                                                                                    <p className="mt-2 text-lg font-semibold text-foreground">
-                                                                                        {formatSlotTime(
-                                                                                            slot.startsAt,
-                                                                                        )}
-                                                                                    </p>
-                                                                                    <p className="mt-1 text-sm text-muted">
-                                                                                        Ends{" "}
+                                                                            {selected ? (
+                                                                                <span className="absolute right-4 top-4 inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-success">
+                                                                                    Selected
+                                                                                </span>
+                                                                            ) : null}
+
+                                                                            <div
+                                                                                className={
+                                                                                    selected
+                                                                                        ? "pr-24"
+                                                                                        : ""
+                                                                                }
+                                                                            >
+                                                                                <p className="text-sm font-semibold leading-snug text-dark-green">
+                                                                                    {formatSlotShortDate(
+                                                                                        slot.startsAt,
+                                                                                    )}
+                                                                                </p>
+
+                                                                                <p className="mt-3 whitespace-nowrap text-lg font-semibold leading-tight text-foreground sm:text-xl">
+                                                                                    {formatSlotTime(
+                                                                                        slot.startsAt,
+                                                                                    )}
+                                                                                </p>
+
+                                                                                <p className="mt-3 text-sm leading-relaxed text-muted">
+                                                                                    Ends{" "}
+                                                                                    <span className="whitespace-nowrap">
                                                                                         {formatSlotTime(
                                                                                             slot.endsAt,
                                                                                         )}
-                                                                                    </p>
-                                                                                </div>
-
-                                                                                {selected ? (
-                                                                                    <span className="inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-success">
-                                                                                        Selected
                                                                                     </span>
-                                                                                ) : null}
+                                                                                </p>
                                                                             </div>
                                                                         </button>
                                                                     );
@@ -510,7 +570,7 @@ export default function BookingAppointmentFlow({
                                             </p>
                                         </div>
 
-                                        <div className="grid gap-3 lg:grid-cols-3">
+                                        <div className="grid gap-3 2xl:grid-cols-3">
                                             {removalOptions.map((option) => {
                                                 const selected =
                                                     selections.removalId ===
