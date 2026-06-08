@@ -12,7 +12,7 @@ export default function MyBookingsPage({ data }: { data: MyBookingsPageData }) {
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                     <SectionIntro
                         eyebrow="Appointments"
-                        title="My bookings"
+                        title="My Bookings"
                         description="View upcoming appointments, track booking requests, and review your booking history."
                         align="left"
                     />
