@@ -1,7 +1,7 @@
 "use client";
 
 import type { User } from "@supabase/supabase-js";
-import { FiBell, FiMenu } from "react-icons/fi";
+import { FiMenu } from "react-icons/fi";
 import DashboardUserMenu from "@/components/dashboard/DashboardUserMenu";
 import Link from "next/link";
 

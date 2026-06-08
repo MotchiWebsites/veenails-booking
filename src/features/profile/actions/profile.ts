@@ -504,10 +504,7 @@ export async function changePassword(
     }
 }
 
-export async function requestPasswordReauth(
-    _prevState: ProfileActionState,
-    _formData: FormData,
-): Promise<ProfileActionState> {
+export async function requestPasswordReauth(): Promise<ProfileActionState> {
     try {
         const supabase = await createClient();
 

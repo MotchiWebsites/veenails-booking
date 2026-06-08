@@ -32,7 +32,18 @@ export default function EmailChangeForm({
     const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 
     const [state, formAction, pending] = useActionState(
-        changeEmail,
+        async (prevState: typeof initialState, formData: FormData) => {
+            const result = await changeEmail(prevState, formData);
+
+            if (result.success && result.pendingEmail) {
+                setPendingEmail(result.pendingEmail);
+                setEmailValue("");
+                setFormOpen(false);
+                setModalOpen(true);
+            }
+
+            return result;
+        },
         initialState,
     );
 
@@ -52,13 +63,6 @@ export default function EmailChangeForm({
 
         if (state.success) {
             success(state.success, "Email confirmation sent");
-
-            if (state.pendingEmail) {
-                setPendingEmail(state.pendingEmail);
-                setEmailValue("");
-                setFormOpen(false);
-                setModalOpen(true);
-            }
         }
     }, [
         error,
@@ -66,7 +70,6 @@ export default function EmailChangeForm({
         state.error,
         state.success,
         state.messageId,
-        state.pendingEmail,
     ]);
 
     return (
