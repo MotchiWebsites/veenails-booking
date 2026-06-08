@@ -35,7 +35,7 @@ export default async function PublicLandingPage() {
         { id: "booking", label: "Book Now" },
     ];
 
-    const primaryHref = user ? "/booking/new" : "/signup";
+    const primaryHref = user ? "/book" : "/signup";
     const primaryLabel = user ? "Start Booking" : "Create Account";
 
     const secondaryHref = user ? "/dashboard" : "/login";

@@ -14,7 +14,7 @@ export default async function PublicLayout({
     const user = await getUser();
     const deals = await getActiveDeals(user?.id);
 
-    const primaryHref = user ? "/booking/new" : "/signup";
+    const primaryHref = user ? "/book" : "/signup";
     const primaryLabel = user ? "Start Booking" : "Create Account";
 
     const secondaryHref = user ? "/dashboard" : "/login";

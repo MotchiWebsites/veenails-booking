@@ -18,11 +18,11 @@ export default function MyBookingsPage({ data }: { data: MyBookingsPageData }) {
                     />
 
                     <Link
-                        href="/booking/new"
+                        href="/book"
                         className="btn-primary inline-flex items-center justify-center gap-2 lg:shrink-0"
                     >
                         <FiPlus className="h-4 w-4" aria-hidden="true" />
-                        Book New Appointment
+                        Book Appointment
                     </Link>
                 </div>
             </section>

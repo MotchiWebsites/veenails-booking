@@ -54,14 +54,6 @@ export default function DashboardHeader({
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <button
-                        type="button"
-                        aria-label="Notifications"
-                        className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surface text-muted shadow-sm transition-colors hover:bg-surface-2 hover:text-foreground"
-                    >
-                        <FiBell className="h-4 w-4" />
-                    </button>
-
                     <DashboardUserMenu user={user} />
                 </div>
             </div>

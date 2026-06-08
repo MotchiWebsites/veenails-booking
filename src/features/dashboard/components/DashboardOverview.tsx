@@ -22,7 +22,7 @@ export default function DashboardOverview({
         <div className="space-y-8">
             <DealsAnnouncementBanner
                 deals={deals}
-                primaryHref="/booking/new"
+                primaryHref="/book"
                 primaryLabel="Use This Deal"
                 secondaryHref="/credits"
                 secondaryLabel="View Credits"
@@ -41,7 +41,7 @@ export default function DashboardOverview({
 
                         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                             <AnimatedArrowLink
-                                href="/booking/new"
+                                href="/book"
                                 className="btn-primary"
                             >
                                 Start Booking

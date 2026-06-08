@@ -22,8 +22,8 @@ export default function EmptyBookingsState({
                 {description}
             </p>
             {showAction ? (
-                <Link href="/booking/new" className="btn-primary mt-5 inline-flex">
-                    Book New Appointment
+                <Link href="/book" className="btn-primary mt-5 inline-flex">
+                    Book Appointment
                 </Link>
             ) : null}
         </div>
