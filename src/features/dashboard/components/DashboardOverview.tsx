@@ -6,16 +6,29 @@ import QuickActions from "@/features/dashboard/components/QuickActions";
 import SectionIntro from "@/components/shared/ui/SectionIntro";
 import AnimatedArrowLink from "@/components/shared/ui/AnimatedArrowLink";
 import type { DashboardOverviewData } from "@/features/dashboard/types/dashboard";
+import DealsAnnouncementBanner from "@/features/deals/components/DealsAnnouncementBanner";
+import type { DealView } from "@/features/deals/data/deals";
 
 export default function DashboardOverview({
     data,
+    deals,
 }: {
     data: DashboardOverviewData;
+    deals: DealView[];
 }) {
     const { profile, stats } = data;
 
     return (
         <div className="space-y-8">
+            <DealsAnnouncementBanner
+                deals={deals}
+                primaryHref="/booking/new"
+                primaryLabel="Use This Deal"
+                secondaryHref="/credits"
+                secondaryLabel="View Credits"
+                className="overflow-hidden rounded-3xl border border-border/60 bg-transparent shadow-sm"
+            />
+
             <section className="rounded-3xl border border-border/60 bg-surface p-5 shadow-sm sm:p-7 lg:p-8">
                 <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
                     <div>
