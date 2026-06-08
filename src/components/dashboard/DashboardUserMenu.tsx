@@ -23,7 +23,7 @@ function getDisplayName(user: User) {
 
 const menuItems = [
     {
-        href: "/booking/new",
+        href: "/book",
         label: "New Booking",
         description: "Request your next appointment",
         icon: FiCalendar,

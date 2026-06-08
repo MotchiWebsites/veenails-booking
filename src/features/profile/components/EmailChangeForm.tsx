@@ -8,13 +8,17 @@ import AppForm from "@/components/shared/form/AppForm";
 import FormField from "@/components/shared/form/FormField";
 import { useToast } from "@/components/shared/toast/ToastProvider";
 
-import { changeEmail } from "@/features/profile/actions/profile";
+import {
+    changeEmail,
+    type ProfileActionState,
+} from "@/features/profile/actions/profile";
 import { validateProfileEmail } from "@/features/profile/validation/profile";
 
-const initialState = {
+const initialState: ProfileActionState = {
     error: "",
     success: "",
     messageId: "",
+    pendingEmail: null,
 };
 
 export default function EmailChangeForm({
@@ -32,7 +36,18 @@ export default function EmailChangeForm({
     const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 
     const [state, formAction, pending] = useActionState(
-        changeEmail,
+        async (prevState: ProfileActionState, formData: FormData) => {
+            const result = await changeEmail(prevState, formData);
+
+            if (result.success && result.pendingEmail) {
+                setPendingEmail(result.pendingEmail);
+                setEmailValue("");
+                setFormOpen(false);
+                setModalOpen(true);
+            }
+
+            return result;
+        },
         initialState,
     );
 
@@ -52,22 +67,8 @@ export default function EmailChangeForm({
 
         if (state.success) {
             success(state.success, "Email confirmation sent");
-
-            if (state.pendingEmail) {
-                setPendingEmail(state.pendingEmail);
-                setEmailValue("");
-                setFormOpen(false);
-                setModalOpen(true);
-            }
         }
-    }, [
-        error,
-        success,
-        state.error,
-        state.success,
-        state.messageId,
-        state.pendingEmail,
-    ]);
+    }, [error, success, state.error, state.success, state.messageId]);
 
     return (
         <section className="rounded-3xl border border-border/60 bg-surface p-5 shadow-sm sm:p-6">
@@ -126,15 +127,15 @@ export default function EmailChangeForm({
                         />
 
                         <p className="text-sm leading-relaxed text-muted">
-                            We&apos;ll send a confirmation link to your new
-                            email. Your account email will update after
-                            confirmation.
+                            We&apos;ll send verification codes to confirm this
+                            change. Your account email will update after
+                            verification.
                         </p>
 
                         <button
                             type="submit"
                             disabled={pending || !canSubmit}
-                            className="btn-primary w-full sm:w-auto sm:block sm:mx-auto text-center"
+                            className="btn-primary w-full text-center sm:mx-auto sm:block sm:w-auto"
                         >
                             {pending ? "Sending..." : "Send Confirmation"}
                         </button>
@@ -142,7 +143,7 @@ export default function EmailChangeForm({
                 </div>
             ) : null}
 
-            {modalOpen && pendingEmail && (
+            {modalOpen && pendingEmail ? (
                 <EmailChangeVerificationModal
                     currentEmail={currentEmail}
                     pendingEmail={pendingEmail}
@@ -157,7 +158,7 @@ export default function EmailChangeForm({
                         router.refresh();
                     }}
                 />
-            )}
+            ) : null}
         </section>
     );
 }

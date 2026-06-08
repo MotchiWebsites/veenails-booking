@@ -62,7 +62,7 @@ export default function PublicFooter() {
                                 Sign In
                             </Link>
 
-                            <Link href="/booking/new" className="link-muted">
+                            <Link href="/book" className="link-muted">
                                 Start Booking
                             </Link>
 

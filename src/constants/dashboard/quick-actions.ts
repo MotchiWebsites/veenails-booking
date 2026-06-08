@@ -4,7 +4,7 @@ export const quickActions = [
     {
         title: "Book an appointment",
         description: "Choose an available time and request your next set.",
-        href: "/booking/new",
+        href: "/book",
         icon: FiCalendar,
     },
     {

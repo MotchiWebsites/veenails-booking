@@ -418,12 +418,13 @@ export async function changePassword(
     _prevState: ProfileActionState,
     formData: FormData,
 ): Promise<ProfileActionState> {
+    const currentPassword = String(formData.get("currentPassword") || "");
     const newPassword = String(formData.get("newPassword") || "");
     const confirmPassword = String(formData.get("confirmPassword") || "");
 
-    if (!newPassword || !confirmPassword) {
+    if (!currentPassword || !newPassword || !confirmPassword) {
         return {
-            error: "Please fill in both password fields.",
+            error: "Please fill in all password fields.",
             messageId: createMessageId(),
         };
     }
@@ -431,6 +432,13 @@ export async function changePassword(
     if (newPassword !== confirmPassword) {
         return {
             error: "Passwords do not match.",
+            messageId: createMessageId(),
+        };
+    }
+
+    if (currentPassword === newPassword) {
+        return {
+            error: "Your new password must be different from your current password.",
             messageId: createMessageId(),
         };
     }
@@ -465,6 +473,7 @@ export async function changePassword(
 
         const { error } = await supabase.auth.updateUser({
             password: newPassword,
+            current_password: currentPassword,
         });
 
         if (error) {
@@ -472,21 +481,6 @@ export async function changePassword(
                 userId: user.id,
                 email: user.email ? maskEmail(user.email) : null,
             });
-
-            // If Supabase requires reauthentication, return a specialized flag so the client
-            // can prompt the reauthentication flow (request reauth then confirm with nonce).
-            const normalized = String(error.message || "").toLowerCase();
-            if (
-                normalized.includes("reauthentication") ||
-                normalized.includes("requires reauthentication") ||
-                normalized.includes("password update requires reauthentication")
-            ) {
-                return {
-                    error: getFriendlyAuthError(error.message),
-                    reauthRequired: true,
-                    messageId: createMessageId(),
-                };
-            }
 
             return {
                 error: getFriendlyAuthError(error.message),
@@ -510,10 +504,7 @@ export async function changePassword(
     }
 }
 
-export async function requestPasswordReauth(
-    _prevState: ProfileActionState,
-    _formData: FormData,
-): Promise<ProfileActionState> {
+export async function requestPasswordReauth(): Promise<ProfileActionState> {
     try {
         const supabase = await createClient();
 

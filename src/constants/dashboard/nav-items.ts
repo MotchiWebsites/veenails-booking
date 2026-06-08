@@ -13,7 +13,7 @@ export const navItems = [
         icon: FiGrid,
     },
     {
-        href: "/booking/new",
+        href: "/book",
         label: "Book Appointment",
         icon: FiCalendar,
     },

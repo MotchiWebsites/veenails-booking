@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import PasswordReauthenticationModal from "@/features/profile/components/PasswordReauthenticationModal";
 import AppForm from "@/components/shared/form/AppForm";
 import FormField from "@/components/shared/form/FormField";
 import PasswordRequirements from "@/components/shared/form/PasswordRequirements";
@@ -24,16 +23,16 @@ const initialState: ProfileActionState = {
 export default function PasswordChangeForm() {
     const { error, success } = useToast();
 
+    const [currentPassword, setCurrentPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [formOpen, setFormOpen] = useState(false);
-    const [modalOpen, setModalOpen] = useState(false);
 
     const handlePasswordUpdated = () => {
+        setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
         setFormOpen(false);
-        setModalOpen(false);
     };
 
     const [state, formAction, pending] = useActionState(
@@ -42,10 +41,6 @@ export default function PasswordChangeForm() {
 
             if (result.success) {
                 handlePasswordUpdated();
-            }
-
-            if (result.reauthRequired) {
-                setModalOpen(true);
             }
 
             return result;
@@ -69,33 +64,28 @@ export default function PasswordChangeForm() {
     const showMismatch =
         confirmPassword.length > 0 && newPassword !== confirmPassword;
 
-    const canSubmit = passwordValid && passwordsMatch;
+    const sameAsCurrent =
+        currentPassword.length > 0 &&
+        newPassword.length > 0 &&
+        currentPassword === newPassword;
+
+    const canSubmit =
+        currentPassword.length > 0 &&
+        passwordValid &&
+        passwordsMatch &&
+        !sameAsCurrent;
 
     useEffect(() => {
         if (!state.messageId) return;
 
-        if (state.error && !state.reauthRequired) {
+        if (state.error) {
             error(state.error, "Could not change password");
-        }
-
-        if (state.reauthRequired) {
-            success(
-                "Please verify your email to finish updating your password.",
-                "Verification required",
-            );
         }
 
         if (state.success) {
             success(state.success, "Password updated");
         }
-    }, [
-        error,
-        success,
-        state.error,
-        state.success,
-        state.messageId,
-        state.reauthRequired,
-    ]);
+    }, [error, success, state.error, state.messageId, state.success]);
 
     return (
         <section className="rounded-3xl border border-border/60 bg-surface p-5 shadow-sm sm:p-6">
@@ -125,6 +115,20 @@ export default function PasswordChangeForm() {
                 <div className="mt-6">
                     <AppForm action={formAction}>
                         <FormField
+                            id="currentPassword"
+                            name="currentPassword"
+                            label="Current password"
+                            type="password"
+                            autoComplete="current-password"
+                            required
+                            value={currentPassword}
+                            onValueChange={setCurrentPassword}
+                            placeholder="Enter your current password"
+                            enterKeyHint="next"
+                            enterBehavior="next"
+                        />
+
+                        <FormField
                             id="newPassword"
                             name="newPassword"
                             label="New password"
@@ -146,7 +150,9 @@ export default function PasswordChangeForm() {
                             error={
                                 newPassword.length > 0 && passwordError
                                     ? passwordError
-                                    : undefined
+                                    : sameAsCurrent
+                                      ? "Your new password must be different from your current password."
+                                      : undefined
                             }
                         />
 
@@ -177,15 +183,6 @@ export default function PasswordChangeForm() {
                         </button>
                     </AppForm>
                 </div>
-            ) : null}
-
-            {modalOpen ? (
-                <PasswordReauthenticationModal
-                    maskedEmail={null}
-                    newPassword={newPassword}
-                    onClose={() => setModalOpen(false)}
-                    onPasswordUpdated={handlePasswordUpdated}
-                />
             ) : null}
         </section>
     );
