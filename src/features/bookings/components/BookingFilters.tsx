@@ -1,4 +1,5 @@
 import { FiSearch } from "react-icons/fi";
+import AppSelect from "@/components/shared/form/AppSelect";
 import {
     bookingStatusFilterValues,
     getBookingStatusLabel,
@@ -34,24 +35,19 @@ export default function BookingFilters({
                     </div>
                 </label>
 
-                <label className="block">
-                    <span className="text-sm font-semibold text-foreground">
-                        Status
-                    </span>
-                    <select
-                        name="status"
-                        defaultValue={status}
-                        className="mt-2 w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm outline-none transition focus:border-pink-main focus:ring-2 focus:ring-pink-main/20"
-                    >
-                        {bookingStatusFilterValues.map((value) => (
-                            <option key={value} value={value}>
-                                {value === "all"
-                                    ? "All statuses"
-                                    : getBookingStatusLabel(value)}
-                            </option>
-                        ))}
-                    </select>
-                </label>
+                <AppSelect
+                    label="Status"
+                    name="status"
+                    defaultValue={status}
+                    options={bookingStatusFilterValues.map((value) => ({
+                        value,
+                        label:
+                            value === "all"
+                                ? "All statuses"
+                                : getBookingStatusLabel(value),
+                    }))}
+                    className="w-full"
+                />
 
                 <input type="hidden" name="page" value="1" />
 

@@ -26,10 +26,15 @@ type DesignTierRow = Pick<
 export async function getBookingCheckoutPageData(): Promise<{
     settings: BookingCheckoutSettings | null;
     designTiers: DesignTier[];
+    userEmail: string | null;
 }> {
     const supabase = await createClient();
 
-    const [settingsResult, designTiersResult] = await Promise.all([
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    const [settingsResult, designTiersResult, profileResult] = await Promise.all([
         supabase
             .from("booking_settings")
             .select(
@@ -46,6 +51,15 @@ export async function getBookingCheckoutPageData(): Promise<{
             .eq("active", true)
             .order("display_order", { ascending: true })
             .overrideTypes<DesignTierRow[]>(),
+
+        user
+            ? supabase
+                  .from("profiles")
+                  .select("email")
+                  .eq("id", user.id)
+                  .maybeSingle()
+                  .overrideTypes<{ email: string | null } | null>()
+            : Promise.resolve({ data: null, error: null }),
     ]);
 
     if (settingsResult.error) {
@@ -62,6 +76,10 @@ export async function getBookingCheckoutPageData(): Promise<{
             designTiersResult.error,
         );
         throw new Error("We couldn't load design tier details right now.");
+    }
+
+    if (profileResult.error) {
+        console.error("[bookings:checkout.profile]", profileResult.error);
     }
 
     return {
@@ -84,5 +102,6 @@ export async function getBookingCheckoutPageData(): Promise<{
             imageSrc: null,
             imageAlt: `${tier.name} design tier preview`,
         })),
+        userEmail: profileResult.data?.email ?? user?.email ?? null,
     };
 }

@@ -4,6 +4,7 @@ import { useDeferredValue, useMemo, useState, useTransition } from "react";
 import { FiSearch, FiChevronUp, FiChevronDown } from "react-icons/fi";
 import { FaSort } from "react-icons/fa";
 
+import AppSelect from "@/components/shared/form/AppSelect";
 import BookingActions from "@/features/bookings/components/BookingActions";
 import BookingStatusBadge from "@/features/bookings/components/BookingStatusBadge";
 import {
@@ -76,12 +77,20 @@ function SortButton({
 
             <span className="flex items-center" aria-hidden="true">
                 <Icon
-                    className={isActive ? "h-4 w-4 text-pink-main" : "h-4 w-4 text-muted"}
+                    className={
+                        isActive
+                            ? "h-4 w-4 text-pink-main"
+                            : "h-4 w-4 text-muted"
+                    }
                 />
             </span>
 
             <span className="sr-only">
-                {isActive ? (direction === "asc" ? "sorted ascending" : "sorted descending") : "not sorted"}
+                {isActive
+                    ? direction === "asc"
+                        ? "sorted ascending"
+                        : "sorted descending"
+                    : "not sorted"}
             </span>
         </button>
     );
@@ -358,29 +367,20 @@ export default function BookingTableSection({
                         </span>
                     </label>
 
-                    <label className="block">
-                        <span className="text-sm font-semibold text-foreground">
-                            Status
-                        </span>
-                        <select
-                            value={status}
-                            onChange={(event) =>
-                                handleStatusChange(
-                                    event.target.value as BookingStatusFilter,
-                                )
-                            }
-                            className="mt-1.5 w-full rounded-xl border border-border/70 bg-surface px-3 py-2.5 text-sm text-foreground outline-none transition-all duration-200 focus:border-pink-300 focus:ring-2 focus:ring-ring"
-                        >
-                            {bookingStatusFilterValues.map((value) => (
-                                <option key={value} value={value}>
-                                    {value === "all"
-                                        ? "All statuses"
-                                        : getBookingStatusLabel(value)}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-
+                    <AppSelect
+                        label="Status"
+                        value={status}
+                        onChange={(value) =>
+                            handleStatusChange(value as BookingStatusFilter)
+                        }
+                        options={bookingStatusFilterValues.map((value) => ({
+                            value,
+                            label:
+                                value === "all"
+                                    ? "All statuses"
+                                    : getBookingStatusLabel(value),
+                        }))}
+                    />
                 </div>
             </div>
 
@@ -442,7 +442,8 @@ export default function BookingTableSection({
                             </thead>
                             <tbody>
                                 {paginatedBookings.map((booking) => {
-                                    const total = getBookingTotalDisplay(booking);
+                                    const total =
+                                        getBookingTotalDisplay(booking);
 
                                     return (
                                         <tr
@@ -461,11 +462,15 @@ export default function BookingTableSection({
                                                     )}
                                                 </p>
                                                 <p className="mt-1 text-sm text-foreground">
-                                                    {formatShortLineItems(booking.lineItems)}
+                                                    {formatShortLineItems(
+                                                        booking.lineItems,
+                                                    )}
                                                 </p>
                                             </td>
                                             <td className="px-5 py-4 text-sm text-muted">
-                                                {formatBookingDate(booking.startsAt)}
+                                                {formatBookingDate(
+                                                    booking.startsAt,
+                                                )}
                                             </td>
                                             <td className="px-5 py-4">
                                                 <p className="text-sm font-semibold text-foreground">
@@ -490,7 +495,10 @@ export default function BookingTableSection({
 
                     <div className="grid gap-3 p-4 xl:hidden">
                         {paginatedBookings.map((booking) => (
-                            <BookingMobileCard key={booking.id} booking={booking} />
+                            <BookingMobileCard
+                                key={booking.id}
+                                booking={booking}
+                            />
                         ))}
                     </div>
 

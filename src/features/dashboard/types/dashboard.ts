@@ -12,4 +12,16 @@ export type DashboardProfile = {
 export type DashboardOverviewData = {
     profile: DashboardProfile;
     stats: DashboardStats;
+    availability: {
+        days: {
+            date: string;
+            label: string;
+            slots: {
+                id: string;
+                startsAt: string;
+                endsAt: string;
+                available: boolean;
+            }[];
+        }[];
+    };
 };

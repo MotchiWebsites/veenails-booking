@@ -3,6 +3,7 @@ import { FiCheckCircle, FiClock, FiCreditCard } from "react-icons/fi";
 
 import StatusCard from "@/features/dashboard/components/StatusCard";
 import QuickActions from "@/features/dashboard/components/QuickActions";
+import AvailabilityCalendarStrip from "@/features/dashboard/components/availability-calendar/AvailabilityCalendarStrip";
 import SectionIntro from "@/components/shared/ui/SectionIntro";
 import AnimatedArrowLink from "@/components/shared/ui/AnimatedArrowLink";
 import type { DashboardOverviewData } from "@/features/dashboard/types/dashboard";
@@ -74,6 +75,8 @@ export default function DashboardOverview({
                     </div>
                 </div>
             </section>
+
+            <AvailabilityCalendarStrip days={data.availability.days} />
 
             <QuickActions />
         </div>

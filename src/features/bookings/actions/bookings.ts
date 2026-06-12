@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/features/auth/guards/get-user";
 import { canRequestCancellation } from "@/features/bookings/utils/booking-status";
@@ -38,7 +39,9 @@ export async function requestBookingCancellation(
     const user = await getUser();
 
     if (!user) {
-        return state({ error: "Please sign in before requesting a cancellation." });
+        return state({
+            error: "Please sign in before requesting a cancellation.",
+        });
     }
 
     const bookingId = getFormString(formData, "bookingId");
@@ -49,7 +52,9 @@ export async function requestBookingCancellation(
     ) as RefundMethod;
 
     if (!bookingId) {
-        return state({ error: "Choose a booking before requesting cancellation." });
+        return state({
+            error: "Choose a booking before requesting cancellation.",
+        });
     }
 
     if (reason.length < 8) {
@@ -59,10 +64,13 @@ export async function requestBookingCancellation(
     }
 
     if (!refundMethods.includes(requestedRefundMethod)) {
-        return state({ error: "Choose how you would prefer any refund handled." });
+        return state({
+            error: "Choose how you would prefer any refund handled.",
+        });
     }
 
     const supabase = await createClient();
+    const admin = createAdminClient();
 
     const { data: booking, error: bookingError } = await supabase
         .from("bookings")
@@ -73,7 +81,9 @@ export async function requestBookingCancellation(
 
     if (bookingError) {
         console.error("[bookings:requestCancellation.booking]", bookingError);
-        return state({ error: "We couldn't verify this booking. Please try again." });
+        return state({
+            error: "We couldn't verify this booking. Please try again.",
+        });
     }
 
     if (!booking) {
@@ -95,7 +105,10 @@ export async function requestBookingCancellation(
         .maybeSingle();
 
     if (duplicateError) {
-        console.error("[bookings:requestCancellation.duplicate]", duplicateError);
+        console.error(
+            "[bookings:requestCancellation.duplicate]",
+            duplicateError,
+        );
         return state({
             error: "We couldn't check existing cancellation requests. Please try again.",
         });
@@ -107,7 +120,7 @@ export async function requestBookingCancellation(
         });
     }
 
-    const { error: insertError } = await supabase
+    const { error: insertError } = await admin
         .from("cancellation_requests")
         .insert({
             booking_id: booking.id,
@@ -124,19 +137,30 @@ export async function requestBookingCancellation(
         });
     }
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await admin
         .from("bookings")
         .update({ status: "cancellation_requested" })
         .eq("id", booking.id)
         .eq("user_id", user.id);
 
     if (updateError) {
-        console.error("[bookings:requestCancellation.status-sync]", updateError);
-        // TODO: Move cancellation request + booking status sync into a secure RPC if
-        // user RLS intentionally blocks booking status updates.
+        console.error(
+            "[bookings:requestCancellation.status-sync]",
+            updateError,
+        );
+        await admin
+            .from("cancellation_requests")
+            .delete()
+            .eq("booking_id", booking.id)
+            .eq("user_id", user.id)
+            .eq("status", "pending");
+
+        return state({
+            error: "We couldn't update the booking status right now. Please try again.",
+        });
     }
 
-    const { error: eventError } = await supabase.from("booking_events").insert({
+    const { error: eventError } = await admin.from("booking_events").insert({
         booking_id: booking.id,
         actor_type: "client",
         actor_user_id: user.id,

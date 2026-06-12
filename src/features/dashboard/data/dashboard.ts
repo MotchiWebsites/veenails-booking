@@ -30,22 +30,33 @@ export async function getDashboardOverviewData(
         throwDashboardDataError("profile", profileError);
     }
 
-    const [pendingBookings, confirmedBookings, creditsPageData] =
-        await Promise.all([
-            supabase
-                .from("bookings")
-                .select("id", { count: "exact", head: true })
-                .eq("user_id", userId)
-                .eq("status", "requested"),
+    const [
+        pendingBookings,
+        confirmedBookings,
+        creditsPageData,
+        availabilityResult,
+    ] = await Promise.all([
+        supabase
+            .from("bookings")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", userId)
+            .eq("status", "requested"),
 
-            supabase
-                .from("bookings")
-                .select("id", { count: "exact", head: true })
-                .eq("user_id", userId)
-                .eq("status", "confirmed"),
+        supabase
+            .from("bookings")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", userId)
+            .eq("status", "confirmed"),
 
-            getCreditsPageData(userId),
-        ]);
+        getCreditsPageData(userId),
+
+        supabase
+            .from("availability_slots")
+            .select("id, starts_at, ends_at, status, active")
+            .eq("active", true)
+            .gte("starts_at", new Date().toISOString())
+            .order("starts_at", { ascending: true }),
+    ]);
 
     if (pendingBookings.error) {
         throwDashboardDataError("pending-bookings", pendingBookings.error);
@@ -55,7 +66,12 @@ export async function getDashboardOverviewData(
         throwDashboardDataError("confirmed-bookings", confirmedBookings.error);
     }
 
+    if (availabilityResult.error) {
+        throwDashboardDataError("availability", availabilityResult.error);
+    }
+
     const profileEmail = profile?.email ?? fallbackEmail ?? "";
+    const days = buildAvailabilityDays(availabilityResult.data ?? []);
 
     return {
         profile: {
@@ -68,5 +84,66 @@ export async function getDashboardOverviewData(
             confirmedBookings: confirmedBookings.count ?? 0,
             availableCredits: creditsPageData.totalActiveAmount,
         },
+        availability: {
+            days,
+        },
     };
+}
+
+function buildAvailabilityDays(
+    slots: Array<{
+        id: string;
+        starts_at: string;
+        ends_at: string;
+        status: string;
+    }>,
+) {
+    const now = new Date();
+    const dayMap = new Map<
+        string,
+        {
+            date: string;
+            label: string;
+            slots: {
+                id: string;
+                startsAt: string;
+                endsAt: string;
+                available: boolean;
+            }[];
+        }
+    >();
+
+    for (let offset = 0; offset < 21; offset += 1) {
+        const date = new Date(now);
+        date.setDate(now.getDate() + offset);
+        const key = date.toISOString().slice(0, 10);
+
+        dayMap.set(key, {
+            date: key,
+            label: date.toLocaleDateString(undefined, {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+            }),
+            slots: [],
+        });
+    }
+
+    for (const slot of slots) {
+        const dateKey = slot.starts_at.slice(0, 10);
+        const day = dayMap.get(dateKey);
+
+        if (!day) {
+            continue;
+        }
+
+        day.slots.push({
+            id: slot.id,
+            startsAt: slot.starts_at,
+            endsAt: slot.ends_at,
+            available: slot.status === "available",
+        });
+    }
+
+    return Array.from(dayMap.values());
 }
