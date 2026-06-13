@@ -84,6 +84,12 @@ export function formatBookingReference(reference: string) {
     return reference.startsWith("#") ? reference : `#${reference}`;
 }
 
+export function getBookingReferenceHref(reference: string, suffix = "") {
+    const normalizedReference = reference.trim().replace(/^#/, "");
+
+    return `/booking/${encodeURIComponent(normalizedReference)}${suffix}`;
+}
+
 export function formatShortLineItems(
     lineItems: {
         label: string;

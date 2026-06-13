@@ -90,5 +90,21 @@ export function canRequestCancellation(
 }
 
 export function canEditBooking(status: BookingStatus) {
-    return status === "held" || status === "requested";
+    return status === "held" || status === "requested" || status === "confirmed";
+}
+
+export function isWithinEditCutoff(startsAt?: string | null, now = new Date()) {
+    if (!startsAt) {
+        return true;
+    }
+
+    return new Date(startsAt).getTime() - now.getTime() < 24 * 60 * 60 * 1000;
+}
+
+export function canEditBookingOnline(
+    status: BookingStatus,
+    startsAt?: string | null,
+    now = new Date(),
+) {
+    return canEditBooking(status) && !isWithinEditCutoff(startsAt, now);
 }

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getDashboardUpcomingBookings } from "@/features/bookings/data/bookings";
 import { getCreditsPageData } from "@/features/credits/data/credits";
 import type { DashboardOverviewData } from "@/features/dashboard/types/dashboard";
 
@@ -30,12 +31,8 @@ export async function getDashboardOverviewData(
         throwDashboardDataError("profile", profileError);
     }
 
-    const [
-        pendingBookings,
-        confirmedBookings,
-        creditsPageData,
-        availabilityResult,
-    ] = await Promise.all([
+    const [pendingBookings, confirmedBookings, creditsPageData, upcomingBookings, availabilityResult] =
+        await Promise.all([
         supabase
             .from("bookings")
             .select("id", { count: "exact", head: true })
@@ -49,6 +46,8 @@ export async function getDashboardOverviewData(
             .eq("status", "confirmed"),
 
         getCreditsPageData(userId),
+
+        getDashboardUpcomingBookings(userId, 3),
 
         supabase
             .from("availability_slots")
@@ -87,6 +86,7 @@ export async function getDashboardOverviewData(
         availability: {
             days,
         },
+        upcomingAppointments: upcomingBookings,
     };
 }
 
@@ -104,6 +104,10 @@ function buildAvailabilityDays(
         {
             date: string;
             label: string;
+            dayName: string;
+            dayNumber: string;
+            monthLabel: string;
+            isToday: boolean;
             slots: {
                 id: string;
                 startsAt: string;
@@ -125,6 +129,16 @@ function buildAvailabilityDays(
                 month: "short",
                 day: "numeric",
             }),
+            dayName: date.toLocaleDateString(undefined, {
+                weekday: "short",
+            }),
+            dayNumber: date.toLocaleDateString(undefined, {
+                day: "numeric",
+            }),
+            monthLabel: date.toLocaleDateString(undefined, {
+                month: "short",
+            }),
+            isToday: key === now.toISOString().slice(0, 10),
             slots: [],
         });
     }

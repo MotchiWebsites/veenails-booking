@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type {
+    BookingSummary,
     MyBookingsPageData,
     BookingStatusFilter,
 } from "@/features/bookings/types/bookings";
@@ -207,6 +208,36 @@ function mapBookingSummary(row: BookingRow) {
               }
             : null,
     };
+}
+
+export async function getDashboardUpcomingBookings(
+    userId: string,
+    limit = 3,
+): Promise<BookingSummary[]> {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+        .from("bookings")
+        .select(selectSummary)
+        .eq("user_id", userId)
+        .in("status", ["requested", "confirmed", "cancellation_requested"])
+        .order("created_at", { ascending: false })
+        .overrideTypes<BookingRow[]>();
+
+    if (error) {
+        console.error("[bookings:getDashboardUpcomingBookings]", error);
+        throw sanitizedError();
+    }
+
+    return (data ?? [])
+        .filter((booking) => {
+            const startsAt = booking.availability_slots?.starts_at;
+
+            return !startsAt || new Date(startsAt).getTime() >= Date.now();
+        })
+        .sort(compareUpcoming)
+        .slice(0, limit)
+        .map(mapBookingSummary);
 }
 
 export async function getMyBookingsPageData({

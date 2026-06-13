@@ -483,6 +483,7 @@ export default function BookingTableSection({
                                             <td className="px-5 py-4">
                                                 <BookingActions
                                                     booking={booking}
+                                                    allowCancellation={false}
                                                     compact
                                                 />
                                             </td>

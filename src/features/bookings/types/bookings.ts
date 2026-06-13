@@ -24,6 +24,8 @@ export type BookingSummary = {
         quantity: number;
         unitPrice: number;
         lineTotal: number;
+        sourceId?: string | null;
+        sourceTable?: string | null;
     }[];
     cancellationRequest?: {
         id: string;
@@ -49,6 +51,12 @@ export type MyBookingsPageData = {
 };
 
 export type BookingCancellationActionState = {
+    error?: string;
+    success?: string;
+    messageId?: string;
+};
+
+export type BookingEditActionState = {
     error?: string;
     success?: string;
     messageId?: string;

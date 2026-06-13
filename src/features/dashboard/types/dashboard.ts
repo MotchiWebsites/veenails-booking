@@ -1,3 +1,5 @@
+import type { BookingSummary } from "@/features/bookings/types/bookings";
+
 export type DashboardStats = {
     pendingRequests: number;
     confirmedBookings: number;
@@ -16,6 +18,10 @@ export type DashboardOverviewData = {
         days: {
             date: string;
             label: string;
+            dayName: string;
+            dayNumber: string;
+            monthLabel: string;
+            isToday: boolean;
             slots: {
                 id: string;
                 startsAt: string;
@@ -24,4 +30,5 @@ export type DashboardOverviewData = {
             }[];
         }[];
     };
+    upcomingAppointments: BookingSummary[];
 };
