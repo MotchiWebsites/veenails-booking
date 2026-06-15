@@ -32,6 +32,7 @@ type BookingSettingsRow = Pick<
     | "booking_fee_rate"
     | "hold_minutes"
     | "etransfer_email"
+    | "instagram_url"
 >;
 
 type DesignTierRow = Pick<
@@ -483,7 +484,7 @@ export async function submitBookingCheckout(
             admin
                 .from("booking_settings")
                 .select(
-                    "deposit_amount, booking_fee_mode, booking_fee_rate, hold_minutes, etransfer_email",
+                    "deposit_amount, booking_fee_mode, booking_fee_rate, hold_minutes, etransfer_email, instagram_url",
                 )
                 .eq("id", 1)
                 .eq("active", true)
@@ -773,6 +774,7 @@ export async function submitBookingCheckout(
         return state({
             success:
                 "Your booking request has been received and your deposit is marked as sent.",
+            bookingId: booking.id,
             bookingReference,
             startsAt: lockedSlot.starts_at,
             endsAt: lockedSlot.ends_at,

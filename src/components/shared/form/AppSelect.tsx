@@ -20,6 +20,7 @@ type AppSelectProps = {
     disabled?: boolean;
     error?: string;
     helperText?: string;
+    required?: boolean;
     className?: string;
     fullWidth?: boolean;
     "aria-label"?: string;
@@ -37,6 +38,7 @@ export default function AppSelect({
     disabled = false,
     error,
     helperText,
+    required = false,
     className = "",
     fullWidth = true,
     ...ariaProps
@@ -52,8 +54,8 @@ export default function AppSelect({
                 .join(" ")}
         >
             {label ? (
-                <span className="text-sm font-semibold text-foreground">
-                    {label}
+                <span className="text-sm lg:text-base font-semibold text-foreground">
+                    {label} {required && (<span className="text-danger">*</span>)}
                 </span>
             ) : null}
 

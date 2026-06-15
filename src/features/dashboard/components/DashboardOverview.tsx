@@ -44,12 +44,12 @@ export default function DashboardOverview({
                         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                             <AnimatedArrowLink
                                 href="/book"
-                                className="btn-primary"
+                                className="btn-primary w-full sm:w-auto"
                             >
                                 Start Booking
                             </AnimatedArrowLink>
 
-                            <Link href="/profile" className="btn-secondary">
+                            <Link href="/profile" className="btn-secondary w-full sm:w-auto">
                                 Update Profile
                             </Link>
                         </div>

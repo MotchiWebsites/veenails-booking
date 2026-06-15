@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FiCheckCircle } from "react-icons/fi";
 import SummaryBlock from "@/components/shared/ui/SummaryBlock";
+import BookingInspoInstagramStep from "@/features/bookings/inspo/components/BookingInspoInstagramStep";
 import { formatAmount } from "@/features/bookings/checkout/utils/checkout-formatters";
 import {
     formatSlotDate,
@@ -8,11 +9,13 @@ import {
 } from "@/features/bookings/new-booking/utils";
 
 export default function CheckoutSuccessState({
+    bookingId,
     bookingReference,
     startsAt,
     endsAt,
     depositAmount,
 }: {
+    bookingId: string;
     bookingReference: string;
     startsAt: string;
     endsAt: string;
@@ -37,7 +40,7 @@ export default function CheckoutSuccessState({
                     using the message/note provided at checkout.
                 </p>
 
-                <div className="mt-8 grid gap-4 rounded-3xl bg-background p-5 text-left xl:grid-cols-3 sm:p-6">
+                <div className="mt-8 grid gap-4 rounded-3xl bg-background p-5 text-left sm:p-6">
                     <SummaryBlock
                         label="Booking reference"
                         value={bookingReference}
@@ -56,6 +59,10 @@ export default function CheckoutSuccessState({
                         label="Deposit"
                         value={formatAmount(depositAmount, true)}
                     />
+                </div>
+
+                <div className="mt-8 text-left">
+                    <BookingInspoInstagramStep bookingId={bookingId} />
                 </div>
 
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">

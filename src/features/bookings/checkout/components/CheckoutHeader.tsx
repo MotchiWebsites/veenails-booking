@@ -11,10 +11,10 @@ export default function CheckoutHeader() {
 
             <div className="mt-5">
                 <p className="text-sm font-semibold uppercase tracking-[0.22em] text-dark-green">
-                    Checkout
+                    Confirm Policies and Deposit
                 </p>
                 <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
-                    Confirm Your Deposit
+                    Checkout
                 </h1>
                 <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted sm:text-base">
                     Review your appointment, accept the booking policies, apply

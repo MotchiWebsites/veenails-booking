@@ -8,6 +8,8 @@ import type {
     BookingDetailsData,
     EditBookingSlot,
 } from "@/features/bookings/details/data/booking-details";
+import BookingInspoInstagramStep from "@/features/bookings/inspo/components/BookingInspoInstagramStep";
+import { shouldShowBookingInspoSubmission } from "@/features/bookings/inspo/data/booking-inspo";
 import type { DesignTier } from "@/features/bookings/new-booking/types";
 import {
     formatBookingDate,
@@ -22,6 +24,7 @@ import {
     canEditBooking,
     canEditBookingOnline,
     getBookingStatusLabel,
+    isUpcomingBooking,
     isWithinEditCutoff,
 } from "@/features/bookings/utils/booking-status";
 
@@ -44,6 +47,13 @@ export default function EditBookingPage({
         canEditBooking(booking.status) &&
         isWithinEditCutoff(booking.startsAt);
     const totalDisplay = getBookingTotalDisplay(booking);
+    const showInspoAction =
+        isUpcomingBooking(booking.status, booking.startsAt) &&
+        shouldShowBookingInspoSubmission(data.inspoPrompt?.status);
+    const inspoSent = data.inspoPrompt?.status === "sent";
+    const servicesFormKey = booking.lineItems
+        .map((item) => `${item.id}:${item.label}:${item.lineTotal}`)
+        .join("|");
 
     return (
         <section className="rounded-3xl border border-border/60 bg-surface p-5 shadow-sm sm:p-7 xl:p-8">
@@ -139,11 +149,31 @@ export default function EditBookingPage({
                     </p>
                 </div>
                 <EditServicesForm
+                    key={servicesFormKey}
                     data={data}
                     designTiers={designTiers}
                     canEdit={canEdit}
                 />
             </div>
+
+            {showInspoAction ? (
+                <div className="border-t border-border/60 py-6">
+                    <div className="mb-4">
+                        <h2 className="text-lg font-semibold text-foreground">
+                            Design inspo
+                        </h2>
+                        <p className="mt-1 text-sm leading-relaxed text-muted">
+                            {inspoSent
+                                ? "Your inspo was sent. You can still add more photos to the same Instagram thread."
+                                : "Send your first Instagram message before adding inspo photos so the studio can match them to this appointment."}
+                        </p>
+                    </div>
+                    <BookingInspoInstagramStep
+                        bookingId={booking.id}
+                        compact
+                    />
+                </div>
+            ) : null}
 
             <div className="border-t border-border/60 py-6">
                 <div className="mb-4">

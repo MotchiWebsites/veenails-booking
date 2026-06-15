@@ -15,6 +15,7 @@ import {
     getRemovalOption,
     getService,
     getServiceOption,
+    getServiceOptionGroups,
     isRemovalOnly,
 } from "@/features/bookings/new-booking/utils";
 import type {
@@ -278,6 +279,26 @@ export async function updateBookingServices(
 
     if (!isRemovalOnly(selections.removalId) && (!service || !serviceOption)) {
         return editState({ error: "Choose a valid service option." });
+    }
+
+    const serviceOptionGroups = getServiceOptionGroups(service);
+
+    if (
+        !isRemovalOnly(selections.removalId) &&
+        serviceOptionGroups.length > 0 &&
+        !selections.serviceOptionGroupId
+    ) {
+        return editState({ error: "Choose a valid service length." });
+    }
+
+    if (
+        !isRemovalOnly(selections.removalId) &&
+        serviceOption?.groupId &&
+        serviceOption.groupId !== selections.serviceOptionGroupId
+    ) {
+        return editState({
+            error: "Choose a service option that matches the selected length.",
+        });
     }
 
     const admin = createAdminClient();

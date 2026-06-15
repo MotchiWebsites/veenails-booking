@@ -23,7 +23,9 @@ export async function getDashboardOverviewData(
 
     const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("display_name, email")
+        .select(
+            "display_name, email, phone, instagram_handle, preferred_contact_method",
+        )
         .eq("id", userId)
         .single();
 
@@ -77,6 +79,10 @@ export async function getDashboardOverviewData(
             displayName:
                 profile?.display_name || getFallbackDisplayName(profileEmail),
             email: profileEmail,
+            phone: profile?.phone ?? null,
+            instagramHandle: profile?.instagram_handle ?? null,
+            preferredContactMethod:
+                profile?.preferred_contact_method ?? "email",
         },
         stats: {
             pendingRequests: pendingBookings.count ?? 0,

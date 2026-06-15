@@ -6,6 +6,8 @@ import TotalsRow from "@/components/shared/ui/TotalsRow";
 import BookingStatusBadge from "@/features/bookings/components/BookingStatusBadge";
 import BookingCancellationCard from "@/features/bookings/details/components/BookingCancellationCard";
 import type { BookingDetailsData } from "@/features/bookings/details/data/booking-details";
+import BookingInspoInstagramStep from "@/features/bookings/inspo/components/BookingInspoInstagramStep";
+import { shouldShowBookingInspoSubmission } from "@/features/bookings/inspo/data/booking-inspo";
 import {
     formatBookingDateTime,
     formatBookingReference,
@@ -13,7 +15,10 @@ import {
     getBookingReferenceHref,
     getBookingTotalDisplay,
 } from "@/features/bookings/utils/booking-formatters";
-import { canEditBookingOnline } from "@/features/bookings/utils/booking-status";
+import {
+    canEditBookingOnline,
+    isUpcomingBooking,
+} from "@/features/bookings/utils/booking-status";
 import BookingDetailsHeader from "./BookingDetailsHeader";
 import { summaryRows } from "../data/summary-rows";
 
@@ -30,6 +35,9 @@ export default function BookingDetailsPage({
         .reduce((total, payment) => total + payment.amount, 0);
 
     const estimatedAmountDue = data.amountDue - data.depositAmount;
+    const showInspoAction =
+        isUpcomingBooking(booking.status, booking.startsAt) &&
+        shouldShowBookingInspoSubmission(data.inspoPrompt?.status);
 
     return (
         <section className="rounded-3xl border border-border/60 bg-surface p-5 shadow-sm sm:p-7 xl:p-8">
@@ -190,6 +198,18 @@ export default function BookingDetailsPage({
                                 ) : null}
                             </div>
                         ))}
+                    </div>
+                </div>
+            ) : null}
+
+            {showInspoAction ? (
+                <div className="py-6">
+                    <BookingDetailsHeader title="Design Inspo" />
+                    <div className="mt-4">
+                        <BookingInspoInstagramStep
+                            bookingId={booking.id}
+                            compact
+                        />
                     </div>
                 </div>
             ) : null}

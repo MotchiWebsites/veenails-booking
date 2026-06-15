@@ -274,7 +274,6 @@ export async function getMyBookingsPageData({
                 booking.availability_slots?.starts_at,
             ),
         )
-        .filter((booking) => activeBookingStatuses.includes(booking.status))
         .sort(compareUpcoming)
         .slice(0, 5)
         .map(mapBookingSummary);

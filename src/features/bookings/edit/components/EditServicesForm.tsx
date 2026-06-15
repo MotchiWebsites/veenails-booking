@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { FiSave } from "react-icons/fi";
 
 import AppSelect from "@/components/shared/form/AppSelect";
@@ -99,6 +100,78 @@ function inferSelections(data: BookingDetailsData): BookingSelections {
     };
 }
 
+function canSaveServiceSelections({
+    selections,
+    service,
+    serviceOption,
+    serviceOptionGroups,
+    designTier,
+}: {
+    selections: BookingSelections;
+    service: ServiceConfig | null;
+    serviceOption: ServiceOption | null;
+    serviceOptionGroups: ReturnType<typeof getServiceOptionGroups>;
+    designTier: DesignTier | null;
+}) {
+    if (!selections.removalId) {
+        return false;
+    }
+
+    if (isRemovalOnly(selections.removalId)) {
+        return true;
+    }
+
+    if (!service || !serviceOption || !designTier) {
+        return false;
+    }
+
+    if (
+        serviceOptionGroups.length > 0 &&
+        !selections.serviceOptionGroupId
+    ) {
+        return false;
+    }
+
+    return (
+        !serviceOption.groupId ||
+        serviceOption.groupId === selections.serviceOptionGroupId
+    );
+}
+
+function comparableSelections(selections: BookingSelections) {
+    const removalOnly = isRemovalOnly(selections.removalId);
+
+    return {
+        removalId: selections.removalId ?? null,
+        serviceId: removalOnly ? null : (selections.serviceId ?? null),
+        serviceOptionGroupId: removalOnly
+            ? null
+            : (selections.serviceOptionGroupId ?? null),
+        serviceOptionId: removalOnly
+            ? null
+            : (selections.serviceOptionId ?? null),
+        designTierId: removalOnly ? null : (selections.designTierId ?? null),
+    };
+}
+
+function haveServiceSelectionsChanged(
+    current: BookingSelections,
+    initial: BookingSelections,
+) {
+    const currentComparable = comparableSelections(current);
+    const initialComparable = comparableSelections(initial);
+
+    return (
+        currentComparable.removalId !== initialComparable.removalId ||
+        currentComparable.serviceId !== initialComparable.serviceId ||
+        currentComparable.serviceOptionGroupId !==
+            initialComparable.serviceOptionGroupId ||
+        currentComparable.serviceOptionId !==
+            initialComparable.serviceOptionId ||
+        currentComparable.designTierId !== initialComparable.designTierId
+    );
+}
+
 export default function EditServicesForm({
     data,
     designTiers,
@@ -108,6 +181,7 @@ export default function EditServicesForm({
     designTiers: DesignTier[];
     canEdit: boolean;
 }) {
+    const router = useRouter();
     const { error, success } = useToast();
     const initialSelections = useMemo(() => inferSelections(data), [data]);
     const [selections, setSelections] =
@@ -127,8 +201,9 @@ export default function EditServicesForm({
 
         if (state.success) {
             success(state.success, "Service changes saved");
+            router.refresh();
         }
-    }, [error, state.error, state.messageId, state.success, success]);
+    }, [error, router, state.error, state.messageId, state.success, success]);
 
     const selectedRemoval = getRemovalOption(selections.removalId);
     const selectedService = getService(selections.serviceId);
@@ -155,6 +230,20 @@ export default function EditServicesForm({
         designTiers,
     );
     const fullService = !isRemovalOnly(selections.removalId);
+    const hasChanges = haveServiceSelectionsChanged(
+        selections,
+        initialSelections,
+    );
+    const canSave =
+        canEdit &&
+        hasChanges &&
+        canSaveServiceSelections({
+            selections,
+            service: selectedService,
+            serviceOption: selectedServiceOption,
+            serviceOptionGroups,
+            designTier: selectedDesignTier,
+        });
 
     function setSelection(next: Partial<BookingSelections>) {
         setSelections((current) => ({ ...current, ...next }));
@@ -366,10 +455,15 @@ export default function EditServicesForm({
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                {!hasChanges ? (
+                    <p className="text-sm text-muted sm:mr-auto">
+                        Make a service change to save updates.
+                    </p>
+                ) : null}
                 <button
                     type="submit"
                     className="btn-primary"
-                    disabled={!canEdit || pending}
+                    disabled={!canSave || pending}
                 >
                     <FiSave className="h-4 w-4" aria-hidden="true" />
                     {pending ? "Saving..." : "Save service changes"}

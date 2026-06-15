@@ -15,10 +15,10 @@ export default function DashboardUpcomingAppointments({
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <p className="text-sm font-semibold text-dark-green">
-                        Upcoming appointments
+                        Your next visits
                     </p>
                     <h2 className="mt-1 text-xl font-semibold text-foreground sm:text-2xl">
-                        Your next visits
+                        Upcoming appointments
                     </h2>
                     <p className="mt-2 text-sm leading-relaxed text-muted">
                         A quick look at active requests and confirmed

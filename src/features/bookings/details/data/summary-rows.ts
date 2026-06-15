@@ -9,6 +9,7 @@ import {
     getBookingStatusLabel,
     getDepositStatusLabel,
 } from "@/features/bookings/utils/booking-status";
+import { getBookingInspoStatusLabel } from "@/features/bookings/inspo/data/booking-inspo";
 import type { BookingDetailsData } from "@/features/bookings/details/data/booking-details";
 import type { BookingSummary } from "@/features/bookings/types/bookings";
 
@@ -19,7 +20,7 @@ type TotalDisplay = {
 
 type SummaryRowsData = Pick<
     BookingDetailsData,
-    "depositStatus" | "cancellationRequest"
+    "depositStatus" | "cancellationRequest" | "inspoPrompt"
 >;
 
 type SummaryRow = {
@@ -71,6 +72,10 @@ export const summaryRows = (
     {
         label: "Deposit/payment status",
         value: getDepositStatusLabel(data.depositStatus),
+    },
+    {
+        label: "Design inspo",
+        value: getBookingInspoStatusLabel(data.inspoPrompt?.status),
     },
     ...(creditUsed > 0
         ? [{ label: "Credit used", value: formatMoney(creditUsed) }]

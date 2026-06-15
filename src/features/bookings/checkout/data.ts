@@ -7,6 +7,7 @@ import type { Database } from "@/types/supabase";
 
 export type BookingCheckoutSettings = NonNullable<BookingSettingsSummary> & {
     etransferEmail: string | null;
+    instagramUrl: string | null;
 };
 
 type SettingsRow = Pick<
@@ -16,6 +17,7 @@ type SettingsRow = Pick<
     | "booking_fee_rate"
     | "hold_minutes"
     | "etransfer_email"
+    | "instagram_url"
 >;
 
 type DesignTierRow = Pick<
@@ -38,7 +40,7 @@ export async function getBookingCheckoutPageData(): Promise<{
         supabase
             .from("booking_settings")
             .select(
-                "deposit_amount, booking_fee_mode, booking_fee_rate, hold_minutes, etransfer_email",
+                "deposit_amount, booking_fee_mode, booking_fee_rate, hold_minutes, etransfer_email, instagram_url",
             )
             .eq("id", 1)
             .eq("active", true)
@@ -92,6 +94,7 @@ export async function getBookingCheckoutPageData(): Promise<{
                   ),
                   holdMinutes: Number(settingsResult.data.hold_minutes ?? 0),
                   etransferEmail: settingsResult.data.etransfer_email,
+                  instagramUrl: settingsResult.data.instagram_url,
               }
             : null,
         designTiers: (designTiersResult.data ?? []).map((tier) => ({

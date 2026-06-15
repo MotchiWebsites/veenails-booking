@@ -224,9 +224,15 @@ export default function BookingCheckoutPage({
         return <CheckoutUnavailableState />;
     }
 
-    if (state.bookingReference && state.startsAt && state.endsAt) {
+    if (
+        state.bookingId &&
+        state.bookingReference &&
+        state.startsAt &&
+        state.endsAt
+    ) {
         return (
             <CheckoutSuccessState
+                bookingId={state.bookingId}
                 bookingReference={state.bookingReference}
                 startsAt={state.startsAt}
                 endsAt={state.endsAt}

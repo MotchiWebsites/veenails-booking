@@ -11,6 +11,12 @@ import { maskEmail } from "@/features/auth/lib/mask-email";
 
 import { normalizeNorthAmericanPhone } from "@/features/auth/validation/phone";
 import { getPasswordErrorMessage } from "@/features/auth/validation/password";
+import {
+    normalizeInstagramHandle,
+    parsePreferredContactMethod,
+    validateContactPreference,
+    validateInstagramHandle,
+} from "@/features/profile/validation/profile";
 
 function getBaseUrl() {
     return (
@@ -81,6 +87,13 @@ export async function signUpWithPassword(
     const email = String(formData.get("email") || "")
         .trim()
         .toLowerCase();
+    const rawInstagramHandle = String(
+        formData.get("instagramHandle") || "",
+    ).trim();
+    const instagramHandle = normalizeInstagramHandle(rawInstagramHandle);
+    const preferredContactMethod = parsePreferredContactMethod(
+        String(formData.get("preferredContactMethod") || "email"),
+    );
     const password = String(formData.get("password") || "");
     const confirmPassword = String(formData.get("confirmPassword") || "");
     const acceptedTerms = formData.get("acceptedTerms") === "on";
@@ -102,6 +115,28 @@ export async function signUpWithPassword(
     if (!isValidEmail(email)) {
         return {
             error: "Please enter a valid email address.",
+            messageId: createMessageId(),
+        };
+    }
+
+    const instagramError = validateInstagramHandle(rawInstagramHandle);
+
+    if (instagramError) {
+        return {
+            error: instagramError,
+            messageId: createMessageId(),
+        };
+    }
+
+    const contactPreferenceError = validateContactPreference({
+        preferredContactMethod,
+        phone,
+        instagramHandle,
+    });
+
+    if (contactPreferenceError) {
+        return {
+            error: contactPreferenceError,
             messageId: createMessageId(),
         };
     }
@@ -150,7 +185,7 @@ export async function signUpWithPassword(
         console.error("[signup] profile check error", { email, err });
     }
 
-    const { error } = await supabase.auth.signUp({
+    const { data: signupData, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -159,6 +194,8 @@ export async function signUpWithPassword(
                 full_name: fullName,
                 display_name: fullName,
                 phone: phone,
+                instagram_handle: instagramHandle,
+                preferred_contact_method: preferredContactMethod,
             },
         },
     });
@@ -168,6 +205,30 @@ export async function signUpWithPassword(
             error: getFriendlyAuthError(error.message),
             messageId: createMessageId(),
         };
+    }
+
+    if (signupData.user?.id) {
+        const adminSupabase = createAdminClient();
+        const { error: profileUpsertError } = await adminSupabase
+            .from("profiles")
+            .upsert(
+                {
+                    id: signupData.user.id,
+                    email,
+                    display_name: fullName,
+                    phone,
+                    instagram_handle: instagramHandle,
+                    preferred_contact_method: preferredContactMethod ?? "email",
+                },
+                { onConflict: "id" },
+            );
+
+        if (profileUpsertError) {
+            console.error("[signup] profile contact upsert failed", {
+                userId: signupData.user.id,
+                error: profileUpsertError.message,
+            });
+        }
     }
 
     return {

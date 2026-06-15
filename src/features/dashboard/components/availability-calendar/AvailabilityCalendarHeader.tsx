@@ -19,10 +19,10 @@ export default function AvailabilityCalendarHeader({
         <div className="flex flex-col gap-4 border-b border-border/60 pb-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
                 <p className="text-sm font-semibold text-dark-green">
-                    Availability
+                    Upcoming openings
                 </p>
                 <h2 className="mt-1 text-xl font-semibold text-foreground sm:text-2xl">
-                    Upcoming openings
+                    Availability
                 </h2>
                 <p className="mt-2 text-sm leading-relaxed text-muted">
                     {dateRange}

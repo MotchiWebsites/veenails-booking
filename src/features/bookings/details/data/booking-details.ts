@@ -87,6 +87,16 @@ type BookingDetailsRow = BookingDetailsBaseRow & {
             | "reviewed_at"
         >
     > | null;
+    booking_inspo_prompts?: Array<
+        Pick<
+            Database["public"]["Tables"]["booking_inspo_prompts"]["Row"],
+            | "id"
+            | "status"
+            | "inspo_sent_at"
+            | "reviewed_at"
+            | "created_at"
+        >
+    > | null;
 };
 
 export type BookingDetailsPayment = {
@@ -115,6 +125,14 @@ export type BookingDetailsCancellationRequest = {
     reviewedAt: string | null;
 };
 
+export type BookingDetailsInspoPrompt = {
+    id: string;
+    status: Enums<"booking_inspo_status">;
+    inspoSentAt: string | null;
+    reviewedAt: string | null;
+    createdAt: string;
+};
+
 export type BookingDetailsData = {
     summary: BookingSummary;
     clientNotes: string | null;
@@ -129,6 +147,7 @@ export type BookingDetailsData = {
     payments: BookingDetailsPayment[];
     policies: BookingDetailsPolicy[];
     cancellationRequest: BookingDetailsCancellationRequest | null;
+    inspoPrompt: BookingDetailsInspoPrompt | null;
 };
 
 export type EditBookingSlot = {
@@ -198,6 +217,13 @@ const detailsSelect = `
         requested_refund_method,
         created_at,
         reviewed_at
+    ),
+    booking_inspo_prompts (
+        id,
+        status,
+        inspo_sent_at,
+        reviewed_at,
+        created_at
     )
 `;
 
@@ -252,6 +278,18 @@ function getLatestCancellationRequest(row: BookingDetailsRow) {
     );
 }
 
+function getLatestInspoPrompt(row: BookingDetailsRow) {
+    return (
+        row.booking_inspo_prompts
+            ?.slice()
+            .sort(
+                (a, b) =>
+                    new Date(b.created_at).getTime() -
+                    new Date(a.created_at).getTime(),
+            )[0] ?? null
+    );
+}
+
 function getSlotRelation(row: BookingDetailsRow) {
     const slot = row.availability_slots;
 
@@ -261,6 +299,7 @@ function getSlotRelation(row: BookingDetailsRow) {
 function mapDetails(row: BookingDetailsRow): BookingDetailsData {
     const lineItems = mapLineItems(row);
     const latestCancellationRequest = getLatestCancellationRequest(row);
+    const latestInspoPrompt = getLatestInspoPrompt(row);
     const slot = getSlotRelation(row);
     const estimatedTotal = Number(row.estimated_total || 0);
     const finalTotal = Number(row.final_total || 0);
@@ -325,6 +364,15 @@ function mapDetails(row: BookingDetailsRow): BookingDetailsData {
                       latestCancellationRequest.requested_refund_method,
                   createdAt: latestCancellationRequest.created_at,
                   reviewedAt: latestCancellationRequest.reviewed_at,
+              }
+            : null,
+        inspoPrompt: latestInspoPrompt
+            ? {
+                  id: latestInspoPrompt.id,
+                  status: latestInspoPrompt.status,
+                  inspoSentAt: latestInspoPrompt.inspo_sent_at,
+                  reviewedAt: latestInspoPrompt.reviewed_at,
+                  createdAt: latestInspoPrompt.created_at,
               }
             : null,
     };

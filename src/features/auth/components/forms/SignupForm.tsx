@@ -11,11 +11,16 @@ import { isValidPassword } from "@/features/auth/validation/password";
 import { isValidEmail } from "@/features/auth/validation/email";
 
 import AppForm from "@/components/shared/form/AppForm";
+import AppSelect from "@/components/shared/form/AppSelect";
 import FormCheckbox from "@/components/shared/form/FormCheckbox";
 import FormField from "@/components/shared/form/FormField";
 import GoogleSignInButton from "@/features/auth/components/GoogleSignInButton";
 import PasswordRequirements from "@/components/shared/form/PasswordRequirements";
 import { useToast } from "@/components/shared/toast/ToastProvider";
+import {
+    normalizeInstagramHandle,
+    type PreferredContactMethod,
+} from "@/features/profile/validation/profile";
 
 const initialState = {
     error: "",
@@ -28,6 +33,9 @@ export default function SignupForm() {
 
     const [fullName, setFullName] = useState("");
     const [phone, setPhone] = useState("");
+    const [instagramHandle, setInstagramHandle] = useState("");
+    const [preferredContactMethod, setPreferredContactMethod] =
+        useState<PreferredContactMethod>("email");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
@@ -37,12 +45,26 @@ export default function SignupForm() {
     const passwordValid = useMemo(() => isValidPassword(password), [password]);
     const passwordsMatch =
         password === confirmPassword && confirmPassword.length > 0;
+    const normalizedInstagramHandle = normalizeInstagramHandle(instagramHandle);
+    const instagramHandleValid = useMemo(
+        () =>
+            !normalizedInstagramHandle ||
+            /^[A-Za-z0-9._]{1,30}$/.test(normalizedInstagramHandle),
+        [normalizedInstagramHandle],
+    );
+    const contactPreferenceValid =
+        preferredContactMethod === "email" ||
+        (preferredContactMethod === "phone" && phone.trim().length > 0) ||
+        (preferredContactMethod === "instagram" &&
+            Boolean(normalizedInstagramHandle));
 
     const canSubmit =
         fullName.trim().length > 0 &&
         emailValid &&
         passwordValid &&
         passwordsMatch &&
+        instagramHandleValid &&
+        contactPreferenceValid &&
         acceptedTerms;
 
     const [state, formAction, pending] = useActionState(
@@ -125,6 +147,44 @@ export default function SignupForm() {
                     enterKeyHint="next"
                     enterBehavior="next"
                     hintContent="This is optional, but providing a phone number can help us reach you if there are any issues with your booking."
+                />
+
+                <FormField
+                    id="instagramHandle"
+                    name="instagramHandle"
+                    label="Instagram handle"
+                    type="text"
+                    autoComplete="off"
+                    required={false}
+                    placeholder="e.g., vee.nailsstudio"
+                    value={instagramHandle}
+                    onValueChange={setInstagramHandle}
+                    enterKeyHint="next"
+                    enterBehavior="next"
+                    error={
+                        instagramHandle.length > 0 && !instagramHandleValid
+                            ? "Use letters, numbers, periods, or underscores only."
+                            : undefined
+                    }
+                    hintContent="This field is optional. Please leave off the @ symbol."
+                />
+
+                <AppSelect
+                    label="Preferred contact method"
+                    name="preferredContactMethod"
+                    value={preferredContactMethod}
+                    onChange={(value) =>
+                        setPreferredContactMethod(
+                            value as PreferredContactMethod,
+                        )
+                    }
+                    options={[
+                        { value: "email", label: "Email" },
+                        { value: "phone", label: "Phone" },
+                        { value: "instagram", label: "Instagram" },
+                    ]}
+                    required
+                    helperText="This helps the studio contact you about your appointment."
                 />
 
                 <FormField

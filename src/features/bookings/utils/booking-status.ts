@@ -62,12 +62,19 @@ export function getDepositStatusLabel(status: DepositStatus) {
     return depositStatusLabels[status];
 }
 
-export function isUpcomingBooking(status: BookingStatus, startsAt?: string | null) {
-    if (startsAt && new Date(startsAt).getTime() > Date.now()) {
+export function isUpcomingBooking(
+    status: BookingStatus,
+    startsAt?: string | null,
+) {
+    if (!activeBookingStatuses.includes(status)) {
+        return false;
+    }
+
+    if (!startsAt) {
         return true;
     }
 
-    return activeBookingStatuses.includes(status);
+    return new Date(startsAt).getTime() > Date.now();
 }
 
 export function isPastBooking(status: BookingStatus, startsAt?: string | null) {
@@ -90,7 +97,9 @@ export function canRequestCancellation(
 }
 
 export function canEditBooking(status: BookingStatus) {
-    return status === "held" || status === "requested" || status === "confirmed";
+    return (
+        status === "held" || status === "requested" || status === "confirmed"
+    );
 }
 
 export function isWithinEditCutoff(startsAt?: string | null, now = new Date()) {

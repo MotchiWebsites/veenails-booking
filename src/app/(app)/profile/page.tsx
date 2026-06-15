@@ -43,6 +43,10 @@ export default async function ProfilePage() {
                     <ProfileForm
                         displayName={profile.display_name}
                         phone={cleanPhone(profile.phone)}
+                        instagramHandle={profile.instagram_handle}
+                        preferredContactMethod={
+                            profile.preferred_contact_method ?? "email"
+                        }
                         createdAt={profile.created_at}
                     />
                 </Reveal>
