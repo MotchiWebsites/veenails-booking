@@ -24,6 +24,8 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { BookingCheckoutActionState } from "@/features/bookings/checkout/types";
 import type { Database } from "@/types/supabase";
+import { appointmentStatusTemplate } from "@/features/notifications/email/templates/appointment-status-template";
+import { sendTransactionalEmail } from "@/lib/email/brevo";
 
 type BookingSettingsRow = Pick<
     Database["public"]["Tables"]["booking_settings"]["Row"],
@@ -72,6 +74,61 @@ const BOOKING_REFERENCE_PREFIX = "VEE";
 const BOOKING_REFERENCE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const BOOKING_REFERENCE_LENGTH = 6;
 const BOOKING_REFERENCE_MAX_ATTEMPTS = 10;
+const ACTIVE_SLOT_BOOKING_STATUSES = [
+    "held",
+    "requested",
+    "confirmed",
+    "cancellation_requested",
+] as const;
+
+function slotStatusForBooking(
+    status: (typeof ACTIVE_SLOT_BOOKING_STATUSES)[number],
+): Database["public"]["Enums"]["slot_status"] {
+    if (status === "confirmed" || status === "cancellation_requested") {
+        return "confirmed";
+    }
+
+    return status;
+}
+
+async function reconcileSlotWithActiveBooking(
+    admin: ReturnType<typeof createAdminClient>,
+    slotId: string,
+) {
+    const { data: activeBooking, error } = await admin
+        .from("bookings")
+        .select("id, status")
+        .eq("slot_id", slotId)
+        .in("status", ACTIVE_SLOT_BOOKING_STATUSES)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .overrideTypes<{
+            id: string;
+            status: (typeof ACTIVE_SLOT_BOOKING_STATUSES)[number];
+        } | null>();
+
+    if (error) throw error;
+    if (!activeBooking) return false;
+
+    const { error: syncError } = await admin
+        .from("availability_slots")
+        .update({
+            status: slotStatusForBooking(
+                activeBooking.status as (typeof ACTIVE_SLOT_BOOKING_STATUSES)[number],
+            ),
+        })
+        .eq("id", slotId);
+
+    if (syncError) throw syncError;
+    return true;
+}
+
+function postgresErrorCode(error: unknown) {
+    return error && typeof error === "object" && "code" in error
+        ? String(error.code)
+        : "";
+}
 
 function nextMessageId() {
     return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -430,11 +487,15 @@ async function cleanupFailedBooking(
         await admin.from("bookings").delete().eq("id", bookingId);
     }
 
-    await admin
-        .from("availability_slots")
-        .update({ status: "available" })
-        .eq("id", slotId)
-        .eq("status", "requested");
+    const stillClaimed = await reconcileSlotWithActiveBooking(admin, slotId);
+
+    if (!stillClaimed) {
+        await admin
+            .from("availability_slots")
+            .update({ status: "available" })
+            .eq("id", slotId)
+            .eq("status", "requested");
+    }
 }
 
 export async function submitBookingCheckout(
@@ -628,6 +689,17 @@ export async function submitBookingCheckout(
     }
 
     try {
+        const alreadyClaimed = await reconcileSlotWithActiveBooking(
+            admin,
+            slotId,
+        );
+
+        if (alreadyClaimed) {
+            return state({
+                error: "This appointment time was already booked. Please choose another available time.",
+            });
+        }
+
         const { data: lockedSlot, error: lockError } = await admin
             .from("availability_slots")
             .update({ status: "requested" })
@@ -766,6 +838,19 @@ export async function submitBookingCheckout(
             throw eventError;
         }
 
+        const { data: bookingProfile } = await admin.from("profiles").select("display_name, email").eq("id", user.id).maybeSingle().overrideTypes<{ display_name: string; email: string } | null>();
+        const appointment = new Intl.DateTimeFormat("en-CA", { dateStyle: "full", timeStyle: "short" }).format(new Date(lockedSlot.starts_at));
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+        if (bookingProfile?.email) {
+            const template = appointmentStatusTemplate({ name: bookingProfile.display_name, reference: bookingReference, status: "requested", appointment, message: "Your booking request was submitted and your deposit was marked as sent.", detailsUrl: siteUrl ? `${siteUrl}/booking/${bookingReference}` : undefined });
+            await sendTransactionalEmail({ to: { email: bookingProfile.email, name: bookingProfile.display_name }, ...template, notificationType: "booking_requested", bookingId: booking.id, userId: user.id });
+        }
+        const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL;
+        if (adminEmail) {
+            const template = appointmentStatusTemplate({ name: "Vee", reference: bookingReference, status: "new request", appointment, message: `${bookingProfile?.display_name ?? "A client"} submitted a new booking request.`, detailsUrl: siteUrl ? `${siteUrl}/admin/appointments/${booking.id}` : undefined });
+            await sendTransactionalEmail({ to: { email: adminEmail, name: "Vee’s Nail Studio" }, ...template, notificationType: "admin_new_booking", bookingId: booking.id, userId: user.id });
+        }
+
         revalidatePath("/booking");
         revalidatePath("/book");
         revalidatePath("/dashboard");
@@ -805,7 +890,17 @@ export async function submitBookingCheckout(
             );
         }
 
-        await cleanupFailedBooking(admin, bookingId, slotId);
+        try {
+            await cleanupFailedBooking(admin, bookingId, slotId);
+        } catch (cleanupError) {
+            console.error("[bookings:checkout.cleanup]", cleanupError);
+        }
+
+        if (postgresErrorCode(error) === "23505") {
+            return state({
+                error: "This appointment time was already booked. Please choose another available time.",
+            });
+        }
 
         return state({
             error: "We couldn't send your booking request right now. Please try again.",

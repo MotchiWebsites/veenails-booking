@@ -41,10 +41,10 @@ export default function DashboardOverview({
                             align="left"
                         />
 
-                        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                        <div className="mt-6 flex flex-col gap-3 xl:flex-row">
                             <AnimatedArrowLink
                                 href="/book"
-                                className="btn-primary w-full sm:w-auto"
+                                className="btn-primary w-full xl:w-auto"
                             >
                                 Start Booking
                             </AnimatedArrowLink>
@@ -52,6 +52,7 @@ export default function DashboardOverview({
                             <Link href="/profile" className="btn-secondary w-full sm:w-auto">
                                 Update Profile
                             </Link>
+
                         </div>
                     </div>
 

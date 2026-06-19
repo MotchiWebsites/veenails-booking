@@ -8,9 +8,11 @@ import MobileSidebar from "@/components/navigation/dashboard/MobileSidebar";
 
 export default function DashboardShell({
     user,
+    isAdmin,
     children,
 }: {
     user: User;
+    isAdmin: boolean;
     children: React.ReactNode;
 }) {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -34,6 +36,7 @@ export default function DashboardShell({
                 <div className="flex min-w-0 flex-1 flex-col">
                     <DashboardHeader
                         user={user}
+                        isAdmin={isAdmin}
                         onOpenMobileSidebar={() => setMobileOpen(true)}
                     />
 

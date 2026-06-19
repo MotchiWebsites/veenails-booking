@@ -32,7 +32,7 @@ export default function DashboardUpcomingAppointments({
             </div>
 
             {bookings.length > 0 ? (
-                <div className="mt-5 grid gap-4 lg:grid-cols-3">
+                <div className="mt-5 grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
                     {bookings.map((booking) => (
                         <DashboardAppointmentCard
                             key={booking.id}

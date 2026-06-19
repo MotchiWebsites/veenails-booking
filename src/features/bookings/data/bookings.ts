@@ -5,7 +5,6 @@ import type {
     BookingStatusFilter,
 } from "@/features/bookings/types/bookings";
 import {
-    activeBookingStatuses,
     pastBookingStatuses,
     getBookingStatusLabel,
     getDepositStatusLabel,

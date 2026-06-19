@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/features/auth/guards/require-admin";
+import AdminShell from "@/features/admin/components/AdminShell";
 import { buildMetadata } from "@/lib/seo/metadata";
 
 export const metadata = buildMetadata({
@@ -15,5 +16,5 @@ export default async function AdminLayout({
 }) {
     await requireAdmin();
 
-    return <>{children}</>;
+    return <AdminShell>{children}</AdminShell>;
 }

@@ -16,6 +16,20 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+### Transactional email
+
+Brevo notifications are sent server-side and require these deployment variables:
+
+```bash
+BREVO_API_KEY=
+BREVO_SENDER_EMAIL=
+BREVO_SENDER_NAME="Vee’s Nail Studio"
+ADMIN_NOTIFICATION_EMAIL=
+NEXT_PUBLIC_SITE_URL=
+```
+
+When Brevo is not configured, email attempts are safely recorded as `skipped` in `notification_logs`.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

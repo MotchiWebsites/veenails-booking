@@ -57,6 +57,7 @@ export async function getDashboardOverviewData(
             .eq("active", true)
             .gte("starts_at", new Date().toISOString())
             .order("starts_at", { ascending: true }),
+
     ]);
 
     if (pendingBookings.error) {

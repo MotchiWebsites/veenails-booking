@@ -23,6 +23,8 @@ import type {
     BookingEditActionState,
     RefundMethod,
 } from "@/features/bookings/types/bookings";
+import { cancellationTemplate } from "@/features/notifications/email/templates/cancellation-template";
+import { sendTransactionalEmail } from "@/lib/email/brevo";
 import type {
     BookingSelections,
     DesignTier,
@@ -529,7 +531,8 @@ export async function requestBookingCancellation(
     }
 
     const bookingId = getFormString(formData, "bookingId");
-    const reason = getFormString(formData, "reason");
+    const reasonInput = getFormString(formData, "reason");
+    const reason = reasonInput || "No additional message provided.";
     const requestedRefundMethod = getFormString(
         formData,
         "requestedRefundMethod",
@@ -538,12 +541,6 @@ export async function requestBookingCancellation(
     if (!bookingId) {
         return state({
             error: "Choose a booking before requesting cancellation.",
-        });
-    }
-
-    if (reason.length < 8) {
-        return state({
-            error: "Please include a short reason so the studio can review your request.",
         });
     }
 
@@ -558,7 +555,7 @@ export async function requestBookingCancellation(
 
     const { data: booking, error: bookingError } = await supabase
         .from("bookings")
-        .select("id, booking_reference, user_id, status")
+        .select("id, booking_reference, user_id, status, profiles:user_id(display_name, email), availability_slots:slot_id(starts_at, ends_at)")
         .eq("id", bookingId)
         .eq("user_id", user.id)
         .maybeSingle();
@@ -652,6 +649,7 @@ export async function requestBookingCancellation(
         message: "Client requested cancellation.",
         metadata: {
             requestedRefundMethod,
+            reason: reasonInput || null,
         },
     });
 
@@ -662,6 +660,20 @@ export async function requestBookingCancellation(
     revalidatePath("/booking");
     revalidateBookingPaths(booking.booking_reference);
     revalidatePath("/dashboard");
+
+    const typedBooking = booking as typeof booking & { profiles?: { display_name: string; email: string } | null; availability_slots?: { starts_at: string; ends_at: string } | null };
+    const appointment = typedBooking.availability_slots?.starts_at ? new Intl.DateTimeFormat("en-CA", { dateStyle: "full", timeStyle: "short" }).format(new Date(typedBooking.availability_slots.starts_at)) : "Not scheduled";
+    const outcome = requestedRefundMethod === "refund_etransfer" ? "Refund deposit" : requestedRefundMethod === "account_credit" ? "Convert deposit to credit" : "No refund needed";
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+    if (typedBooking.profiles?.email) {
+        const template = cancellationTemplate({ name: typedBooking.profiles.display_name, reference: booking.booking_reference, heading: "Cancellation request received", appointment, reason, outcome, message: "Your cancellation request was sent to the studio for review.", detailsUrl: siteUrl ? `${siteUrl}/booking/${booking.booking_reference}` : undefined });
+        await sendTransactionalEmail({ to: { email: typedBooking.profiles.email, name: typedBooking.profiles.display_name }, ...template, notificationType: "cancellation_request_submitted", bookingId: booking.id, userId: user.id });
+    }
+    const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL;
+    if (adminEmail) {
+        const template = cancellationTemplate({ name: "Vee", reference: booking.booking_reference, heading: "New cancellation request", appointment, reason, outcome, message: `${typedBooking.profiles?.display_name ?? "A client"} submitted a cancellation request.`, detailsUrl: siteUrl ? `${siteUrl}/admin/appointments/${booking.id}` : undefined });
+        await sendTransactionalEmail({ to: { email: adminEmail, name: "Vee’s Nail Studio" }, ...template, notificationType: "admin_cancellation_request", bookingId: booking.id, userId: user.id });
+    }
 
     return state({
         success:

@@ -4,6 +4,7 @@ import type { User } from "@supabase/supabase-js";
 import { FiMenu } from "react-icons/fi";
 import DashboardUserMenu from "@/components/dashboard/DashboardUserMenu";
 import Link from "next/link";
+import AdminViewToggle from "@/components/shared/navigation/AdminViewToggle";
 
 function getDisplayName(user: User) {
     return (
@@ -16,9 +17,11 @@ function getDisplayName(user: User) {
 
 export default function DashboardHeader({
     user,
+    isAdmin,
     onOpenMobileSidebar,
 }: {
     user: User;
+    isAdmin: boolean;
     onOpenMobileSidebar: () => void;
 }) {
     const displayName = getDisplayName(user);
@@ -54,6 +57,7 @@ export default function DashboardHeader({
                 </div>
 
                 <div className="flex items-center gap-3">
+                    <AdminViewToggle isAdmin={isAdmin} />
                     <DashboardUserMenu user={user} />
                 </div>
             </div>

@@ -67,25 +67,23 @@ export default function CancellationRequestModal({
                     </span>
                     <textarea
                         name="reason"
-                        required
-                        minLength={8}
                         rows={4}
-                        className="mt-2 w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm outline-none transition focus:border-pink-main focus:ring-2 focus:ring-pink-main/20"
-                        placeholder="Share anything helpful for the studio."
+                        className="input-field mt-2 min-h-24 resize-y leading-relaxed"
+                        placeholder="Optional message for the studio."
                     />
                 </label>
 
                 <AppSelect
-                    label="Preferred refund handling"
+                    label="Preferred cancellation outcome"
                     name="requestedRefundMethod"
                     defaultValue="account_credit"
                     options={[
-                        { value: "account_credit", label: "Account credit" },
+                        { value: "account_credit", label: "Convert deposit to credit" },
                         {
                             value: "refund_etransfer",
-                            label: "E-transfer refund",
+                            label: "Refund deposit",
                         },
-                        { value: "no_refund", label: "No refund requested" },
+                        { value: "no_refund", label: "No refund needed" },
                     ]}
                 />
 

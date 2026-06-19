@@ -21,6 +21,7 @@ import {
 } from "@/features/bookings/utils/booking-status";
 import BookingDetailsHeader from "./BookingDetailsHeader";
 import { summaryRows } from "../data/summary-rows";
+import BookingCancellationSummary from "@/features/bookings/details/components/BookingCancellationSummary";
 
 export default function BookingDetailsPage({
     data,
@@ -83,6 +84,8 @@ export default function BookingDetailsPage({
                     ) : null}
                 </div>
             </div>
+
+            <BookingCancellationSummary data={data} />
 
             <div className="py-6">
                 <BookingDetailsHeader title="Appointment summary" />

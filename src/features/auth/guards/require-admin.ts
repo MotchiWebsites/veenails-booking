@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getAdminContextForUser } from "@/features/admin/auth/admin-auth";
 import { requireUser } from "@/features/auth/guards/require-user";
 
 type RequireAdminOptions = {
@@ -21,24 +21,17 @@ export async function requireAdmin(options: RequireAdminOptions = {}) {
         redirectTo: options.loginRedirectTo ?? "/login",
     });
 
-    const supabase = await createClient();
+    const admin = await getAdminContextForUser(user.id);
 
-    const { data, error } = await supabase
-        .from("admin_users")
-        .select("role, active")
-        .eq("user_id", user.id)
-        .eq("active", true)
-        .maybeSingle();
-
-    if (error || !data) {
+    if (!admin) {
         redirect(options.unauthorizedRedirectTo ?? "/dashboard");
     }
 
     return {
         user,
         admin: {
-            role: data.role as AppAdminRole,
-            active: data.active,
+            role: admin.role as AppAdminRole,
+            active: admin.active,
         },
     };
 }
