@@ -2,9 +2,14 @@
 
 import { useActionState, useEffect, useState } from "react";
 import AppForm from "@/components/shared/form/AppForm";
+import AppSelect from "@/components/shared/form/AppSelect";
 import FormField from "@/components/shared/form/FormField";
 import { useToast } from "@/components/shared/toast/ToastProvider";
 import { updateProfile } from "@/features/profile/actions/profile";
+import {
+    normalizeInstagramHandle,
+    type PreferredContactMethod,
+} from "@/features/profile/validation/profile";
 import { CiHeart } from "react-icons/ci";
 
 const initialState = {
@@ -16,10 +21,14 @@ const initialState = {
 export default function ProfileForm({
     displayName,
     phone,
+    instagramHandle,
+    preferredContactMethod,
     createdAt,
 }: {
     displayName: string;
     phone: string | null;
+    instagramHandle: string | null;
+    preferredContactMethod: PreferredContactMethod;
     createdAt?: string | null;
 }) {
     const { error, success } = useToast();
@@ -36,13 +45,28 @@ export default function ProfileForm({
     };
 
     const [phoneValue, setPhoneValue] = useState(formatPhone(phone));
+    const [instagramValue, setInstagramValue] = useState(instagramHandle ?? "");
+    const [preferredContactValue, setPreferredContactValue] =
+        useState<PreferredContactMethod>(preferredContactMethod ?? "email");
+    const normalizedInstagramHandle = normalizeInstagramHandle(instagramValue);
+    const instagramHandleValid =
+        !normalizedInstagramHandle ||
+        /^[A-Za-z0-9._]{1,30}$/.test(normalizedInstagramHandle);
+    const contactPreferenceValid =
+        preferredContactValue === "email" ||
+        (preferredContactValue === "phone" && phoneValue.trim().length > 0) ||
+        (preferredContactValue === "instagram" &&
+            Boolean(normalizedInstagramHandle));
 
     const [state, formAction, pending] = useActionState(
         updateProfile,
         initialState,
     );
 
-    const canSubmit = nameValue.trim().length > 0;
+    const canSubmit =
+        nameValue.trim().length > 0 &&
+        instagramHandleValid &&
+        contactPreferenceValid;
 
     useEffect(() => {
         if (!state.messageId) return;
@@ -68,8 +92,8 @@ export default function ProfileForm({
                 <p className="mt-2 text-sm leading-relaxed text-muted">
                     Keep this information updated so the studio can contact you
                     about appointment requests, confirmations, and booking
-                    changes. You can update your display name and phone number
-                    here.
+                    changes. You can update your display name, phone number,
+                    Instagram handle, and preferred contact method here.
                 </p>
 
                 {createdAt ? (
@@ -112,8 +136,48 @@ export default function ProfileForm({
                         placeholder="(416) 123-4567"
                         inputMode="tel"
                         value={phoneValue}
-                        onValueChange={(v: string) => setPhoneValue(formatPhone(v))}
+                        onValueChange={(v: string) =>
+                            setPhoneValue(formatPhone(v))
+                        }
                         enterKeyHint="done"
+                    />
+
+                    <FormField
+                        id="instagramHandle"
+                        name="instagramHandle"
+                        label="Instagram handle"
+                        type="text"
+                        autoComplete="off"
+                        required={false}
+                        placeholder="e.g., vee.nailsstudio"
+                        value={instagramValue}
+                        onValueChange={setInstagramValue}
+                        enterKeyHint="next"
+                        enterBehavior="next"
+                        error={
+                            instagramValue.length > 0 && !instagramHandleValid
+                                ? "Use letters, numbers, periods, or underscores only."
+                                : undefined
+                        }
+                        hintContent="This field is optional. Please leave off the @ symbol."
+                    />
+
+                    <AppSelect
+                        label="Preferred contact method"
+                        name="preferredContactMethod"
+                        required
+                        value={preferredContactValue}
+                        onChange={(value) =>
+                            setPreferredContactValue(
+                                value as PreferredContactMethod,
+                            )
+                        }
+                        options={[
+                            { value: "email", label: "Email" },
+                            { value: "phone", label: "Phone" },
+                            { value: "instagram", label: "Instagram" },
+                        ]}
+                        helperText="This helps the studio contact you about your appointment."
                     />
 
                     <button

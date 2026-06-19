@@ -87,7 +87,7 @@ export default function FormField(props: FormFieldProps) {
         <div className={`space-y-2 ${props.className ?? ""}`}>
             <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
-                    <label htmlFor={props.id} className="label-text">
+                    <label htmlFor={props.id} className="label-text text-sm lg:text-base">
                         {props.label}
                         {props.required ? (
                             <span

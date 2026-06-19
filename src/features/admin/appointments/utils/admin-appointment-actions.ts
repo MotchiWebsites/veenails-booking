@@ -1,0 +1,65 @@
+import type { AdminAppointmentDetails } from "@/features/admin/appointments/data/admin-appointments";
+
+const ACTIVE_STATUSES = new Set([
+    "held",
+    "requested",
+    "confirmed",
+    "cancellation_requested",
+]);
+
+export type AdminAppointmentActionRules = {
+    canConfirm: boolean;
+    canConfirmDeposit: boolean;
+    canComplete: boolean;
+    canMarkNoShow: boolean;
+    canReject: boolean;
+    canCancel: boolean;
+    canReviewCancellation: boolean;
+    canReviewInspo: boolean;
+    terminal: boolean;
+};
+
+export function getAdminAppointmentActionRules(
+    booking: AdminAppointmentDetails,
+): AdminAppointmentActionRules {
+    const now = new Date(booking.operationalNow).getTime();
+    const startsAt = booking.startsAt
+        ? new Date(booking.startsAt).getTime()
+        : null;
+    const currentOrPast = startsAt !== null && startsAt <= now;
+    const future = startsAt === null || startsAt > now;
+    const past = booking.endsAt
+        ? new Date(booking.endsAt).getTime() < now
+        : false;
+    const active = ACTIVE_STATUSES.has(booking.status);
+    const staleUnhandled =
+        past && (booking.status === "requested" || booking.status === "held");
+    const terminal = !active || staleUnhandled;
+    const pendingCancellation =
+        booking.status === "cancellation_requested" &&
+        booking.cancellationRequest?.status === "pending";
+
+    return {
+        canConfirm:
+            !past &&
+            (booking.status === "requested" || booking.status === "held"),
+        canConfirmDeposit:
+            active &&
+            !past &&
+            (booking.depositStatus === "pending" ||
+                booking.depositStatus === "marked_sent"),
+        canComplete: booking.status === "confirmed" && currentOrPast,
+        canMarkNoShow: booking.status === "confirmed" && currentOrPast,
+        canReject:
+            !past &&
+            (booking.status === "requested" || booking.status === "held"),
+        canCancel:
+            future &&
+            (booking.status === "requested" ||
+                booking.status === "held" ||
+                booking.status === "confirmed"),
+        canReviewCancellation: pendingCancellation,
+        canReviewInspo: booking.inspoPrompt?.status === "sent",
+        terminal,
+    };
+}

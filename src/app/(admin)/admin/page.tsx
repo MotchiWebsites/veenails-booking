@@ -1,7 +1,8 @@
-export default function AdminPage() {
-    return (
-        <div>
-            <h1>Admin Dashboard</h1>
-        </div>
-    );
+import AdminDashboardPage from "@/features/admin/dashboard/components/AdminDashboardPage";
+import { getAdminDashboardData } from "@/features/admin/dashboard/data/admin-dashboard";
+
+export default async function AdminPage() {
+    const data = await getAdminDashboardData();
+
+    return <AdminDashboardPage data={data} />;
 }

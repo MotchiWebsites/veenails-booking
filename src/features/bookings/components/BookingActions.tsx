@@ -5,6 +5,7 @@ import { useState } from "react";
 import { FiEdit3, FiEye, FiXCircle } from "react-icons/fi";
 import CancellationRequestModal from "@/features/bookings/components/CancellationRequestModal";
 import type { BookingSummary } from "@/features/bookings/types/bookings";
+import { getBookingReferenceHref } from "@/features/bookings/utils/booking-formatters";
 import {
     canEditBooking,
     canRequestCancellation,
@@ -31,7 +32,7 @@ export default function BookingActions({
                 }
             >
                 <Link
-                    href={`/booking/${booking.id}`}
+                    href={getBookingReferenceHref(booking.bookingReference)}
                     className={
                         compact
                             ? "inline-flex items-center gap-2 rounded-lg px-1 py-1.5 text-sm font-semibold text-dark-green transition hover:text-pink-main"
@@ -44,7 +45,10 @@ export default function BookingActions({
 
                 {canEditBooking(booking.status) ? (
                     <Link
-                        href={`/booking/${booking.id}/edit`}
+                        href={getBookingReferenceHref(
+                            booking.bookingReference,
+                            "/edit",
+                        )}
                         className={
                             compact
                                 ? "inline-flex items-center gap-2 rounded-lg px-1 py-1.5 text-sm font-semibold text-muted transition hover:text-foreground"
@@ -75,7 +79,8 @@ export default function BookingActions({
                     </button>
                 ) : null}
 
-                {allowCancellation && booking.status === "cancellation_requested" ? (
+                {allowCancellation &&
+                booking.status === "cancellation_requested" ? (
                     <button
                         type="button"
                         className={

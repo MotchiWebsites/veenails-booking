@@ -3,6 +3,8 @@ import { FiCheckCircle, FiClock, FiCreditCard } from "react-icons/fi";
 
 import StatusCard from "@/features/dashboard/components/StatusCard";
 import QuickActions from "@/features/dashboard/components/QuickActions";
+import DashboardAvailabilityCalendar from "@/features/dashboard/components/availability-calendar/DashboardAvailabilityCalendar";
+import DashboardUpcomingAppointments from "@/features/dashboard/components/upcoming-appointments/DashboardUpcomingAppointments";
 import SectionIntro from "@/components/shared/ui/SectionIntro";
 import AnimatedArrowLink from "@/components/shared/ui/AnimatedArrowLink";
 import type { DashboardOverviewData } from "@/features/dashboard/types/dashboard";
@@ -39,17 +41,18 @@ export default function DashboardOverview({
                             align="left"
                         />
 
-                        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                        <div className="mt-6 flex flex-col gap-3 xl:flex-row">
                             <AnimatedArrowLink
                                 href="/book"
-                                className="btn-primary"
+                                className="btn-primary w-full xl:w-auto"
                             >
                                 Start Booking
                             </AnimatedArrowLink>
 
-                            <Link href="/profile" className="btn-secondary">
+                            <Link href="/profile" className="btn-secondary w-full sm:w-auto">
                                 Update Profile
                             </Link>
+
                         </div>
                     </div>
 
@@ -74,6 +77,12 @@ export default function DashboardOverview({
                     </div>
                 </div>
             </section>
+
+            <DashboardUpcomingAppointments
+                bookings={data.upcomingAppointments}
+            />
+
+            <DashboardAvailabilityCalendar days={data.availability.days} />
 
             <QuickActions />
         </div>

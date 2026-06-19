@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
+import AppSelect from "@/components/shared/form/AppSelect";
 import ModalShell from "@/components/shared/ui/ModalShell";
 import { useToast } from "@/components/shared/toast/ToastProvider";
 import { requestBookingCancellation } from "@/features/bookings/actions/bookings";
@@ -66,32 +67,29 @@ export default function CancellationRequestModal({
                     </span>
                     <textarea
                         name="reason"
-                        required
-                        minLength={8}
                         rows={4}
-                        className="mt-2 w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm outline-none transition focus:border-pink-main focus:ring-2 focus:ring-pink-main/20"
-                        placeholder="Share anything helpful for the studio."
+                        className="input-field mt-2 min-h-24 resize-y leading-relaxed"
+                        placeholder="Optional message for the studio."
                     />
                 </label>
 
-                <label className="block">
-                    <span className="text-sm font-semibold text-foreground">
-                        Preferred refund handling
-                    </span>
-                    <select
-                        name="requestedRefundMethod"
-                        className="mt-2 w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm outline-none transition focus:border-pink-main focus:ring-2 focus:ring-pink-main/20"
-                        defaultValue="account_credit"
-                    >
-                        <option value="account_credit">Account credit</option>
-                        <option value="refund_etransfer">E-transfer refund</option>
-                        <option value="no_refund">No refund requested</option>
-                    </select>
-                </label>
+                <AppSelect
+                    label="Preferred cancellation outcome"
+                    name="requestedRefundMethod"
+                    defaultValue="account_credit"
+                    options={[
+                        { value: "account_credit", label: "Convert deposit to credit" },
+                        {
+                            value: "refund_etransfer",
+                            label: "Refund deposit",
+                        },
+                        { value: "no_refund", label: "No refund needed" },
+                    ]}
+                />
 
                 <p className="rounded-2xl bg-pink-main/10 px-4 py-3 text-sm leading-relaxed text-muted">
-                    Submitting this sends your request for review. The studio may
-                    follow up before confirming any cancellation or refund.
+                    Submitting this sends your request for review. The studio
+                    may follow up before confirming any cancellation or refund.
                 </p>
 
                 <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
@@ -103,7 +101,11 @@ export default function CancellationRequestModal({
                     >
                         Keep Booking
                     </button>
-                    <button type="submit" className="btn-primary" disabled={pending}>
+                    <button
+                        type="submit"
+                        className="btn-primary"
+                        disabled={pending}
+                    >
                         {pending ? "Submitting..." : "Submit Request"}
                     </button>
                 </div>

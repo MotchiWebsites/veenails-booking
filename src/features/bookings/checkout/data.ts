@@ -7,6 +7,7 @@ import type { Database } from "@/types/supabase";
 
 export type BookingCheckoutSettings = NonNullable<BookingSettingsSummary> & {
     etransferEmail: string | null;
+    instagramUrl: string | null;
 };
 
 type SettingsRow = Pick<
@@ -16,6 +17,7 @@ type SettingsRow = Pick<
     | "booking_fee_rate"
     | "hold_minutes"
     | "etransfer_email"
+    | "instagram_url"
 >;
 
 type DesignTierRow = Pick<
@@ -26,14 +28,19 @@ type DesignTierRow = Pick<
 export async function getBookingCheckoutPageData(): Promise<{
     settings: BookingCheckoutSettings | null;
     designTiers: DesignTier[];
+    userEmail: string | null;
 }> {
     const supabase = await createClient();
 
-    const [settingsResult, designTiersResult] = await Promise.all([
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    const [settingsResult, designTiersResult, profileResult] = await Promise.all([
         supabase
             .from("booking_settings")
             .select(
-                "deposit_amount, booking_fee_mode, booking_fee_rate, hold_minutes, etransfer_email",
+                "deposit_amount, booking_fee_mode, booking_fee_rate, hold_minutes, etransfer_email, instagram_url",
             )
             .eq("id", 1)
             .eq("active", true)
@@ -46,6 +53,15 @@ export async function getBookingCheckoutPageData(): Promise<{
             .eq("active", true)
             .order("display_order", { ascending: true })
             .overrideTypes<DesignTierRow[]>(),
+
+        user
+            ? supabase
+                  .from("profiles")
+                  .select("email")
+                  .eq("id", user.id)
+                  .maybeSingle()
+                  .overrideTypes<{ email: string | null } | null>()
+            : Promise.resolve({ data: null, error: null }),
     ]);
 
     if (settingsResult.error) {
@@ -64,6 +80,10 @@ export async function getBookingCheckoutPageData(): Promise<{
         throw new Error("We couldn't load design tier details right now.");
     }
 
+    if (profileResult.error) {
+        console.error("[bookings:checkout.profile]", profileResult.error);
+    }
+
     return {
         settings: settingsResult.data
             ? {
@@ -74,6 +94,7 @@ export async function getBookingCheckoutPageData(): Promise<{
                   ),
                   holdMinutes: Number(settingsResult.data.hold_minutes ?? 0),
                   etransferEmail: settingsResult.data.etransfer_email,
+                  instagramUrl: settingsResult.data.instagram_url,
               }
             : null,
         designTiers: (designTiersResult.data ?? []).map((tier) => ({
@@ -84,5 +105,6 @@ export async function getBookingCheckoutPageData(): Promise<{
             imageSrc: null,
             imageAlt: `${tier.name} design tier preview`,
         })),
+        userEmail: profileResult.data?.email ?? user?.email ?? null,
     };
 }

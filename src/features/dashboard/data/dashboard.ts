@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getDashboardUpcomingBookings } from "@/features/bookings/data/bookings";
 import { getCreditsPageData } from "@/features/credits/data/credits";
 import type { DashboardOverviewData } from "@/features/dashboard/types/dashboard";
 
@@ -22,7 +23,9 @@ export async function getDashboardOverviewData(
 
     const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("display_name, email")
+        .select(
+            "display_name, email, phone, instagram_handle, preferred_contact_method",
+        )
         .eq("id", userId)
         .single();
 
@@ -30,22 +33,32 @@ export async function getDashboardOverviewData(
         throwDashboardDataError("profile", profileError);
     }
 
-    const [pendingBookings, confirmedBookings, creditsPageData] =
+    const [pendingBookings, confirmedBookings, creditsPageData, upcomingBookings, availabilityResult] =
         await Promise.all([
-            supabase
-                .from("bookings")
-                .select("id", { count: "exact", head: true })
-                .eq("user_id", userId)
-                .eq("status", "requested"),
+        supabase
+            .from("bookings")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", userId)
+            .eq("status", "requested"),
 
-            supabase
-                .from("bookings")
-                .select("id", { count: "exact", head: true })
-                .eq("user_id", userId)
-                .eq("status", "confirmed"),
+        supabase
+            .from("bookings")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", userId)
+            .eq("status", "confirmed"),
 
-            getCreditsPageData(userId),
-        ]);
+        getCreditsPageData(userId),
+
+        getDashboardUpcomingBookings(userId, 3),
+
+        supabase
+            .from("availability_slots")
+            .select("id, starts_at, ends_at, status, active")
+            .eq("active", true)
+            .gte("starts_at", new Date().toISOString())
+            .order("starts_at", { ascending: true }),
+
+    ]);
 
     if (pendingBookings.error) {
         throwDashboardDataError("pending-bookings", pendingBookings.error);
@@ -55,18 +68,103 @@ export async function getDashboardOverviewData(
         throwDashboardDataError("confirmed-bookings", confirmedBookings.error);
     }
 
+    if (availabilityResult.error) {
+        throwDashboardDataError("availability", availabilityResult.error);
+    }
+
     const profileEmail = profile?.email ?? fallbackEmail ?? "";
+    const days = buildAvailabilityDays(availabilityResult.data ?? []);
 
     return {
         profile: {
             displayName:
                 profile?.display_name || getFallbackDisplayName(profileEmail),
             email: profileEmail,
+            phone: profile?.phone ?? null,
+            instagramHandle: profile?.instagram_handle ?? null,
+            preferredContactMethod:
+                profile?.preferred_contact_method ?? "email",
         },
         stats: {
             pendingRequests: pendingBookings.count ?? 0,
             confirmedBookings: confirmedBookings.count ?? 0,
             availableCredits: creditsPageData.totalActiveAmount,
         },
+        availability: {
+            days,
+        },
+        upcomingAppointments: upcomingBookings,
     };
+}
+
+function buildAvailabilityDays(
+    slots: Array<{
+        id: string;
+        starts_at: string;
+        ends_at: string;
+        status: string;
+    }>,
+) {
+    const now = new Date();
+    const dayMap = new Map<
+        string,
+        {
+            date: string;
+            label: string;
+            dayName: string;
+            dayNumber: string;
+            monthLabel: string;
+            isToday: boolean;
+            slots: {
+                id: string;
+                startsAt: string;
+                endsAt: string;
+                available: boolean;
+            }[];
+        }
+    >();
+
+    for (let offset = 0; offset < 21; offset += 1) {
+        const date = new Date(now);
+        date.setDate(now.getDate() + offset);
+        const key = date.toISOString().slice(0, 10);
+
+        dayMap.set(key, {
+            date: key,
+            label: date.toLocaleDateString(undefined, {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+            }),
+            dayName: date.toLocaleDateString(undefined, {
+                weekday: "short",
+            }),
+            dayNumber: date.toLocaleDateString(undefined, {
+                day: "numeric",
+            }),
+            monthLabel: date.toLocaleDateString(undefined, {
+                month: "short",
+            }),
+            isToday: key === now.toISOString().slice(0, 10),
+            slots: [],
+        });
+    }
+
+    for (const slot of slots) {
+        const dateKey = slot.starts_at.slice(0, 10);
+        const day = dayMap.get(dateKey);
+
+        if (!day) {
+            continue;
+        }
+
+        day.slots.push({
+            id: slot.id,
+            startsAt: slot.starts_at,
+            endsAt: slot.ends_at,
+            available: slot.status === "available",
+        });
+    }
+
+    return Array.from(dayMap.values());
 }

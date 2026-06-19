@@ -7,6 +7,15 @@ import {
     isCompleteNorthAmericanPhone,
     normalizeNorthAmericanPhone,
 } from "@/features/auth/validation/phone";
+import type { Enums } from "@/types/supabase";
+
+export type PreferredContactMethod = Enums<"preferred_contact_method">;
+
+export const preferredContactMethods = [
+    "email",
+    "phone",
+    "instagram",
+] as const satisfies PreferredContactMethod[];
 
 export function validateDisplayName(value: string) {
     const displayName = value.trim();
@@ -48,6 +57,56 @@ export function normalizeProfilePhone(value: string) {
     }
 
     return normalizeNorthAmericanPhone(phone);
+}
+
+export function normalizeInstagramHandle(value: string) {
+    const handle = value.trim().replace(/^@+/, "");
+
+    return handle || null;
+}
+
+export function validateInstagramHandle(value: string) {
+    const handle = normalizeInstagramHandle(value);
+
+    if (!handle) {
+        return null;
+    }
+
+    if (handle.length > 30 || !/^[A-Za-z0-9._]+$/.test(handle)) {
+        return "Enter a valid Instagram handle without @.";
+    }
+
+    return null;
+}
+
+export function parsePreferredContactMethod(value: string) {
+    return preferredContactMethods.includes(value as PreferredContactMethod)
+        ? (value as PreferredContactMethod)
+        : null;
+}
+
+export function validateContactPreference({
+    preferredContactMethod,
+    phone,
+    instagramHandle,
+}: {
+    preferredContactMethod: PreferredContactMethod | null;
+    phone: string | null;
+    instagramHandle: string | null;
+}) {
+    if (!preferredContactMethod) {
+        return "Choose your preferred contact method.";
+    }
+
+    if (preferredContactMethod === "phone" && !phone) {
+        return "Please add a phone number or choose a different preferred contact method.";
+    }
+
+    if (preferredContactMethod === "instagram" && !instagramHandle) {
+        return "Please add your Instagram handle or choose a different preferred contact method.";
+    }
+
+    return null;
 }
 
 export function validateProfileEmail(value: string, currentEmail?: string) {

@@ -1,14 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
 import type {
+    BookingSummary,
     MyBookingsPageData,
     BookingStatusFilter,
 } from "@/features/bookings/types/bookings";
 import {
-    activeBookingStatuses,
     pastBookingStatuses,
+    getBookingStatusLabel,
+    getDepositStatusLabel,
     isPastBooking,
     isUpcomingBooking,
 } from "@/features/bookings/utils/booking-status";
+import { formatBookingDate } from "@/features/bookings/utils/booking-formatters";
 import type { Database } from "@/types/supabase";
 
 type BookingBaseRow = Pick<
@@ -124,6 +127,27 @@ function comparePast(a: BookingRow, b: BookingRow) {
     return new Date(bDate).getTime() - new Date(aDate).getTime();
 }
 
+function getBookingSearchText(row: BookingRow) {
+    const dateText = row.availability_slots?.starts_at
+        ? formatBookingDate(row.availability_slots.starts_at)
+        : formatBookingDate(row.created_at);
+
+    const lineItemLabels = (row.booking_line_items ?? [])
+        .filter((item) => item.active && !item.removed_at)
+        .map((item) => item.label_snapshot)
+        .filter((label): label is string => Boolean(label));
+
+    return [
+        row.booking_reference,
+        getBookingStatusLabel(row.status),
+        getDepositStatusLabel(row.deposit_status),
+        dateText,
+        ...lineItemLabels,
+    ]
+        .join(" ")
+        .toLowerCase();
+}
+
 function mapBookingSummary(row: BookingRow) {
     const lineItems = (row.booking_line_items ?? [])
         .filter((item) => item.active && !item.removed_at)
@@ -185,6 +209,36 @@ function mapBookingSummary(row: BookingRow) {
     };
 }
 
+export async function getDashboardUpcomingBookings(
+    userId: string,
+    limit = 3,
+): Promise<BookingSummary[]> {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+        .from("bookings")
+        .select(selectSummary)
+        .eq("user_id", userId)
+        .in("status", ["requested", "confirmed", "cancellation_requested"])
+        .order("created_at", { ascending: false })
+        .overrideTypes<BookingRow[]>();
+
+    if (error) {
+        console.error("[bookings:getDashboardUpcomingBookings]", error);
+        throw sanitizedError();
+    }
+
+    return (data ?? [])
+        .filter((booking) => {
+            const startsAt = booking.availability_slots?.starts_at;
+
+            return !startsAt || new Date(startsAt).getTime() >= Date.now();
+        })
+        .sort(compareUpcoming)
+        .slice(0, limit)
+        .map(mapBookingSummary);
+}
+
 export async function getMyBookingsPageData({
     userId,
     search = "",
@@ -196,6 +250,7 @@ export async function getMyBookingsPageData({
     const safePage = normalizePage(page);
     const safePageSize = normalizePageSize(pageSize);
     const normalizedSearch = search.trim().slice(0, 80);
+    const normalizedSearchText = normalizedSearch.toLowerCase();
 
     const { data, error } = await supabase
         .from("bookings")
@@ -218,7 +273,6 @@ export async function getMyBookingsPageData({
                 booking.availability_slots?.starts_at,
             ),
         )
-        .filter((booking) => activeBookingStatuses.includes(booking.status))
         .sort(compareUpcoming)
         .slice(0, 5)
         .map(mapBookingSummary);
@@ -235,6 +289,17 @@ export async function getMyBookingsPageData({
                 pastBookingStatuses.includes(booking.status) ||
                 Boolean(booking.availability_slots?.starts_at),
         )
+        .filter((booking) => {
+            if (status !== "all" && booking.status !== status) {
+                return false;
+            }
+
+            if (!normalizedSearchText) {
+                return true;
+            }
+
+            return getBookingSearchText(booking).includes(normalizedSearchText);
+        })
         .sort(comparePast);
 
     const total = pastRows.length;

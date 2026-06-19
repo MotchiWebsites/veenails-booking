@@ -6,7 +6,11 @@ import { getFriendlyAuthError } from "@/features/auth/lib/auth-errors";
 import { maskEmail } from "@/features/auth/lib/mask-email";
 import {
     normalizeProfilePhone,
+    normalizeInstagramHandle,
+    parsePreferredContactMethod,
+    validateContactPreference,
     validateDisplayName,
+    validateInstagramHandle,
     validateProfileEmail,
     validateProfilePassword,
     validateProfilePhone,
@@ -78,6 +82,13 @@ export async function updateProfile(
 ): Promise<ProfileActionState> {
     const displayName = String(formData.get("displayName") || "").trim();
     const rawPhone = String(formData.get("phone") || "").trim();
+    const rawInstagramHandle = String(
+        formData.get("instagramHandle") || "",
+    ).trim();
+    const instagramHandle = normalizeInstagramHandle(rawInstagramHandle);
+    const preferredContactMethod = parsePreferredContactMethod(
+        String(formData.get("preferredContactMethod") || "email"),
+    );
 
     const nameError = validateDisplayName(displayName);
 
@@ -98,6 +109,27 @@ export async function updateProfile(
     }
 
     const normalizedPhone = normalizeProfilePhone(rawPhone);
+    const instagramError = validateInstagramHandle(rawInstagramHandle);
+
+    if (instagramError) {
+        return {
+            error: instagramError,
+            messageId: createMessageId(),
+        };
+    }
+
+    const contactPreferenceError = validateContactPreference({
+        preferredContactMethod,
+        phone: normalizedPhone,
+        instagramHandle,
+    });
+
+    if (contactPreferenceError) {
+        return {
+            error: contactPreferenceError,
+            messageId: createMessageId(),
+        };
+    }
 
     try {
         const supabase = await createClient();
@@ -123,6 +155,8 @@ export async function updateProfile(
             .update({
                 display_name: displayName,
                 phone: normalizedPhone,
+                instagram_handle: instagramHandle,
+                preferred_contact_method: preferredContactMethod ?? "email",
                 updated_at: new Date().toISOString(),
             })
             .eq("id", user.id);

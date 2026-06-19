@@ -16,6 +16,7 @@ import {
     getServiceOption,
     isReviewReady,
 } from "@/features/bookings/new-booking/utils";
+import { isAvailableCredit } from "@/features/credits/lib/credits";
 import {
     isBookingCheckoutDraft,
     type BookingCheckoutDraft,
@@ -23,6 +24,8 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { BookingCheckoutActionState } from "@/features/bookings/checkout/types";
 import type { Database } from "@/types/supabase";
+import { appointmentStatusTemplate } from "@/features/notifications/email/templates/appointment-status-template";
+import { sendTransactionalEmail } from "@/lib/email/brevo";
 
 type BookingSettingsRow = Pick<
     Database["public"]["Tables"]["booking_settings"]["Row"],
@@ -31,6 +34,7 @@ type BookingSettingsRow = Pick<
     | "booking_fee_rate"
     | "hold_minutes"
     | "etransfer_email"
+    | "instagram_url"
 >;
 
 type DesignTierRow = Pick<
@@ -46,10 +50,85 @@ type PolicyRow = Pick<
 type BookingLineItemInsert =
     Database["public"]["Tables"]["booking_line_items"]["Insert"];
 
+type UserCreditRow = Pick<
+    Database["public"]["Tables"]["user_credits"]["Row"],
+    "id" | "amount" | "active" | "expires_at" | "used_at" | "created_at"
+>;
+
+type CreditReversal =
+    | {
+          id: string;
+          kind: "update";
+          amount: number;
+          active: boolean;
+          used_at: string | null;
+      }
+    | { id: string; kind: "amount"; amount: number };
+
 type BookingLineItemDraft = Omit<
     BookingLineItemInsert,
     "booking_id" | "id" | "created_at" | "updated_at"
 >;
+
+const BOOKING_REFERENCE_PREFIX = "VEE";
+const BOOKING_REFERENCE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const BOOKING_REFERENCE_LENGTH = 6;
+const BOOKING_REFERENCE_MAX_ATTEMPTS = 10;
+const ACTIVE_SLOT_BOOKING_STATUSES = [
+    "held",
+    "requested",
+    "confirmed",
+    "cancellation_requested",
+] as const;
+
+function slotStatusForBooking(
+    status: (typeof ACTIVE_SLOT_BOOKING_STATUSES)[number],
+): Database["public"]["Enums"]["slot_status"] {
+    if (status === "confirmed" || status === "cancellation_requested") {
+        return "confirmed";
+    }
+
+    return status;
+}
+
+async function reconcileSlotWithActiveBooking(
+    admin: ReturnType<typeof createAdminClient>,
+    slotId: string,
+) {
+    const { data: activeBooking, error } = await admin
+        .from("bookings")
+        .select("id, status")
+        .eq("slot_id", slotId)
+        .in("status", ACTIVE_SLOT_BOOKING_STATUSES)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .overrideTypes<{
+            id: string;
+            status: (typeof ACTIVE_SLOT_BOOKING_STATUSES)[number];
+        } | null>();
+
+    if (error) throw error;
+    if (!activeBooking) return false;
+
+    const { error: syncError } = await admin
+        .from("availability_slots")
+        .update({
+            status: slotStatusForBooking(
+                activeBooking.status as (typeof ACTIVE_SLOT_BOOKING_STATUSES)[number],
+            ),
+        })
+        .eq("id", slotId);
+
+    if (syncError) throw syncError;
+    return true;
+}
+
+function postgresErrorCode(error: unknown) {
+    return error && typeof error === "object" && "code" in error
+        ? String(error.code)
+        : "";
+}
 
 function nextMessageId() {
     return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -82,20 +161,29 @@ function parseDraft(rawValue: string): BookingCheckoutDraft | null {
     }
 }
 
-function formatReferenceDate(date = new Date()) {
-    const year = date.getFullYear();
-    const month = `${date.getMonth() + 1}`.padStart(2, "0");
-    const day = `${date.getDate()}`.padStart(2, "0");
+function generateReferenceCode(length = BOOKING_REFERENCE_LENGTH) {
+    const values = new Uint32Array(length);
+    crypto.getRandomValues(values);
 
-    return `${year}${month}${day}`;
+    return Array.from(values)
+        .map(
+            (value) =>
+                BOOKING_REFERENCE_ALPHABET.charAt(
+                    value % BOOKING_REFERENCE_ALPHABET.length,
+                ),
+        )
+        .join("");
 }
 
 async function generateBookingReference(
     admin: ReturnType<typeof createAdminClient>,
 ) {
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-        const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
-        const bookingReference = `VNS-${formatReferenceDate()}-${suffix}`;
+    for (
+        let attempt = 0;
+        attempt < BOOKING_REFERENCE_MAX_ATTEMPTS;
+        attempt += 1
+    ) {
+        const bookingReference = `${BOOKING_REFERENCE_PREFIX}-${generateReferenceCode()}`;
 
         const { data, error } = await admin
             .from("bookings")
@@ -112,7 +200,9 @@ async function generateBookingReference(
         }
     }
 
-    throw new Error("Unable to generate a unique booking reference.");
+    throw new Error(
+        "Unable to generate a unique booking reference after multiple attempts.",
+    );
 }
 
 function normalizeDesignTierLabel(label: string) {
@@ -140,7 +230,7 @@ function buildServiceLineItemLabel(
             ? `${serviceOption.groupLabel} ${serviceOption.label}`
             : serviceOption.label;
 
-    return `${service.label} — ${optionLabel}`;
+    return `${service.label} • ${optionLabel}`;
 }
 
 function buildLineItems({
@@ -195,6 +285,186 @@ function buildLineItems({
     return lineItems;
 }
 
+function buildCheckoutEventServiceMetadata({
+    service,
+    serviceOption,
+}: {
+    service: ServiceConfig | null;
+    serviceOption: ServiceOption | null;
+}) {
+    if (!service || !serviceOption) {
+        return {
+            service: null,
+            serviceOption: null,
+        };
+    }
+
+    return {
+        service: service.label,
+        serviceOption: buildServiceOptionLabel(service, serviceOption),
+    };
+}
+
+function compareCreditRows(a: UserCreditRow, b: UserCreditRow) {
+    const aExpiry = a.expires_at
+        ? new Date(a.expires_at).getTime()
+        : Number.POSITIVE_INFINITY;
+    const bExpiry = b.expires_at
+        ? new Date(b.expires_at).getTime()
+        : Number.POSITIVE_INFINITY;
+
+    if (aExpiry !== bExpiry) {
+        return aExpiry - bExpiry;
+    }
+
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+}
+
+async function applyCreditAmount({
+    admin,
+    bookingId,
+    userId,
+    creditAmount,
+}: {
+    admin: ReturnType<typeof createAdminClient>;
+    bookingId: string;
+    userId: string;
+    creditAmount: number;
+}) {
+    if (creditAmount <= 0) {
+        return { reversals: [] as CreditReversal[], appliedAmount: 0 };
+    }
+
+    const { data: creditRows, error: creditsError } = await admin
+        .from("user_credits")
+        .select("id, amount, active, expires_at, used_at, created_at")
+        .eq("user_id", userId)
+        .overrideTypes<UserCreditRow[]>();
+
+    if (creditsError) {
+        throw creditsError;
+    }
+
+    const availableCredits = (creditRows ?? [])
+        .filter((credit) => isAvailableCredit(credit))
+        .sort(compareCreditRows);
+
+    const totalAvailable = availableCredits.reduce(
+        (total, credit) => total + Number(credit.amount ?? 0),
+        0,
+    );
+
+    if (creditAmount > totalAvailable) {
+        throw new Error("Requested credit amount exceeds available credit.");
+    }
+
+    const reversals: CreditReversal[] = [];
+    let remaining = creditAmount;
+
+    try {
+        for (const credit of availableCredits) {
+            if (remaining <= 0) {
+                break;
+            }
+
+            const currentAmount = Number(credit.amount ?? 0);
+
+            if (currentAmount <= remaining + 0.00001) {
+                const now = new Date().toISOString();
+                const { error } = await admin
+                    .from("user_credits")
+                    .update({
+                        active: false,
+                        used_at: now,
+                    })
+                    .eq("id", credit.id);
+
+                if (error) {
+                    throw error;
+                }
+
+                reversals.push({
+                    id: credit.id,
+                    kind: "update",
+                    amount: currentAmount,
+                    active: credit.active,
+                    used_at: credit.used_at,
+                });
+
+                remaining = Math.max(0, remaining - currentAmount);
+            } else {
+                const nextAmount =
+                    Math.round((currentAmount - remaining) * 100) / 100;
+                const { error } = await admin
+                    .from("user_credits")
+                    .update({ amount: nextAmount })
+                    .eq("id", credit.id);
+
+                if (error) {
+                    throw error;
+                }
+
+                reversals.push({
+                    id: credit.id,
+                    kind: "amount",
+                    amount: currentAmount,
+                });
+
+                remaining = 0;
+            }
+        }
+
+        if (remaining > 0) {
+            throw new Error(
+                "Requested credit amount could not be fully applied.",
+            );
+        }
+
+        const { error: paymentError } = await admin
+            .from("booking_payments")
+            .insert({
+                booking_id: bookingId,
+                user_id: userId,
+                payment_type: "credit",
+                method: "account_credit",
+                amount: creditAmount,
+                status: "credited",
+                notes: "Client applied account credit during checkout.",
+            });
+
+        if (paymentError) {
+            throw paymentError;
+        }
+
+        return {
+            reversals,
+            appliedAmount: creditAmount,
+        };
+    } catch (error) {
+        await Promise.allSettled(
+            reversals.map((credit) => {
+                if (credit.kind === "update") {
+                    return admin
+                        .from("user_credits")
+                        .update({
+                            amount: credit.amount,
+                            active: credit.active,
+                            used_at: credit.used_at,
+                        })
+                        .eq("id", credit.id);
+                }
+
+                return admin
+                    .from("user_credits")
+                    .update({ amount: credit.amount })
+                    .eq("id", credit.id);
+            }),
+        );
+
+        throw error;
+    }
+}
+
 async function cleanupFailedBooking(
     admin: ReturnType<typeof createAdminClient>,
     bookingId: string | null,
@@ -217,11 +487,15 @@ async function cleanupFailedBooking(
         await admin.from("bookings").delete().eq("id", bookingId);
     }
 
-    await admin
-        .from("availability_slots")
-        .update({ status: "available" })
-        .eq("id", slotId)
-        .eq("status", "requested");
+    const stillClaimed = await reconcileSlotWithActiveBooking(admin, slotId);
+
+    if (!stillClaimed) {
+        await admin
+            .from("availability_slots")
+            .update({ status: "available" })
+            .eq("id", slotId)
+            .eq("status", "requested");
+    }
 }
 
 export async function submitBookingCheckout(
@@ -239,6 +513,8 @@ export async function submitBookingCheckout(
     const draft = parseDraft(getFormString(formData, "draft"));
     const depositConfirmed = getFormString(formData, "depositConfirmed");
     const policiesConfirmed = getFormString(formData, "policiesConfirmed");
+    const messageConfirmed = getFormString(formData, "messageConfirmed");
+    const creditAmount = Number(getFormString(formData, "creditAmount") || 0);
 
     if (!draft) {
         return state({
@@ -246,9 +522,13 @@ export async function submitBookingCheckout(
         });
     }
 
-    if (depositConfirmed !== "true" || policiesConfirmed !== "true") {
+    if (
+        depositConfirmed !== "true" ||
+        policiesConfirmed !== "true" ||
+        messageConfirmed !== "true"
+    ) {
         return state({
-            error: "Please confirm both checkboxes before sending your booking request.",
+            error: "Please confirm all checkboxes before sending your booking request.",
         });
     }
 
@@ -265,7 +545,7 @@ export async function submitBookingCheckout(
             admin
                 .from("booking_settings")
                 .select(
-                    "deposit_amount, booking_fee_mode, booking_fee_rate, hold_minutes, etransfer_email",
+                    "deposit_amount, booking_fee_mode, booking_fee_rate, hold_minutes, etransfer_email, instagram_url",
                 )
                 .eq("id", 1)
                 .eq("active", true)
@@ -386,6 +666,7 @@ export async function submitBookingCheckout(
     }
 
     let bookingId: string | null = null;
+    let creditReversals: CreditReversal[] = [];
 
     const slotId = draft.slotId;
 
@@ -395,7 +676,30 @@ export async function submitBookingCheckout(
         });
     }
 
+    if (!Number.isFinite(creditAmount) || creditAmount < 0) {
+        return state({
+            error: "Please enter a valid credit amount.",
+        });
+    }
+
+    if (creditAmount > estimate.total) {
+        return state({
+            error: "Your credit amount cannot be more than the estimated booking total.",
+        });
+    }
+
     try {
+        const alreadyClaimed = await reconcileSlotWithActiveBooking(
+            admin,
+            slotId,
+        );
+
+        if (alreadyClaimed) {
+            return state({
+                error: "This appointment time was already booked. Please choose another available time.",
+            });
+        }
+
         const { data: lockedSlot, error: lockError } = await admin
             .from("availability_slots")
             .update({ status: "requested" })
@@ -420,7 +724,7 @@ export async function submitBookingCheckout(
             .insert({
                 booking_reference: bookingReference,
                 user_id: user.id,
-                slot_id: draft.slotId,
+                slot_id: slotId,
                 status: "requested",
                 hold_expires_at: holdExpiresAt,
                 deposit_amount: normalizedSettings.depositAmount,
@@ -479,13 +783,24 @@ export async function submitBookingCheckout(
                         booking_id: booking.id,
                         policy_id: policy.id,
                         title_snapshot: policy.title,
-                        description_snapshot: policy.description,
+                        description_snapshot: policy.description ?? "",
                     })),
                 );
 
             if (policyAcceptanceError) {
                 throw policyAcceptanceError;
             }
+        }
+
+        if (creditAmount > 0) {
+            const creditApplication = await applyCreditAmount({
+                admin,
+                bookingId: booking.id,
+                userId: user.id,
+                creditAmount,
+            });
+
+            creditReversals = creditApplication.reversals;
         }
 
         const { error: eventError } = await admin
@@ -498,15 +813,21 @@ export async function submitBookingCheckout(
                 message:
                     "Client submitted booking request and marked deposit as sent.",
                 metadata: {
-                    slotId: draft.slotId,
+                    slotId,
                     startsAt: lockedSlot.starts_at,
                     endsAt: lockedSlot.ends_at,
                     removal: removal.label,
-                    service: service?.label ?? null,
-                    serviceOption:
-                        buildServiceOptionLabel(service, serviceOption) ?? null,
+                    ...buildCheckoutEventServiceMetadata({
+                        service:
+                            draft.removalId === "removal_only" ? null : service,
+                        serviceOption:
+                            draft.removalId === "removal_only"
+                                ? null
+                                : serviceOption,
+                    }),
                     designTier: selectedDesignTier?.name ?? null,
                     depositAmount: normalizedSettings.depositAmount,
+                    creditAmount: creditAmount > 0 ? creditAmount : null,
                     estimatedSubtotal: estimate.subtotal,
                     estimatedBookingFee: estimate.bookingFee,
                     estimatedTotal: estimate.total,
@@ -517,13 +838,28 @@ export async function submitBookingCheckout(
             throw eventError;
         }
 
+        const { data: bookingProfile } = await admin.from("profiles").select("display_name, email").eq("id", user.id).maybeSingle().overrideTypes<{ display_name: string; email: string } | null>();
+        const appointment = new Intl.DateTimeFormat("en-CA", { dateStyle: "full", timeStyle: "short" }).format(new Date(lockedSlot.starts_at));
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+        if (bookingProfile?.email) {
+            const template = appointmentStatusTemplate({ name: bookingProfile.display_name, reference: bookingReference, status: "requested", appointment, message: "Your booking request was submitted and your deposit was marked as sent.", detailsUrl: siteUrl ? `${siteUrl}/booking/${bookingReference}` : undefined });
+            await sendTransactionalEmail({ to: { email: bookingProfile.email, name: bookingProfile.display_name }, ...template, notificationType: "booking_requested", bookingId: booking.id, userId: user.id });
+        }
+        const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL;
+        if (adminEmail) {
+            const template = appointmentStatusTemplate({ name: "Vee", reference: bookingReference, status: "new request", appointment, message: `${bookingProfile?.display_name ?? "A client"} submitted a new booking request.`, detailsUrl: siteUrl ? `${siteUrl}/admin/appointments/${booking.id}` : undefined });
+            await sendTransactionalEmail({ to: { email: adminEmail, name: "Vee’s Nail Studio" }, ...template, notificationType: "admin_new_booking", bookingId: booking.id, userId: user.id });
+        }
+
         revalidatePath("/booking");
         revalidatePath("/book");
         revalidatePath("/dashboard");
+        revalidatePath("/credits");
 
         return state({
             success:
                 "Your booking request has been received and your deposit is marked as sent.",
+            bookingId: booking.id,
             bookingReference,
             startsAt: lockedSlot.starts_at,
             endsAt: lockedSlot.ends_at,
@@ -532,7 +868,39 @@ export async function submitBookingCheckout(
     } catch (error) {
         console.error("[bookings:checkout.submit]", error);
 
-        await cleanupFailedBooking(admin, bookingId, slotId);
+        if (creditReversals.length > 0) {
+            await Promise.allSettled(
+                creditReversals.map((credit) => {
+                    if (credit.kind === "update") {
+                        return admin
+                            .from("user_credits")
+                            .update({
+                                amount: credit.amount,
+                                active: credit.active,
+                                used_at: credit.used_at,
+                            })
+                            .eq("id", credit.id);
+                    }
+
+                    return admin
+                        .from("user_credits")
+                        .update({ amount: credit.amount })
+                        .eq("id", credit.id);
+                }),
+            );
+        }
+
+        try {
+            await cleanupFailedBooking(admin, bookingId, slotId);
+        } catch (cleanupError) {
+            console.error("[bookings:checkout.cleanup]", cleanupError);
+        }
+
+        if (postgresErrorCode(error) === "23505") {
+            return state({
+                error: "This appointment time was already booked. Please choose another available time.",
+            });
+        }
 
         return state({
             error: "We couldn't send your booking request right now. Please try again.",
