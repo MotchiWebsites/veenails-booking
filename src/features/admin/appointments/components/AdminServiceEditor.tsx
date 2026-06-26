@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { FiSave, FiTrendingDown, FiTrendingUp } from "react-icons/fi";
 import AppSelect from "@/components/shared/form/AppSelect";
 import { updateAppointmentServicesAction } from "@/features/admin/appointments/actions/admin-appointments";
 import type { AdminAppointmentDetails } from "@/features/admin/appointments/data/admin-appointments";
 import { inferAdminServiceSelections } from "@/features/admin/appointments/utils/admin-service-selections";
 import { formatMoney } from "@/features/admin/components/admin-formatters";
+import { useToast } from "@/components/shared/toast/ToastProvider";
 import { removalOptions, services } from "@/features/bookings/new-booking/config";
 import type { BookingSelections, DesignTier, ServiceOption } from "@/features/bookings/new-booking/types";
 import { buildServiceOptionLabel, calculateEstimate, getService, getServiceOption, getServiceOptionGroups, isRemovalOnly } from "@/features/bookings/new-booking/utils";
@@ -23,7 +25,11 @@ function comparable(selections: BookingSelections) {
 }
 
 export default function AdminServiceEditor({ booking }: { booking: AdminAppointmentDetails }) {
+    const router = useRouter();
+    const { error, success } = useToast();
+    const [state, formAction, pending] = useActionState(updateAppointmentServicesAction, {});
     const inferred = useMemo(() => inferAdminServiceSelections(booking), [booking]);
+    const serviceLineItems = booking.lineItems.filter((item) => item.itemType !== "discount");
     const initialSelections = inferred.selections;
     const [selections, setSelections] = useState(initialSelections);
     const designTiers: DesignTier[] = booking.designTiers.map((tier) => ({
@@ -61,6 +67,17 @@ export default function AdminServiceEditor({ booking }: { booking: AdminAppointm
         setSelections((current) => ({ ...current, ...next }));
     }
 
+    useEffect(() => {
+        if (!state.messageId) return;
+        if (state.error) {
+            error(state.error, "Could not save services");
+        }
+        if (state.success) {
+            success(state.success, "Appointment updated");
+            router.refresh();
+        }
+    }, [error, router, state.error, state.messageId, state.success, success]);
+
     return (
         <section className="overflow-hidden rounded-3xl border border-dark-green/20 bg-surface shadow-sm">
             <div className="grid gap-4 bg-surface-2 p-5 sm:p-7 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
@@ -72,7 +89,7 @@ export default function AdminServiceEditor({ booking }: { booking: AdminAppointm
                         What the client booked
                     </h2>
                     <div className="mt-3 flex flex-wrap gap-2">
-                        {booking.lineItems.length ? booking.lineItems.map((item) => (
+                        {serviceLineItems.length ? serviceLineItems.map((item) => (
                             <span key={item.id} className="rounded-full border border-border/60 bg-surface px-3 py-1.5 text-sm font-medium text-foreground">
                                 {item.label}
                             </span>
@@ -86,7 +103,7 @@ export default function AdminServiceEditor({ booking }: { booking: AdminAppointm
                 </div>
             </div>
 
-            <form action={updateAppointmentServicesAction} className="p-5 sm:p-7">
+            <form action={formAction} className="p-5 sm:p-7">
                 <input type="hidden" name="bookingId" value={booking.id} />
                 <input type="hidden" name="removalId" value={selections.removalId ?? ""} />
                 <input type="hidden" name="serviceId" value={fullService ? selections.serviceId ?? "" : ""} />
@@ -171,8 +188,8 @@ export default function AdminServiceEditor({ booking }: { booking: AdminAppointm
 
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm text-muted">{hasChanges ? "Changes are only applied after you save." : "Current selections are loaded from this booking."}</p>
-                    <button type="submit" className="btn-primary inline-flex items-center justify-center gap-2" disabled={!canSave}>
-                        <FiSave aria-hidden="true" /> Save service changes
+                    <button type="submit" className="btn-primary inline-flex items-center justify-center gap-2" disabled={!canSave || pending}>
+                        <FiSave aria-hidden="true" /> {pending ? "Saving..." : "Save service changes"}
                     </button>
                 </div>
             </form>

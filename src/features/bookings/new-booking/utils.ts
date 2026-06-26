@@ -248,12 +248,22 @@ export function formatSlotShortDate(value: string) {
     return shortDateFormatter.format(new Date(value));
 }
 
-export function formatSlotTime(value: string) {
+export function formatSlotTime(value: string | null) {
+    if (!value) {
+        return "";
+    }
+
     return timeFormatter.format(new Date(value));
 }
 
 export function formatSlotTimeRange(slot: AvailableAppointmentSlot) {
-    return `${formatSlotTime(slot.startsAt)} - ${formatSlotTime(slot.endsAt)}`;
+    return slot.endsAt
+        ? `${formatSlotTime(slot.startsAt)} - ${formatSlotTime(slot.endsAt)}`
+        : formatSlotTime(slot.startsAt);
+}
+
+export function isSlotBookable(slot: AvailableAppointmentSlot | null | undefined) {
+    return slot?.availability === "available";
 }
 
 export function groupSlotsByDay(slots: AvailableAppointmentSlot[]) {
@@ -281,7 +291,16 @@ export function groupSlotsByDay(slots: AvailableAppointmentSlot[]) {
         groups.get(key)?.slots.push(slot);
     }
 
-    return Array.from(groups.values());
+    return Array.from(groups.values()).map((group) => ({
+        ...group,
+        slots: group.slots
+            .slice()
+            .sort(
+                (a, b) =>
+                    new Date(a.startsAt).getTime() -
+                    new Date(b.startsAt).getTime(),
+            ),
+    }));
 }
 
 export function getSelectionSummary(
@@ -289,7 +308,10 @@ export function getSelectionSummary(
     slots: AvailableAppointmentSlot[],
     designTiers: readonly DesignTier[],
 ) {
-    const slot = slots.find((item) => item.id === selections.slotId) ?? null;
+    const slot =
+        slots.find(
+            (item) => item.id === selections.slotId && isSlotBookable(item),
+        ) ?? null;
     const removal = getRemovalOption(selections.removalId);
     const service = getService(selections.serviceId);
     const serviceOption = getServiceOption(service, selections.serviceOptionId);

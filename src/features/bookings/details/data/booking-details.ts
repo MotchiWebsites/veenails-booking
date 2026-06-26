@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getUser } from "@/features/auth/guards/get-user";
 import type {
     BookingSummary,
     CancellationRequestStatus,
@@ -153,7 +154,7 @@ export type BookingDetailsData = {
 export type EditBookingSlot = {
     id: string;
     startsAt: string;
-    endsAt: string;
+    endsAt: string | null;
 };
 
 type DesignTierRow = Pick<
@@ -418,31 +419,55 @@ export async function getAvailableEditBookingSlots(): Promise<
     EditBookingSlot[]
 > {
     const supabase = await createClient();
+    const now = new Date().toISOString();
+    const user = await getUser();
+    const { data: profile } = user
+        ? await supabase
+              .from("profiles")
+              .select("is_regular")
+              .eq("id", user.id)
+              .maybeSingle()
+              .overrideTypes<{ is_regular: boolean } | null>()
+        : { data: null };
 
-    const { data, error } = await supabase
+    let query = supabase
         .from("availability_slots")
-        .select("id, starts_at, ends_at")
+        .select("id, starts_at, ends_at, regulars_first, public_access_at")
         .eq("active", true)
         .eq("status", "available")
-        .gte("starts_at", new Date().toISOString())
+        .gte("starts_at", now)
         .order("starts_at", { ascending: true })
-        .limit(12)
-        .overrideTypes<
-            Pick<
-                Database["public"]["Tables"]["availability_slots"]["Row"],
-                "id" | "starts_at" | "ends_at"
-            >[]
-        >();
+        .limit(12);
+
+    if (!profile?.is_regular) {
+        query = query.or(`regulars_first.eq.false,public_access_at.lte.${now}`);
+    }
+
+    const { data, error } = await query.overrideTypes<
+        (Pick<
+            Database["public"]["Tables"]["availability_slots"]["Row"],
+            "id" | "starts_at" | "ends_at"
+        > & { regulars_first: boolean; public_access_at: string })[]
+    >();
 
     if (error) {
         console.error("[bookings:getAvailableEditBookingSlots]", error);
         throw new Error("We couldn't load appointment openings right now.");
     }
 
-    return (data ?? []).map((slot) => ({
+    return (data ?? [])
+        .filter(
+            (slot) =>
+                profile?.is_regular ||
+                !slot.regulars_first ||
+                new Date(slot.public_access_at).getTime() <=
+                    new Date(now).getTime(),
+        )
+        .map((slot) => ({
         id: slot.id,
         startsAt: slot.starts_at,
         endsAt: slot.ends_at,
+        availability: "available",
     }));
 }
 

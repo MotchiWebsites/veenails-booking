@@ -30,6 +30,12 @@ export type AdminAppointmentListItem = {
     finalTotal: number;
     createdAt: string;
     profile: AdminProfileSummary | null;
+    externalClient: {
+        displayName: string | null;
+        email: string | null;
+        instagramHandle: string | null;
+        preferredContactMethod: PreferredContactMethod | null;
+    };
     latestCancellationStatus: CancellationStatus | null;
     inspoStatus: InspoStatus | null;
     serviceSummary: string;
@@ -39,6 +45,7 @@ export type AdminLineItem = {
     id: string;
     itemType: string;
     label: string;
+    description: string | null;
     quantity: number;
     unitPrice: number;
     lineTotal: number;
@@ -101,7 +108,7 @@ export type AdminAppointmentDetails = AdminAppointmentListItem & {
     cancellationRequest: AdminCancellationRequest | null;
     inspoPrompt: AdminInspoPrompt | null;
     events: AdminBookingEvent[];
-    editorSlots: Array<{ id: string; startsAt: string; endsAt: string }>;
+    editorSlots: Array<{ id: string; startsAt: string; endsAt: string | null }>;
     designTiers: Array<{ id: string; name: string; price: number }>;
     operationalNow: string;
     linkedCredits: Array<{ id: string; amount: number; reason: string | null; active: boolean; createdAt: string }>;
@@ -117,6 +124,10 @@ type AdminAppointmentRow = Pick<
     | "final_total"
     | "created_at"
     | "user_id"
+    | "client_display_name"
+    | "client_email"
+    | "client_instagram_handle"
+    | "client_preferred_contact_method"
 > & {
     availability_slots:
         | Pick<
@@ -150,7 +161,7 @@ type AdminAppointmentRow = Pick<
           >
         | null;
     booking_line_items:
-        | Array<Pick<Database["public"]["Tables"]["booking_line_items"]["Row"], "id" | "item_type" | "label_snapshot" | "quantity" | "unit_price" | "line_total" | "source_id" | "source_table" | "active" | "removed_at" | "created_at">>
+        | Array<Pick<Database["public"]["Tables"]["booking_line_items"]["Row"], "id" | "item_type" | "label_snapshot" | "description_snapshot" | "quantity" | "unit_price" | "line_total" | "source_id" | "source_table" | "active" | "removed_at" | "created_at">>
         | null;
 };
 
@@ -174,6 +185,7 @@ type AdminAppointmentDetailsRow = AdminAppointmentRow &
                       | "id"
                       | "item_type"
                       | "label_snapshot"
+                      | "description_snapshot"
                       | "quantity"
                       | "unit_price"
                       | "line_total"
@@ -254,6 +266,10 @@ const listSelect = `
     final_total,
     created_at,
     user_id,
+    client_display_name,
+    client_email,
+    client_instagram_handle,
+    client_preferred_contact_method,
     availability_slots:slot_id ( starts_at, ends_at ),
     profiles:user_id (
         id,
@@ -265,7 +281,7 @@ const listSelect = `
     ),
     cancellation_requests ( id, status, created_at ),
     booking_inspo_prompts ( id, status, created_at )
-    ,booking_line_items ( label_snapshot, active, removed_at )
+    ,booking_line_items ( label_snapshot, item_type, active, removed_at )
 `;
 
 const detailsSelect = `
@@ -277,6 +293,10 @@ const detailsSelect = `
     final_total,
     created_at,
     user_id,
+    client_display_name,
+    client_email,
+    client_instagram_handle,
+    client_preferred_contact_method,
     availability_slots:slot_id ( starts_at, ends_at ),
     profiles:user_id (
         id,
@@ -299,6 +319,7 @@ const detailsSelect = `
         id,
         item_type,
         label_snapshot,
+        description_snapshot,
         quantity,
         unit_price,
         line_total,
@@ -385,10 +406,16 @@ function mapListItem(row: AdminAppointmentRow): AdminAppointmentListItem {
         finalTotal: Number(row.final_total ?? 0),
         createdAt: row.created_at,
         profile: mapProfile(row.profiles),
+        externalClient: {
+            displayName: row.client_display_name,
+            email: row.client_email,
+            instagramHandle: row.client_instagram_handle,
+            preferredContactMethod: row.client_preferred_contact_method,
+        },
         latestCancellationStatus: latestByCreatedAt(row.cancellation_requests)?.status ?? null,
         inspoStatus: latestByCreatedAt(row.booking_inspo_prompts)?.status ?? null,
         serviceSummary: (row.booking_line_items ?? [])
-            .filter((item) => item.active && !item.removed_at)
+            .filter((item) => item.active && !item.removed_at && item.item_type !== "discount")
             .map((item) => item.label_snapshot)
             .join(" · ") || "No services listed",
     };
@@ -421,6 +448,7 @@ function mapDetails(row: AdminAppointmentDetailsRow): Omit<AdminAppointmentDetai
                 id: item.id,
                 itemType: item.item_type,
                 label: item.label_snapshot,
+                description: item.description_snapshot,
                 quantity: Number(item.quantity ?? 0),
                 unitPrice: Number(item.unit_price ?? 0),
                 lineTotal: Number(item.line_total ?? 0),
@@ -531,6 +559,9 @@ export async function getAdminAppointments({
             booking.profile?.email,
             booking.profile?.phone,
             booking.profile?.instagramHandle,
+            booking.externalClient.displayName,
+            booking.externalClient.email,
+            booking.externalClient.instagramHandle,
         ]
             .filter(Boolean)
             .join(" ")
@@ -561,7 +592,7 @@ export async function getAdminAppointmentDetails(bookingId: string) {
 
     const now = new Date().toISOString();
     const [slotsResult, tiersResult, creditsResult] = await Promise.all([
-        admin.from("availability_slots").select("id, starts_at, ends_at").eq("active", true).eq("status", "available").gte("starts_at", now).order("starts_at").limit(120).overrideTypes<Array<{ id: string; starts_at: string; ends_at: string }>>(),
+        admin.from("availability_slots").select("id, starts_at, ends_at").eq("active", true).eq("status", "available").gte("starts_at", now).order("starts_at").limit(120).overrideTypes<Array<{ id: string; starts_at: string; ends_at: string | null }>>(),
         admin.from("design_tiers").select("id, name, price").eq("active", true).order("display_order").overrideTypes<Array<{ id: string; name: string; price: number }>>(),
         admin.from("user_credits").select("id, amount, reason, active, created_at").eq("source_booking_id", bookingId).order("created_at", { ascending: false }).overrideTypes<Array<{ id: string; amount: number; reason: string | null; active: boolean; created_at: string }>>(),
     ]);

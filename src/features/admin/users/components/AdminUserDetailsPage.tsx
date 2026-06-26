@@ -11,6 +11,7 @@ import type { AdminUserDetails } from "@/features/admin/users/data/admin-users";
 import { getBookingStatusLabel } from "@/features/bookings/utils/booking-status";
 import AdminCreditForm from "@/features/admin/credits/components/AdminCreditForm";
 import { formatMoney } from "@/features/admin/components/admin-formatters";
+import { updateRegularCustomerAction } from "@/features/admin/users/actions/admin-users";
 
 export default function AdminUserDetailsPage({ user }: { user: AdminUserDetails }) {
     return (
@@ -28,6 +29,8 @@ export default function AdminUserDetailsPage({ user }: { user: AdminUserDetails 
                         eyebrow="Client"
                         title={user.displayName}
                         description={`${user.bookingCount} bookings · joined ${formatDateTime(user.createdAt)}`}
+                        actionHref={`/admin/appointments/new?userId=${encodeURIComponent(user.id)}`}
+                        actionLabel="Create appointment"
                     />
                 </div>
             </section>
@@ -47,7 +50,39 @@ export default function AdminUserDetailsPage({ user }: { user: AdminUserDetails 
                         <AdminStatusPill
                             label={formatContactMethod(user.preferredContactMethod)}
                         />
+                        {user.isRegular ? (
+                            <AdminStatusPill label="Regular customer" tone="success" />
+                        ) : null}
                     </div>
+                    <form action={updateRegularCustomerAction} className="mt-6 rounded-2xl border border-border/60 bg-background p-4">
+                        <input type="hidden" name="userId" value={user.id} />
+                        <input type="hidden" name="isRegular" value="off" />
+                        <label className="flex items-start gap-3 text-sm text-foreground">
+                            <input
+                                type="checkbox"
+                                name="isRegular"
+                                value="on"
+                                defaultChecked={user.isRegular}
+                                className="mt-1"
+                            />
+                            <span>
+                                <span className="block font-semibold">
+                                    Regular customer
+                                </span>
+                                <span className="text-muted">
+                                    Regular customers can access priority availability before general release.
+                                </span>
+                                {user.regularSince ? (
+                                    <span className="mt-1 block text-xs text-muted">
+                                        Since {formatDateTime(user.regularSince)}
+                                    </span>
+                                ) : null}
+                            </span>
+                        </label>
+                        <button type="submit" className="btn-secondary mt-4 w-full">
+                            Save regular status
+                        </button>
+                    </form>
                     <div className="mt-6 border-t border-border/60 pt-6">
                         <h3 className="font-semibold text-foreground">Issue studio credit</h3>
                         <p className="mt-1 text-sm text-muted">Add a reusable credit directly to this client’s account.</p>

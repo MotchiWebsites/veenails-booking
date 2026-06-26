@@ -18,7 +18,7 @@ export default function CheckoutSuccessState({
     bookingId: string;
     bookingReference: string;
     startsAt: string;
-    endsAt: string;
+    endsAt: string | null;
     depositAmount: number;
 }) {
     return (
@@ -52,6 +52,7 @@ export default function CheckoutSuccessState({
                                 id: "confirmed-slot",
                                 startsAt,
                                 endsAt,
+                                availability: "available",
                             },
                         )}`}
                     />

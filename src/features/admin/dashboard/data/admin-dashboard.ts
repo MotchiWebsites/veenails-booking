@@ -35,15 +35,17 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
         });
     const queue = appointments.filter(
         (booking) =>
-            (!booking.endsAt || new Date(booking.endsAt).getTime() >= now) &&
+            (!booking.startsAt || new Date(booking.startsAt).getTime() >= now) &&
             (booking.status === "requested" ||
                 booking.depositStatus === "marked_sent" ||
                 booking.latestCancellationStatus === "pending" ||
                 booking.inspoStatus === "sent"),
     );
     const current = upcoming.find((booking) => {
-        if (!booking.startsAt || !booking.endsAt) return false;
-        return new Date(booking.startsAt).getTime() <= now && new Date(booking.endsAt).getTime() >= now;
+        if (!booking.startsAt) return false;
+        const startsAt = new Date(booking.startsAt).getTime();
+        const endsAt = booking.endsAt ? new Date(booking.endsAt).getTime() : startsAt + 90 * 60_000;
+        return startsAt <= now && endsAt >= now;
     }) ?? upcoming.find((booking) => booking.startsAt && new Date(booking.startsAt).getTime() - now <= 90 * 60_000) ?? null;
 
     return {

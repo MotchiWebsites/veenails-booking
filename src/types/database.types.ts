@@ -94,9 +94,14 @@ export type Database = {
           active: boolean
           created_at: string
           created_by: string | null
-          ends_at: string
+          deactivated_at: string | null
+          deactivated_by: string | null
+          deactivation_reason: string | null
+          ends_at: string | null
           id: string
           notes: string | null
+          public_access_at: string
+          regulars_first: boolean
           starts_at: string
           status: Database["public"]["Enums"]["slot_status"]
           updated_at: string
@@ -105,9 +110,14 @@ export type Database = {
           active?: boolean
           created_at?: string
           created_by?: string | null
-          ends_at: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
+          deactivation_reason?: string | null
+          ends_at?: string | null
           id?: string
           notes?: string | null
+          public_access_at?: string
+          regulars_first?: boolean
           starts_at: string
           status?: Database["public"]["Enums"]["slot_status"]
           updated_at?: string
@@ -116,9 +126,14 @@ export type Database = {
           active?: boolean
           created_at?: string
           created_by?: string | null
-          ends_at?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
+          deactivation_reason?: string | null
+          ends_at?: string | null
           id?: string
           notes?: string | null
+          public_access_at?: string
+          regulars_first?: boolean
           starts_at?: string
           status?: Database["public"]["Enums"]["slot_status"]
           updated_at?: string
@@ -127,6 +142,13 @@ export type Database = {
           {
             foreignKeyName: "availability_slots_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "availability_slots_deactivated_by_fkey"
+            columns: ["deactivated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -485,6 +507,7 @@ export type Database = {
           hold_minutes: number
           id: number
           instagram_url: string | null
+          regular_early_access_hours: number
           updated_at: string
         }
         Insert: {
@@ -497,6 +520,7 @@ export type Database = {
           hold_minutes?: number
           id?: number
           instagram_url?: string | null
+          regular_early_access_hours?: number
           updated_at?: string
         }
         Update: {
@@ -509,6 +533,7 @@ export type Database = {
           hold_minutes?: number
           id?: number
           instagram_url?: string | null
+          regular_early_access_hours?: number
           updated_at?: string
         }
         Relationships: []
@@ -523,7 +548,11 @@ export type Database = {
           booking_fee_rate: number
           booking_reference: string
           cancelled_at: string | null
+          client_display_name: string | null
+          client_email: string | null
+          client_instagram_handle: string | null
           client_notes: string | null
+          client_preferred_contact_method: string | null
           completed_at: string | null
           created_at: string
           deposit_amount: number
@@ -536,7 +565,7 @@ export type Database = {
           status: Database["public"]["Enums"]["booking_status"]
           subtotal_amount: number
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           admin_notes?: string | null
@@ -547,7 +576,11 @@ export type Database = {
           booking_fee_rate?: number
           booking_reference: string
           cancelled_at?: string | null
+          client_display_name?: string | null
+          client_email?: string | null
+          client_instagram_handle?: string | null
           client_notes?: string | null
+          client_preferred_contact_method?: string | null
           completed_at?: string | null
           created_at?: string
           deposit_amount?: number
@@ -560,7 +593,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["booking_status"]
           subtotal_amount?: number
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           admin_notes?: string | null
@@ -571,7 +604,11 @@ export type Database = {
           booking_fee_rate?: number
           booking_reference?: string
           cancelled_at?: string | null
+          client_display_name?: string | null
+          client_email?: string | null
+          client_instagram_handle?: string | null
           client_notes?: string | null
+          client_preferred_contact_method?: string | null
           completed_at?: string | null
           created_at?: string
           deposit_amount?: number
@@ -584,7 +621,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["booking_status"]
           subtotal_amount?: number
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -1249,9 +1286,11 @@ export type Database = {
           display_name: string
           email: string
           id: string
-          instagram_handle: string | null
+          instagram_handle: string
+          is_regular: boolean
           phone: string | null
           preferred_contact_method: Database["public"]["Enums"]["preferred_contact_method"]
+          regular_since: string | null
           updated_at: string
         }
         Insert: {
@@ -1259,9 +1298,11 @@ export type Database = {
           display_name: string
           email: string
           id: string
-          instagram_handle?: string | null
+          instagram_handle: string
+          is_regular?: boolean
           phone?: string | null
           preferred_contact_method?: Database["public"]["Enums"]["preferred_contact_method"]
+          regular_since?: string | null
           updated_at?: string
         }
         Update: {
@@ -1269,9 +1310,11 @@ export type Database = {
           display_name?: string
           email?: string
           id?: string
-          instagram_handle?: string | null
+          instagram_handle?: string
+          is_regular?: boolean
           phone?: string | null
           preferred_contact_method?: Database["public"]["Enums"]["preferred_contact_method"]
+          regular_since?: string | null
           updated_at?: string
         }
         Relationships: []

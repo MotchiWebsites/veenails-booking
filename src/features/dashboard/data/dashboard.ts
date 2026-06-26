@@ -2,6 +2,21 @@ import { createClient } from "@/lib/supabase/server";
 import { getDashboardUpcomingBookings } from "@/features/bookings/data/bookings";
 import { getCreditsPageData } from "@/features/credits/data/credits";
 import type { DashboardOverviewData } from "@/features/dashboard/types/dashboard";
+import type { Enums } from "@/types/supabase";
+
+const CLIENT_VISIBLE_SLOT_STATUSES: Enums<"slot_status">[] = [
+    "available",
+    "held",
+    "requested",
+    "confirmed",
+];
+
+function getStartOfCurrentWeek(date: Date) {
+    const start = new Date(date);
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - start.getDay());
+    return start;
+}
 
 function getFallbackDisplayName(email?: string | null) {
     return email?.split("@")[0] || "Client";
@@ -20,17 +35,35 @@ export async function getDashboardOverviewData(
     fallbackEmail?: string | null,
 ): Promise<DashboardOverviewData> {
     const supabase = await createClient();
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const weekStart = getStartOfCurrentWeek(now);
+    const weekStartIso = weekStart.toISOString();
 
     const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select(
-            "display_name, email, phone, instagram_handle, preferred_contact_method",
+            "display_name, email, phone, instagram_handle, preferred_contact_method, is_regular",
         )
         .eq("id", userId)
         .single();
 
     if (profileError) {
         throwDashboardDataError("profile", profileError);
+    }
+
+    let availabilityQuery = supabase
+        .from("availability_slots")
+        .select("id, starts_at, ends_at, status, active, regulars_first, public_access_at")
+        .eq("active", true)
+        .in("status", CLIENT_VISIBLE_SLOT_STATUSES)
+        .gte("starts_at", weekStartIso)
+        .order("starts_at", { ascending: true });
+
+    if (!profile?.is_regular) {
+        availabilityQuery = availabilityQuery.or(
+            `status.neq.available,regulars_first.eq.false,public_access_at.lte.${nowIso}`,
+        );
     }
 
     const [pendingBookings, confirmedBookings, creditsPageData, upcomingBookings, availabilityResult] =
@@ -51,12 +84,7 @@ export async function getDashboardOverviewData(
 
         getDashboardUpcomingBookings(userId, 3),
 
-        supabase
-            .from("availability_slots")
-            .select("id, starts_at, ends_at, status, active")
-            .eq("active", true)
-            .gte("starts_at", new Date().toISOString())
-            .order("starts_at", { ascending: true }),
+        availabilityQuery,
 
     ]);
 
@@ -73,7 +101,16 @@ export async function getDashboardOverviewData(
     }
 
     const profileEmail = profile?.email ?? fallbackEmail ?? "";
-    const days = buildAvailabilityDays(availabilityResult.data ?? []);
+    const visibleAvailability = (availabilityResult.data ?? []).filter(
+        (slot) =>
+            slot.status === "available"
+                ? new Date(slot.starts_at).getTime() >= now.getTime() &&
+                  (profile?.is_regular ||
+                      !slot.regulars_first ||
+                      new Date(slot.public_access_at).getTime() <= now.getTime())
+                : true,
+    );
+    const days = buildAvailabilityDays(visibleAvailability, weekStart);
 
     return {
         profile: {
@@ -101,11 +138,13 @@ function buildAvailabilityDays(
     slots: Array<{
         id: string;
         starts_at: string;
-        ends_at: string;
-        status: string;
+        ends_at: string | null;
+        regulars_first: boolean;
+        public_access_at: string;
+        status: Enums<"slot_status">;
     }>,
+    startDate = new Date(),
 ) {
-    const now = new Date();
     const dayMap = new Map<
         string,
         {
@@ -118,16 +157,17 @@ function buildAvailabilityDays(
             slots: {
                 id: string;
                 startsAt: string;
-                endsAt: string;
+                endsAt: string | null;
                 available: boolean;
             }[];
         }
     >();
 
     for (let offset = 0; offset < 21; offset += 1) {
-        const date = new Date(now);
-        date.setDate(now.getDate() + offset);
+        const date = new Date(startDate);
+        date.setDate(startDate.getDate() + offset);
         const key = date.toISOString().slice(0, 10);
+        const todayKey = new Date().toISOString().slice(0, 10);
 
         dayMap.set(key, {
             date: key,
@@ -145,7 +185,7 @@ function buildAvailabilityDays(
             monthLabel: date.toLocaleDateString(undefined, {
                 month: "short",
             }),
-            isToday: key === now.toISOString().slice(0, 10),
+            isToday: key === todayKey,
             slots: [],
         });
     }

@@ -2,7 +2,7 @@ import type { AdminAppointmentDetails } from "@/features/admin/appointments/data
 import { formatMoney } from "@/features/admin/components/admin-formatters";
 
 function preference(value: string | undefined) {
-    if (value === "refund_etransfer") return "Refund deposit";
+    if (value === "refund_etransfer") return "Legacy e-transfer refund";
     if (value === "account_credit") return "Convert deposit to credit";
     return "No refund needed";
 }

@@ -48,8 +48,8 @@ export default function SignupForm() {
     const normalizedInstagramHandle = normalizeInstagramHandle(instagramHandle);
     const instagramHandleValid = useMemo(
         () =>
-            !normalizedInstagramHandle ||
-            /^[A-Za-z0-9._]{1,30}$/.test(normalizedInstagramHandle),
+            Boolean(normalizedInstagramHandle) &&
+            /^[a-z0-9._]{1,30}$/.test(normalizedInstagramHandle ?? ""),
         [normalizedInstagramHandle],
     );
     const contactPreferenceValid =
@@ -155,18 +155,20 @@ export default function SignupForm() {
                     label="Instagram handle"
                     type="text"
                     autoComplete="off"
-                    required={false}
+                    required
                     placeholder="e.g., vee.nailsstudio"
                     value={instagramHandle}
-                    onValueChange={setInstagramHandle}
+                    onValueChange={(value) =>
+                        setInstagramHandle(value.toLowerCase())
+                    }
                     enterKeyHint="next"
                     enterBehavior="next"
                     error={
-                        instagramHandle.length > 0 && !instagramHandleValid
-                            ? "Use letters, numbers, periods, or underscores only."
+                        !instagramHandleValid
+                            ? "Use lowercase letters, numbers, periods, or underscores only."
                             : undefined
                     }
-                    hintContent="This field is optional. Please leave off the @ symbol."
+                    hintContent="We use this to contact you about design inspo and your appointment."
                 />
 
                 <AppSelect

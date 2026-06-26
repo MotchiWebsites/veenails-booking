@@ -30,7 +30,7 @@ export function getAdminAppointmentActionRules(
     const future = startsAt === null || startsAt > now;
     const past = booking.endsAt
         ? new Date(booking.endsAt).getTime() < now
-        : false;
+        : currentOrPast;
     const active = ACTIVE_STATUSES.has(booking.status);
     const staleUnhandled =
         past && (booking.status === "requested" || booking.status === "held");

@@ -50,8 +50,8 @@ export default function ProfileForm({
         useState<PreferredContactMethod>(preferredContactMethod ?? "email");
     const normalizedInstagramHandle = normalizeInstagramHandle(instagramValue);
     const instagramHandleValid =
-        !normalizedInstagramHandle ||
-        /^[A-Za-z0-9._]{1,30}$/.test(normalizedInstagramHandle);
+        Boolean(normalizedInstagramHandle) &&
+        /^[a-z0-9._]{1,30}$/.test(normalizedInstagramHandle ?? "");
     const contactPreferenceValid =
         preferredContactValue === "email" ||
         (preferredContactValue === "phone" && phoneValue.trim().length > 0) ||
@@ -148,18 +148,20 @@ export default function ProfileForm({
                         label="Instagram handle"
                         type="text"
                         autoComplete="off"
-                        required={false}
+                        required
                         placeholder="e.g., vee.nailsstudio"
                         value={instagramValue}
-                        onValueChange={setInstagramValue}
+                        onValueChange={(value) =>
+                            setInstagramValue(value.toLowerCase())
+                        }
                         enterKeyHint="next"
                         enterBehavior="next"
                         error={
-                            instagramValue.length > 0 && !instagramHandleValid
-                                ? "Use letters, numbers, periods, or underscores only."
+                            !instagramHandleValid
+                                ? "Use lowercase letters, numbers, periods, or underscores only."
                                 : undefined
                         }
-                        hintContent="This field is optional. Please leave off the @ symbol."
+                        hintContent="We use this to contact you about design inspo and your appointment."
                     />
 
                     <AppSelect

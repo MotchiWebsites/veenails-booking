@@ -7,6 +7,7 @@ import EditAvailabilitySlotForm from "@/features/admin/availability/components/E
 import type { AdminAvailabilitySlot } from "@/features/admin/availability/data/admin-availability";
 import AdminStatusPill from "@/features/admin/components/AdminStatusPill";
 import { formatDateTime } from "@/features/admin/components/admin-formatters";
+import { formatBookingTimeRange } from "@/features/bookings/utils/booking-formatters";
 
 function friendlyStatus(slot: AdminAvailabilitySlot) {
     if (!slot.active) return "Inactive";
@@ -50,14 +51,18 @@ export default function AvailabilitySlotCard({
             <div className="flex flex-col gap-4 p-4 sm:p-5 xl:flex-row xl:items-center xl:justify-between">
                 <div className="min-w-0">
                     <p className="font-semibold text-foreground">
-                        {formatDateTime(slot.startsAt)} –{" "}
-                        {new Date(slot.endsAt).toLocaleTimeString("en-CA", {
-                            hour: "numeric",
-                            minute: "2-digit",
-                        })}
+                        {formatDateTime(slot.startsAt)}
+                        {slot.endsAt ? ` · ${formatBookingTimeRange(slot.startsAt, slot.endsAt)}` : ""}
                     </p>
+                    {slot.status === "available" && slot.active ? (
+                        <p className="mt-1 text-sm text-muted">
+                            {slot.regularsFirst
+                                ? `Priority access · Public after ${formatDateTime(slot.publicAccessAt)}`
+                                : "Available to everyone now"}
+                        </p>
+                    ) : null}
                     {slot.notes ? (
-                        <p className="mt-1 break-words text-sm text-muted">
+                        <p className="mt-1 wrap-break-word text-sm text-muted">
                             {slot.notes}
                         </p>
                     ) : null}

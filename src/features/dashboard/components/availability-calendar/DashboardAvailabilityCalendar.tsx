@@ -44,24 +44,39 @@ function useVisibleDayCount() {
     );
 }
 
+function getTodayDateKey() {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+}
+
 export default function DashboardAvailabilityCalendar({
     days,
 }: {
     days: DashboardCalendarDay[];
 }) {
     const visibleCount = useVisibleDayCount();
-    const [startIndex, setStartIndex] = useState(0);
+    const [pageOffset, setPageOffset] = useState(0);
     const normalizedDays = useMemo(() => days ?? [], [days]);
-    const maxStartIndex = Math.max(0, normalizedDays.length - visibleCount);
-    const boundedStartIndex = Math.min(startIndex, maxStartIndex);
+    const todayDateKey = getTodayDateKey();
+    const todayIndex = normalizedDays.findIndex(
+        (day) => day.isToday || day.date >= todayDateKey,
+    );
+    const baseStartIndex = todayIndex >= 0 ? todayIndex : 0;
+    const maxOffset = Math.max(0, normalizedDays.length - 1 - baseStartIndex);
+    const boundedPageOffset = Math.min(pageOffset, maxOffset);
+    const currentStartIndex = baseStartIndex + boundedPageOffset;
     const visibleDays = normalizedDays.slice(
-        boundedStartIndex,
-        boundedStartIndex + visibleCount,
+        currentStartIndex,
+        currentStartIndex + visibleCount,
     );
     const dateRange = formatVisibleDateRange(visibleDays);
-    const canGoBack = boundedStartIndex > 0;
+    const canGoBack = boundedPageOffset > 0;
     const canGoForward =
-        boundedStartIndex + visibleCount < normalizedDays.length;
+        currentStartIndex + visibleCount < normalizedDays.length;
     const hasAnySlots = normalizedDays.some((day) => day.slots.length > 0);
     const hasVisibleSlots = visibleDays.some((day) => day.slots.length > 0);
 
@@ -91,18 +106,13 @@ export default function DashboardAvailabilityCalendar({
                 dateRange={dateRange}
                 canGoBack={canGoBack}
                 canGoForward={canGoForward}
-                onToday={() => setStartIndex(0)}
+                onToday={() => setPageOffset(0)}
                 onPrevious={() =>
-                    setStartIndex(
-                        Math.max(0, boundedStartIndex - visibleCount),
-                    )
+                    setPageOffset(Math.max(0, boundedPageOffset - visibleCount))
                 }
                 onNext={() =>
-                    setStartIndex(
-                        Math.min(
-                            maxStartIndex,
-                            boundedStartIndex + visibleCount,
-                        ),
+                    setPageOffset(
+                        Math.min(maxOffset, boundedPageOffset + visibleCount),
                     )
                 }
             />
@@ -115,10 +125,7 @@ export default function DashboardAvailabilityCalendar({
 
             <div className="mt-5 grid gap-4 md:grid-cols-3 xl:grid-cols-5">
                 {visibleDays.map((day) => (
-                    <AvailabilityCalendarDayColumn
-                        key={day.date}
-                        day={day}
-                    />
+                    <AvailabilityCalendarDayColumn key={day.date} day={day} />
                 ))}
             </div>
         </section>

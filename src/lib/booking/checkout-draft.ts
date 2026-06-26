@@ -6,7 +6,7 @@ export type BookingCheckoutDraft = BookingSelections & {
     version: 1;
     savedAt: string;
     slotStartsAt: string;
-    slotEndsAt: string;
+    slotEndsAt: string | null;
 };
 
 export function isBookingCheckoutDraft(
@@ -23,7 +23,7 @@ export function isBookingCheckoutDraft(
         typeof draft.savedAt === "string" &&
         typeof draft.slotId === "string" &&
         typeof draft.slotStartsAt === "string" &&
-        typeof draft.slotEndsAt === "string"
+        (typeof draft.slotEndsAt === "string" || draft.slotEndsAt === null)
     );
 }
 

@@ -50,7 +50,6 @@ function revalidateBookingPaths(bookingReference: string) {
 
 const refundMethods = [
     "no_refund",
-    "refund_etransfer",
     "account_credit",
 ] as const satisfies RefundMethod[];
 
@@ -213,8 +212,8 @@ async function getOwnedEditableBooking(bookingId: string, userId: string) {
             booking_fee_mode: Database["public"]["Enums"]["fee_mode"];
             booking_fee_rate: number;
             availability_slots:
-                | { starts_at: string; ends_at: string }
-                | { starts_at: string; ends_at: string }[]
+                | { starts_at: string; ends_at: string | null }
+                | { starts_at: string; ends_at: string | null }[]
                 | null;
         } | null>();
 
@@ -465,14 +464,26 @@ export async function requestBookingDateChange(
 
     const admin = createAdminClient();
 
+    const { data: profile } = await admin
+        .from("profiles")
+        .select("is_regular")
+        .eq("id", user.id)
+        .maybeSingle()
+        .overrideTypes<{ is_regular: boolean } | null>();
+
     const { data: requestedSlot, error: slotError } = await admin
         .from("availability_slots")
-        .select("id, starts_at, ends_at")
+        .select("id, starts_at, ends_at, regulars_first, public_access_at")
         .eq("id", slotId)
         .eq("active", true)
         .eq("status", "available")
+        .or(
+            profile?.is_regular
+                ? "regulars_first.eq.true,regulars_first.eq.false"
+                : `regulars_first.eq.false,public_access_at.lte.${new Date().toISOString()}`,
+        )
         .maybeSingle()
-        .overrideTypes<{ id: string; starts_at: string; ends_at: string } | null>();
+        .overrideTypes<{ id: string; starts_at: string; ends_at: string | null; regulars_first: boolean; public_access_at: string } | null>();
 
     if (slotError) {
         console.error("[bookings:edit.request-date.slot]", slotError);
@@ -484,6 +495,16 @@ export async function requestBookingDateChange(
     if (!requestedSlot) {
         return editState({
             error: "That appointment time is no longer available.",
+        });
+    }
+
+    if (
+        !profile?.is_regular &&
+        requestedSlot.regulars_first &&
+        new Date(requestedSlot.public_access_at).getTime() > Date.now()
+    ) {
+        return editState({
+            error: "That appointment time is not available yet.",
         });
     }
 
@@ -536,7 +557,7 @@ export async function requestBookingCancellation(
     const requestedRefundMethod = getFormString(
         formData,
         "requestedRefundMethod",
-    ) as RefundMethod;
+    );
 
     if (!bookingId) {
         return state({
@@ -544,7 +565,7 @@ export async function requestBookingCancellation(
         });
     }
 
-    if (!refundMethods.includes(requestedRefundMethod)) {
+    if (!(refundMethods as readonly string[]).includes(requestedRefundMethod)) {
         return state({
             error: "Choose how you would prefer any refund handled.",
         });
@@ -607,7 +628,7 @@ export async function requestBookingCancellation(
             booking_id: booking.id,
             user_id: user.id,
             reason,
-            requested_refund_method: requestedRefundMethod,
+            requested_refund_method: requestedRefundMethod as RefundMethod,
             status: "pending",
         });
 
@@ -661,9 +682,9 @@ export async function requestBookingCancellation(
     revalidateBookingPaths(booking.booking_reference);
     revalidatePath("/dashboard");
 
-    const typedBooking = booking as typeof booking & { profiles?: { display_name: string; email: string } | null; availability_slots?: { starts_at: string; ends_at: string } | null };
+    const typedBooking = booking as typeof booking & { profiles?: { display_name: string; email: string } | null; availability_slots?: { starts_at: string; ends_at: string | null } | null };
     const appointment = typedBooking.availability_slots?.starts_at ? new Intl.DateTimeFormat("en-CA", { dateStyle: "full", timeStyle: "short" }).format(new Date(typedBooking.availability_slots.starts_at)) : "Not scheduled";
-    const outcome = requestedRefundMethod === "refund_etransfer" ? "Refund deposit" : requestedRefundMethod === "account_credit" ? "Convert deposit to credit" : "No refund needed";
+    const outcome = requestedRefundMethod === "account_credit" ? "Convert deposit to credit" : "No refund needed";
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
     if (typedBooking.profiles?.email) {
         const template = cancellationTemplate({ name: typedBooking.profiles.display_name, reference: booking.booking_reference, heading: "Cancellation request received", appointment, reason, outcome, message: "Your cancellation request was sent to the studio for review.", detailsUrl: siteUrl ? `${siteUrl}/booking/${booking.booking_reference}` : undefined });

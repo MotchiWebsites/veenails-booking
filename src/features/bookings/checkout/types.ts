@@ -5,6 +5,6 @@ export type BookingCheckoutActionState = {
     bookingId?: string;
     bookingReference?: string;
     startsAt?: string;
-    endsAt?: string;
+    endsAt?: string | null;
     depositAmount?: number;
 };

@@ -18,6 +18,7 @@ import {
 } from "@/features/bookings/utils/booking-status";
 import AdminAppointmentEditor from "@/features/admin/appointments/components/AdminAppointmentEditor";
 import AdminAppointmentActions from "@/features/admin/appointments/components/AdminAppointmentActions";
+import AdminDiscountEditor from "@/features/admin/appointments/components/AdminDiscountEditor";
 import AdminCancellationSummary from "@/features/admin/appointments/components/AdminCancellationSummary";
 import AdminCreditForm from "@/features/admin/credits/components/AdminCreditForm";
 
@@ -48,6 +49,24 @@ export default function AdminAppointmentDetailsPage({
     booking: AdminAppointmentDetails;
 }) {
     const client = booking.profile;
+    const externalClient = booking.externalClient;
+    const displayClient = client
+        ? {
+              displayName: client.displayName,
+              email: client.email,
+              phone: client.phone,
+              instagramHandle: client.instagramHandle,
+              preferredContactMethod: client.preferredContactMethod,
+              label: "App customer",
+          }
+        : {
+              displayName: externalClient.displayName,
+              email: externalClient.email,
+              phone: null,
+              instagramHandle: externalClient.instagramHandle,
+              preferredContactMethod: externalClient.preferredContactMethod,
+              label: "External client",
+          };
 
     return (
         <div className="space-y-6">
@@ -93,21 +112,22 @@ export default function AdminAppointmentDetailsPage({
                             Client
                         </h2>
                         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                            <Summary label="Name" value={client?.displayName} />
-                            <Summary label="Email" value={client?.email} />
-                            <Summary label="Phone" value={client?.phone} />
+                            <Summary label="Type" value={displayClient.label} />
+                            <Summary label="Name" value={displayClient.displayName} />
+                            <Summary label="Email" value={displayClient.email} />
+                            <Summary label="Phone" value={displayClient.phone} />
                             <Summary
                                 label="Instagram"
                                 value={
-                                    client?.instagramHandle
-                                        ? `@${client.instagramHandle}`
+                                    displayClient.instagramHandle
+                                        ? `@${displayClient.instagramHandle}`
                                         : null
                                 }
                             />
                             <Summary
                                 label="Preferred contact"
                                 value={formatContactMethod(
-                                    client?.preferredContactMethod,
+                                    displayClient.preferredContactMethod,
                                 )}
                             />
                         </div>
@@ -124,6 +144,7 @@ export default function AdminAppointmentDetailsPage({
                 </div>
 
                 <div className="space-y-4">
+                    <AdminDiscountEditor booking={booking} />
                     <AdminAppointmentActions booking={booking} />
                     <PaymentsPanel booking={booking} />
                     {client ? <div className="rounded-3xl border border-border/60 bg-surface p-5 shadow-sm"><h2 className="text-lg font-semibold text-foreground">Issue credit</h2><p className="mt-1 text-sm text-muted">Link a manual credit to this appointment.</p><div className="mt-4"><AdminCreditForm userId={client.id} bookingId={booking.id} /></div></div> : null}

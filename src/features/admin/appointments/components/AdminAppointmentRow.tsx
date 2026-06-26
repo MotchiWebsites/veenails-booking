@@ -20,7 +20,10 @@ function QuickAction({ booking }: { booking: AdminAppointmentListItem }) {
 }
 
 export default function AdminAppointmentRow({ booking, quickAction = false }: { booking: AdminAppointmentListItem; quickAction?: boolean }) {
-    const contact = booking.profile?.preferredContactMethod ? `${formatContactMethod(booking.profile.preferredContactMethod)} · ${booking.profile.phone ?? booking.profile.email}` : booking.profile?.email;
+    const clientName = booking.profile?.displayName ?? booking.externalClient.displayName ?? "External client";
+    const clientEmail = booking.profile?.email ?? booking.externalClient.email;
+    const preferredContact = booking.profile?.preferredContactMethod ?? booking.externalClient.preferredContactMethod;
+    const contact = preferredContact ? `${formatContactMethod(preferredContact)} · ${booking.profile?.phone ?? clientEmail ?? "No email"}` : clientEmail;
     const total = booking.finalTotal > 0 ? booking.finalTotal : booking.estimatedTotal;
 
     return (
@@ -28,7 +31,7 @@ export default function AdminAppointmentRow({ booking, quickAction = false }: { 
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(13rem,auto)] xl:items-center">
                 <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2"><span className="font-semibold text-dark-green">#{booking.bookingReference}</span><AdminStatusPill label={getBookingStatusLabel(booking.status)} /><AdminStatusPill label={getDepositStatusLabel(booking.depositStatus)} /></div>
-                    <p className="mt-2 font-medium text-foreground">{booking.profile?.displayName ?? "Unknown client"}</p>
+                    <p className="mt-2 font-medium text-foreground">{clientName}</p>
                     <p className="mt-1 text-sm text-muted">{contact}</p>
                     <p className="mt-2 line-clamp-2 text-sm text-foreground">{booking.serviceSummary}</p>
                 </div>
