@@ -227,15 +227,14 @@ export default function BookingCheckoutPage({
     if (
         state.bookingId &&
         state.bookingReference &&
-        state.startsAt &&
-        state.endsAt
+        state.startsAt
     ) {
         return (
             <CheckoutSuccessState
                 bookingId={state.bookingId}
                 bookingReference={state.bookingReference}
                 startsAt={state.startsAt}
-                endsAt={state.endsAt}
+                endsAt={state.endsAt ?? null}
                 depositAmount={state.depositAmount ?? 0}
             />
         );

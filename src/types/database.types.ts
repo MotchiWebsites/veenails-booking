@@ -1050,7 +1050,7 @@ export type Database = {
           notification_type: string
           provider: string | null
           provider_message_id: string | null
-          recipient_email: string
+          recipient_email: string | null
           sent_at: string | null
           status: Database["public"]["Enums"]["notification_status"]
           subject: string | null
@@ -1064,7 +1064,7 @@ export type Database = {
           notification_type: string
           provider?: string | null
           provider_message_id?: string | null
-          recipient_email: string
+          recipient_email?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["notification_status"]
           subject?: string | null
@@ -1078,7 +1078,7 @@ export type Database = {
           notification_type?: string
           provider?: string | null
           provider_message_id?: string | null
-          recipient_email?: string
+          recipient_email?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["notification_status"]
           subject?: string | null

@@ -28,30 +28,24 @@ export function getAdminAppointmentActionRules(
         : null;
     const currentOrPast = startsAt !== null && startsAt <= now;
     const future = startsAt === null || startsAt > now;
-    const past = booking.endsAt
-        ? new Date(booking.endsAt).getTime() < now
-        : currentOrPast;
     const active = ACTIVE_STATUSES.has(booking.status);
-    const staleUnhandled =
-        past && (booking.status === "requested" || booking.status === "held");
-    const terminal = !active || staleUnhandled;
+    const terminal = !active;
     const pendingCancellation =
         booking.status === "cancellation_requested" &&
         booking.cancellationRequest?.status === "pending";
 
     return {
         canConfirm:
-            !past &&
             (booking.status === "requested" || booking.status === "held"),
         canConfirmDeposit:
-            active &&
-            !past &&
+            (booking.status === "held" ||
+                booking.status === "requested" ||
+                booking.status === "confirmed") &&
             (booking.depositStatus === "pending" ||
                 booking.depositStatus === "marked_sent"),
         canComplete: booking.status === "confirmed" && currentOrPast,
         canMarkNoShow: booking.status === "confirmed" && currentOrPast,
         canReject:
-            !past &&
             (booking.status === "requested" || booking.status === "held"),
         canCancel:
             future &&

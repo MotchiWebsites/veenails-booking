@@ -67,6 +67,8 @@ export default function AdminCreateAppointmentPage({
     const [designTierId, setDesignTierId] = useState<string>("");
     const [externalEmail, setExternalEmail] = useState("");
     const [externalInstagram, setExternalInstagram] = useState("");
+    const [externalPreferredContact, setExternalPreferredContact] =
+        useState<"email" | "instagram">("instagram");
 
     const selectedService = getService(serviceId);
     const serviceOptions = selectedService?.options ?? [];
@@ -200,7 +202,6 @@ export default function AdminCreateAppointmentPage({
                                     <input
                                         name="clientInstagramHandle"
                                         className="input-field"
-                                        required
                                         placeholder="client.handle"
                                         value={externalInstagram}
                                         onChange={(event) =>
@@ -222,12 +223,17 @@ export default function AdminCreateAppointmentPage({
                                 <AppSelect
                                     label="Preferred contact"
                                     name="clientPreferredContactMethod"
-                                    defaultValue={externalEmail ? "email" : "instagram"}
+                                    value={externalPreferredContact}
+                                    onChange={(value) =>
+                                        setExternalPreferredContact(
+                                            value as "email" | "instagram",
+                                        )
+                                    }
                                     options={[
                                         { value: "instagram", label: "Instagram" },
                                         { value: "email", label: "Email" },
                                     ]}
-                                    helperText="Email reminders only send when an email is provided."
+                                    helperText="Add an email address or Instagram handle. Email reminders only send when email is available."
                                 />
                             </div>
                         )}

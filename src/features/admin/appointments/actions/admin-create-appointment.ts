@@ -15,6 +15,7 @@ import {
 } from "@/features/profile/validation/profile";
 import { isValidEmail } from "@/features/auth/validation/email";
 import { appointmentStatusTemplate } from "@/features/notifications/email/templates/appointment-status-template";
+import { resolveBookingRecipient } from "@/features/notifications/utils/resolve-booking-recipient";
 import { sendTransactionalEmail } from "@/lib/email/brevo";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { BookingSelections, DesignTier } from "@/features/bookings/new-booking/types";
@@ -143,8 +144,6 @@ function buildLineItems({
             description_snapshot: serviceOption.helperText ?? service.description,
             quantity: 1,
             unit_price: serviceOption.price,
-            source_table: "booking_config",
-            source_id: `${service.id}:${serviceOption.id}`,
             added_by: adminUserId,
         });
     }
@@ -178,10 +177,18 @@ export async function createAdminAppointmentAction(
     const externalEmail = text(formData, "clientEmail").toLowerCase();
     const externalInstagramRaw = text(formData, "clientInstagramHandle");
     const externalInstagram = normalizeInstagramHandle(externalInstagramRaw);
+    const preferredContactInput = text(
+        formData,
+        "clientPreferredContactMethod",
+    );
     const preferredContact =
-        text(formData, "clientPreferredContactMethod") === "email"
+        preferredContactInput === "email" && externalEmail
             ? "email"
-            : "instagram";
+            : preferredContactInput === "instagram" && externalInstagram
+              ? "instagram"
+              : externalEmail
+                ? "email"
+                : "instagram";
     const bookingStatus = text(formData, "bookingStatus") === "confirmed" ? "confirmed" : "requested";
     const depositStatusInput = text(formData, "depositStatus") as Enums<"deposit_status">;
     const depositStatus: Enums<"deposit_status"> =
@@ -200,8 +207,16 @@ export async function createAdminAppointmentAction(
 
     if (mode === "external") {
         if (!externalName) return response({ error: "Add the external client's name.", success: "" });
-        const instagramError = validateInstagramHandle(externalInstagramRaw);
-        if (instagramError || !externalInstagram) return response({ error: instagramError ?? "Instagram handle is required.", success: "" });
+        if (!externalEmail && !externalInstagram) {
+            return response({
+                error: "Add an email address or Instagram handle so the client can be contacted.",
+                success: "",
+            });
+        }
+        const instagramError = externalInstagramRaw
+            ? validateInstagramHandle(externalInstagramRaw)
+            : null;
+        if (instagramError) return response({ error: instagramError, success: "" });
         if (externalEmail && !isValidEmail(externalEmail)) return response({ error: "Enter a valid email or leave it blank.", success: "" });
     }
 
@@ -229,14 +244,26 @@ export async function createAdminAppointmentAction(
         if (slotError) throw slotError;
         if (!slot) return response({ error: "That appointment time is no longer available.", success: "" });
 
-        let profile: { id: string; display_name: string; email: string } | null = null;
+        let profile: {
+            id: string;
+            display_name: string;
+            email: string;
+            instagram_handle: string | null;
+            preferred_contact_method: string | null;
+        } | null = null;
         if (mode === "existing") {
             const result = await admin
                 .from("profiles")
-                .select("id, display_name, email")
+                .select("id, display_name, email, instagram_handle, preferred_contact_method")
                 .eq("id", selectedUserId)
                 .maybeSingle()
-                .overrideTypes<{ id: string; display_name: string; email: string } | null>();
+                .overrideTypes<{
+                    id: string;
+                    display_name: string;
+                    email: string;
+                    instagram_handle: string | null;
+                    preferred_contact_method: string | null;
+                } | null>();
             if (result.error) throw result.error;
             if (!result.data) throw new Error("Selected customer was not found.");
             profile = result.data;
@@ -361,6 +388,8 @@ export async function createAdminAppointmentAction(
                 depositStatus,
                 estimatedTotal: estimate.total,
                 clientEmail: mode === "external" ? externalEmail || null : profile?.email ?? null,
+                clientInstagramHandle:
+                    mode === "external" ? externalInstagram : profile?.instagram_handle ?? null,
             },
         });
         if (eventError) throw eventError;
@@ -375,30 +404,34 @@ export async function createAdminAppointmentAction(
             revalidatePath("/dashboard");
         }
 
-        const recipientEmail = profile?.email ?? (externalEmail || null);
-        const recipientName = profile?.display_name ?? externalName;
-        if (recipientEmail) {
-            const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
-            const appointment = new Intl.DateTimeFormat("en-CA", {
-                dateStyle: "full",
-                timeStyle: "short",
-            }).format(new Date(slot.starts_at));
-            const template = appointmentStatusTemplate({
-                name: recipientName,
-                reference: bookingReference,
-                status: bookingStatus,
-                appointment,
-                message: "The studio created this appointment for you.",
-                detailsUrl: profile?.id && siteUrl ? `${siteUrl}/booking/${bookingReference}` : undefined,
-            });
-            await sendTransactionalEmail({
-                to: { email: recipientEmail, name: recipientName },
-                ...template,
-                notificationType: "admin_booking_created",
-                bookingId: booking.id,
-                userId: profile?.id,
-            });
-        }
+        const recipient = resolveBookingRecipient({
+            client_display_name: externalName,
+            client_email: externalEmail,
+            client_instagram_handle: externalInstagram,
+            client_preferred_contact_method: preferredContact,
+            profiles: profile,
+        });
+        const recipientName = recipient.displayName ?? "Client";
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+        const appointment = new Intl.DateTimeFormat("en-CA", {
+            dateStyle: "full",
+            timeStyle: "short",
+        }).format(new Date(slot.starts_at));
+        const template = appointmentStatusTemplate({
+            name: recipientName,
+            reference: bookingReference,
+            status: bookingStatus,
+            appointment,
+            message: "The studio created this appointment for you.",
+            detailsUrl: profile?.id && siteUrl ? `${siteUrl}/booking/${bookingReference}` : undefined,
+        });
+        await sendTransactionalEmail({
+            to: { email: recipient.email, name: recipientName },
+            ...template,
+            notificationType: "admin_booking_created",
+            bookingId: booking.id,
+            userId: profile?.id,
+        });
 
         return response({
             error: "",

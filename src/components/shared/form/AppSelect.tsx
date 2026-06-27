@@ -70,6 +70,7 @@ export default function AppSelect({
                             ? (event) => onChange(event.target.value)
                             : undefined
                     }
+                    required={required}
                     disabled={disabled}
                     aria-invalid={Boolean(error)}
                     aria-describedby={

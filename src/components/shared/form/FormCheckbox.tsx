@@ -8,6 +8,7 @@ export default function FormCheckbox({
     value,
     onValueChange,
     checked,
+    defaultChecked,
     onCheckedChange,
     children,
 }: {
@@ -19,6 +20,7 @@ export default function FormCheckbox({
     onValueChange?: (value: boolean) => void;
     // preferred prop names
     checked?: boolean;
+    defaultChecked?: boolean;
     onCheckedChange?: (value: boolean) => void;
     children?: React.ReactNode;
 }) {
@@ -34,6 +36,11 @@ export default function FormCheckbox({
                 className="peer sr-only"
                 aria-required={required ? "true" : undefined}
                 checked={checked ?? value}
+                defaultChecked={
+                    checked === undefined && value === undefined
+                        ? defaultChecked
+                        : undefined
+                }
                 onChange={(e) => {
                     const next = e.target.checked;
                     onValueChange?.(next);

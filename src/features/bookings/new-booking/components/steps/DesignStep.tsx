@@ -61,9 +61,9 @@ export default function DesignStep({
                                     <Image
                                         src={tier.imageSrc}
                                         alt={tier.imageAlt}
-                                        fill
-                                        sizes="(min-width: 1280px) 28rem, (min-width: 640px) 42rem, calc(100vw - 4rem)"
-                                        quality={95}
+                                        width={1000}
+                                        height={1000}
+                                        priority
                                         className="object-cover"
                                     />
                                 </div>

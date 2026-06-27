@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { FiArrowLeft } from "react-icons/fi";
-import {
-    markInspoReviewedAction,
-} from "@/features/admin/appointments/actions/admin-appointments";
+import { markInspoReviewedAction } from "@/features/admin/appointments/actions/admin-appointments";
 import AdminPageHeader from "@/features/admin/components/AdminPageHeader";
 import AdminStatusPill from "@/features/admin/components/AdminStatusPill";
 import {
@@ -67,43 +65,125 @@ export default function AdminAppointmentDetailsPage({
               preferredContactMethod: externalClient.preferredContactMethod,
               label: "External client",
           };
+    const instagramOnly =
+        !displayClient.email && Boolean(displayClient.instagramHandle);
+    const appointmentTotal = Math.max(
+        0,
+        booking.amountPaid + booking.amountDue,
+    );
+    const discountItem =
+        booking.lineItems.find((item) => item.itemType === "discount") ?? null;
+    const discountAmount = Math.abs(discountItem?.lineTotal ?? 0);
+    const subtotalBeforeDiscount = booking.lineItems
+        .filter((item) => item.itemType !== "discount")
+        .reduce((sum, item) => sum + item.lineTotal, 0);
+    const discountLabel = discountItem
+        ? discountItem.label.replace(/^Admin\s+/i, "")
+        : null;
 
     return (
         <div className="space-y-6">
-            <section className="rounded-3xl border border-border/60 bg-surface p-5 shadow-sm sm:p-7">
-                <Link
-                    href="/admin/appointments"
-                    className="inline-flex items-center gap-2 text-sm font-semibold text-dark-green transition hover:text-pink-main"
-                >
-                    <FiArrowLeft className="h-4 w-4" aria-hidden="true" />
-                    Back to appointments
-                </Link>
-                <div className="mt-5">
-                    <AdminPageHeader
-                        eyebrow="Appointment"
-                        title={`#${booking.bookingReference}`}
-                        description={formatBookingDateTime(
-                            booking.startsAt,
-                            booking.endsAt,
-                        )}
-                    />
-                </div>
-                <div className="mt-4 flex flex-wrap gap-2">
-                    <AdminStatusPill label={getBookingStatusLabel(booking.status)} />
-                    <AdminStatusPill
-                        label={getDepositStatusLabel(booking.depositStatus)}
-                    />
-                    {booking.inspoPrompt ? (
-                        <AdminStatusPill
-                            label={`Inspo ${booking.inspoPrompt.status}`}
+            <section className="grid overflow-hidden rounded-3xl border border-border/60 bg-surface shadow-sm lg:grid-cols-[minmax(0,1fr)_20rem]">
+                <div className="p-5 sm:p-7">
+                    <Link
+                        href="/admin/appointments"
+                        className="inline-flex items-center gap-2 text-sm font-semibold text-dark-green transition hover:text-pink-main"
+                    >
+                        <FiArrowLeft className="h-4 w-4" aria-hidden="true" />
+                        Back to appointments
+                    </Link>
+                    <div className="mt-5">
+                        <AdminPageHeader
+                            eyebrow="Appointment"
+                            title={`#${booking.bookingReference}`}
+                            description={formatBookingDateTime(
+                                booking.startsAt,
+                                booking.endsAt,
+                            )}
                         />
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                        <AdminStatusPill
+                            label={getBookingStatusLabel(booking.status)}
+                        />
+                        <AdminStatusPill
+                            label={getDepositStatusLabel(booking.depositStatus)}
+                        />
+                        {booking.inspoPrompt ? (
+                            <AdminStatusPill
+                                label={`Inspo ${booking.inspoPrompt.status}`}
+                            />
+                        ) : null}
+                        {!client ? (
+                            <AdminStatusPill label="External client" />
+                        ) : null}
+                    </div>
+                    {instagramOnly ? (
+                        <div className="mt-4 border-l-4 border-pink-main bg-pink-main/10 px-4 py-3 text-sm">
+                            <p className="font-semibold text-foreground">
+                                Email unavailable
+                            </p>
+                            <p className="mt-1 text-muted">
+                                Contact via Instagram: @
+                                {displayClient.instagramHandle}
+                            </p>
+                        </div>
                     ) : null}
+                </div>
+                <div className="flex flex-col justify-center bg-dark-green p-5 text-white sm:p-7">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/70">
+                        Amount to charge
+                    </p>
+                    <p className="mt-2 text-4xl font-semibold">
+                        {formatMoney(booking.amountDue)}
+                    </p>
+                    <div className="mt-5 space-y-2 border-t border-white/20 pt-4 text-sm">
+                        <p className="flex items-center justify-between gap-4">
+                            <span className="text-white/70">Subtotal</span>
+                            <span className="font-semibold">
+                                {formatMoney(subtotalBeforeDiscount)}
+                            </span>
+                        </p>
+                        {discountLabel && discountAmount > 0 ? (
+                            <p className="flex items-center justify-between gap-4">
+                                <span className="capitalize text-white/70">
+                                    {discountLabel}
+                                </span>
+                                <span className="font-semibold">
+                                    -{formatMoney(discountAmount)}
+                                </span>
+                            </p>
+                        ) : null}
+                        {booking.bookingFeeAmount > 0 ? (
+                            <p className="flex items-center justify-between gap-4">
+                                <span className="text-white/70">
+                                    Booking fee
+                                </span>
+                                <span className="font-semibold">
+                                    +{formatMoney(booking.bookingFeeAmount)}
+                                </span>
+                            </p>
+                        ) : null}
+                        <p className="flex items-center justify-between gap-4">
+                            <span className="text-white/70">
+                                Appointment total
+                            </span>
+                            <span className="font-semibold">
+                                {formatMoney(appointmentTotal)}
+                            </span>
+                        </p>
+                        <p className="flex items-center justify-between gap-4">
+                            <span className="text-white/70">Paid</span>
+                            <span className="font-semibold">
+                                {booking.amountPaid > 0 ? "-" : ""}
+                                {formatMoney(booking.amountPaid)}
+                            </span>
+                        </p>
+                    </div>
                 </div>
             </section>
 
-            <AdminCancellationSummary booking={booking} />
-
-            <AdminAppointmentEditor booking={booking} />
+            <AdminAppointmentActions booking={booking} />
 
             <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
                 <div className="space-y-6">
@@ -113,14 +193,26 @@ export default function AdminAppointmentDetailsPage({
                         </h2>
                         <div className="mt-4 grid gap-4 sm:grid-cols-2">
                             <Summary label="Type" value={displayClient.label} />
-                            <Summary label="Name" value={displayClient.displayName} />
-                            <Summary label="Email" value={displayClient.email} />
-                            <Summary label="Phone" value={displayClient.phone} />
+                            <Summary
+                                label="Name"
+                                value={displayClient.displayName}
+                            />
+                            <Summary
+                                label="Email"
+                                value={
+                                    displayClient.email ??
+                                    (client ? null : "Email unavailable")
+                                }
+                            />
+                            <Summary
+                                label="Phone"
+                                value={displayClient.phone}
+                            />
                             <Summary
                                 label="Instagram"
                                 value={
                                     displayClient.instagramHandle
-                                        ? `@${displayClient.instagramHandle}`
+                                        ? `${instagramOnly ? "Contact via Instagram: " : ""}@${displayClient.instagramHandle}`
                                         : null
                                 }
                             />
@@ -132,22 +224,47 @@ export default function AdminAppointmentDetailsPage({
                             />
                         </div>
                         {client ? (
-                            <Link href={`/admin/users/${client.id}`} className="btn-secondary mt-4 inline-flex">
+                            <Link
+                                href={`/admin/users/${client.id}`}
+                                className="btn-secondary mt-4 inline-flex"
+                            >
                                 View customer
                             </Link>
                         ) : null}
                     </div>
+                    <PaymentsPanel booking={booking} />
+                </div>
 
+                <AdminDiscountEditor booking={booking} />
+            </section>
+
+            <AdminCancellationSummary booking={booking} />
+
+            <AdminAppointmentEditor booking={booking} />
+
+            <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+                <div className="space-y-6">
                     <DesignInspo booking={booking} />
                     <CancellationPanel booking={booking} />
                     <HistoryLog booking={booking} />
                 </div>
-
-                <div className="space-y-4">
-                    <AdminDiscountEditor booking={booking} />
-                    <AdminAppointmentActions booking={booking} />
-                    <PaymentsPanel booking={booking} />
-                    {client ? <div className="rounded-3xl border border-border/60 bg-surface p-5 shadow-sm"><h2 className="text-lg font-semibold text-foreground">Issue credit</h2><p className="mt-1 text-sm text-muted">Link a manual credit to this appointment.</p><div className="mt-4"><AdminCreditForm userId={client.id} bookingId={booking.id} /></div></div> : null}
+                <div>
+                    {client ? (
+                        <div className="rounded-3xl border border-border/60 bg-surface p-5 shadow-sm">
+                            <h2 className="text-lg font-semibold text-foreground">
+                                Issue credit
+                            </h2>
+                            <p className="mt-1 text-sm text-muted">
+                                Link a manual credit to this appointment.
+                            </p>
+                            <div className="mt-4">
+                                <AdminCreditForm
+                                    userId={client.id}
+                                    bookingId={booking.id}
+                                />
+                            </div>
+                        </div>
+                    ) : null}
                 </div>
             </section>
         </div>
@@ -180,12 +297,16 @@ function PaymentsPanel({ booking }: { booking: AdminAppointmentDetails }) {
             <div className="mt-4 space-y-3">
                 {booking.payments.length > 0 ? (
                     booking.payments.map((payment) => (
-                        <div key={payment.id} className="rounded-2xl bg-background p-4">
+                        <div
+                            key={payment.id}
+                            className="rounded-2xl bg-background p-4"
+                        >
                             <p className="text-sm font-semibold text-foreground">
                                 {formatMoney(payment.amount)}
                             </p>
                             <p className="mt-1 text-xs text-muted">
-                                {payment.paymentType} · {payment.method} · {payment.status}
+                                {payment.paymentType} · {payment.method} ·{" "}
+                                {payment.status}
                             </p>
                             {payment.paidAt ? (
                                 <p className="mt-1 text-xs text-muted">
@@ -214,7 +335,11 @@ function CancellationPanel({ booking }: { booking: AdminAppointmentDetails }) {
             </h2>
             <p className="mt-2 text-sm text-muted">{request.reason}</p>
             <p className="mt-1 text-sm text-muted">Status: {request.status}</p>
-            {request.adminReason ? <p className="mt-2 text-sm text-muted">Admin note: {request.adminReason}</p> : null}
+            {request.adminReason ? (
+                <p className="mt-2 text-sm text-muted">
+                    Admin note: {request.adminReason}
+                </p>
+            ) : null}
         </div>
     );
 }
@@ -223,8 +348,13 @@ function DesignInspo({ booking }: { booking: AdminAppointmentDetails }) {
     const inspo = booking.inspoPrompt;
 
     return (
-        <div id="design-inspo" className="scroll-mt-24 rounded-3xl border border-border/60 bg-surface p-5 shadow-sm sm:p-7">
-            <h2 className="text-lg font-semibold text-foreground">Design inspo</h2>
+        <div
+            id="design-inspo"
+            className="scroll-mt-24 rounded-3xl border border-border/60 bg-surface p-5 shadow-sm sm:p-7"
+        >
+            <h2 className="text-lg font-semibold text-foreground">
+                Design inspo
+            </h2>
             {inspo ? (
                 <div className="mt-4 space-y-3">
                     <AdminStatusPill label={inspo.status} />
@@ -249,7 +379,11 @@ function DesignInspo({ booking }: { booking: AdminAppointmentDetails }) {
                     {inspo.status === "sent" ? (
                         <form action={markInspoReviewedAction}>
                             <HiddenBookingId id={booking.id} />
-                            <input type="hidden" name="promptId" value={inspo.id} />
+                            <input
+                                type="hidden"
+                                name="promptId"
+                                value={inspo.id}
+                            />
                             <ActionButton variant="primary">
                                 Mark inspo reviewed
                             </ActionButton>
@@ -272,12 +406,16 @@ function HistoryLog({ booking }: { booking: AdminAppointmentDetails }) {
             <div className="mt-4 space-y-3">
                 {booking.events.length > 0 ? (
                     booking.events.map((event) => (
-                        <div key={event.id} className="rounded-2xl bg-background p-4">
+                        <div
+                            key={event.id}
+                            className="rounded-2xl bg-background p-4"
+                        >
                             <p className="text-sm uppercase font-semibold text-foreground">
                                 {event.eventType.replaceAll("_", " ")}
                             </p>
                             <p className="mt-1 text-xs text-muted">
-                                {formatDateTime(event.createdAt)} · {event.actorType}
+                                {formatDateTime(event.createdAt)} ·{" "}
+                                {event.actorType}
                             </p>
                             {event.message ? (
                                 <p className="mt-2 text-sm text-muted">

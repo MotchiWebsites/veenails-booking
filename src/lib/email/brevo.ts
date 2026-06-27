@@ -3,7 +3,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type TransactionalEmail = {
-    to: { email: string; name?: string | null };
+    to: { email: string | null; name?: string | null };
     subject: string;
     html: string;
     text: string;
@@ -14,16 +14,32 @@ export type TransactionalEmail = {
 
 export async function sendTransactionalEmail(input: TransactionalEmail) {
     const admin = createAdminClient();
+    const recipientEmail = input.to.email?.trim() || null;
     const apiKey = process.env.BREVO_API_KEY;
     const senderEmail = process.env.BREVO_SENDER_EMAIL;
     const senderName = process.env.BREVO_SENDER_NAME ?? "Vee's Nail Studio";
+
+    if (!recipientEmail) {
+        await admin.from("notification_logs").insert({
+            booking_id: input.bookingId ?? null,
+            user_id: input.userId ?? null,
+            notification_type: input.notificationType,
+            recipient_email: null,
+            subject: input.subject,
+            provider: "brevo",
+            status: "skipped",
+            error_message:
+                "Skipped: booking has no email recipient. Client contact is Instagram-only.",
+        });
+        return { sent: false, skipped: true };
+    }
 
     if (!apiKey || !senderEmail) {
         await admin.from("notification_logs").insert({
             booking_id: input.bookingId ?? null,
             user_id: input.userId ?? null,
             notification_type: input.notificationType,
-            recipient_email: input.to.email,
+            recipient_email: recipientEmail,
             subject: input.subject,
             provider: "brevo",
             status: "skipped",
@@ -38,7 +54,7 @@ export async function sendTransactionalEmail(input: TransactionalEmail) {
             headers: { "api-key": apiKey, "content-type": "application/json", accept: "application/json" },
             body: JSON.stringify({
                 sender: { email: senderEmail, name: senderName },
-                to: [{ email: input.to.email, name: input.to.name ?? undefined }],
+                to: [{ email: recipientEmail, name: input.to.name ?? undefined }],
                 subject: input.subject,
                 htmlContent: input.html,
                 textContent: input.text,
@@ -51,7 +67,7 @@ export async function sendTransactionalEmail(input: TransactionalEmail) {
             booking_id: input.bookingId ?? null,
             user_id: input.userId ?? null,
             notification_type: input.notificationType,
-            recipient_email: input.to.email,
+            recipient_email: recipientEmail,
             subject: input.subject,
             provider: "brevo",
             provider_message_id: payload.messageId ?? null,
@@ -66,7 +82,7 @@ export async function sendTransactionalEmail(input: TransactionalEmail) {
             booking_id: input.bookingId ?? null,
             user_id: input.userId ?? null,
             notification_type: input.notificationType,
-            recipient_email: input.to.email,
+            recipient_email: recipientEmail,
             subject: input.subject,
             provider: "brevo",
             status: "failed",

@@ -3,7 +3,10 @@ import {
     getAdminAppointments,
     type AdminAppointmentListItem,
 } from "@/features/admin/appointments/data/admin-appointments";
-import { matchesAdminAppointmentView } from "@/features/admin/appointments/utils/admin-appointment-views";
+import {
+    matchesAdminAppointmentView,
+    needsAdminAction,
+} from "@/features/admin/appointments/utils/admin-appointment-views";
 
 export type AdminDashboardData = {
     metrics: {
@@ -33,14 +36,17 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
             const bTime = b.startsAt ? new Date(b.startsAt).getTime() : 0;
             return aTime - bTime;
         });
-    const queue = appointments.filter(
-        (booking) =>
-            (!booking.startsAt || new Date(booking.startsAt).getTime() >= now) &&
-            (booking.status === "requested" ||
-                booking.depositStatus === "marked_sent" ||
-                booking.latestCancellationStatus === "pending" ||
-                booking.inspoStatus === "sent"),
-    );
+    const queue = appointments
+        .filter((booking) => needsAdminAction(booking, now))
+        .sort((a, b) => {
+            const aTime = a.startsAt
+                ? new Date(a.startsAt).getTime()
+                : Number.NEGATIVE_INFINITY;
+            const bTime = b.startsAt
+                ? new Date(b.startsAt).getTime()
+                : Number.NEGATIVE_INFINITY;
+            return aTime - bTime;
+        });
     const current = upcoming.find((booking) => {
         if (!booking.startsAt) return false;
         const startsAt = new Date(booking.startsAt).getTime();

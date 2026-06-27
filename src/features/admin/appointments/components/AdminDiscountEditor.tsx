@@ -6,28 +6,14 @@ import { FiPercent, FiSave } from "react-icons/fi";
 import { updateAppointmentDiscountAction } from "@/features/admin/appointments/actions/admin-appointments";
 import type { AdminAppointmentDetails } from "@/features/admin/appointments/data/admin-appointments";
 import { formatMoney } from "@/features/admin/components/admin-formatters";
-import { normalizeBookingFeeRate } from "@/features/bookings/new-booking/utils";
 import { useToast } from "@/components/shared/toast/ToastProvider";
+import {
+    calculateAdminDiscountedPricing,
+    parseAdminDiscountPercentage,
+    roundCurrency,
+} from "@/features/admin/appointments/utils/admin-discount";
 
 const CLOSED_STATUSES = new Set(["completed", "no_show", "cancelled", "rejected", "expired"]);
-
-function roundCurrency(value: number) {
-    return Math.round(value * 100) / 100;
-}
-
-function parseDiscountPercentage(label: string, fallbackAmount: number, subtotal: number) {
-    const match = label.match(/\(([\d.]+)%\)/);
-    if (match) {
-        const parsed = Number(match[1]);
-        if (Number.isFinite(parsed)) return String(parsed);
-    }
-
-    if (subtotal > 0 && fallbackAmount > 0) {
-        return String(roundCurrency((fallbackAmount / subtotal) * 100));
-    }
-
-    return "";
-}
 
 function SummaryRow({ label, value, emphasized = false }: { label: string; value: string; emphasized?: boolean }) {
     return (
@@ -54,20 +40,26 @@ export default function AdminDiscountEditor({ booking }: { booking: AdminAppoint
     );
     const existingDiscountAmount = Math.abs(discountItem?.lineTotal ?? discountItem?.unitPrice ?? 0);
     const [percentage, setPercentage] = useState(() =>
-        discountItem ? parseDiscountPercentage(discountItem.label, existingDiscountAmount, subtotalBeforeDiscount) : "",
+        discountItem
+            ? String(
+                  parseAdminDiscountPercentage({
+                      label: discountItem.label,
+                      fallbackAmount: existingDiscountAmount,
+                      subtotal: subtotalBeforeDiscount,
+                  }) ?? "",
+              )
+            : "",
     );
     const closed = CLOSED_STATUSES.has(booking.status);
     const enteredPercentage = Number(percentage || 0);
     const numericPercentage = Number.isFinite(enteredPercentage) ? Math.min(100, Math.max(0, enteredPercentage)) : 0;
-    const discountAmount = Math.min(
-        subtotalBeforeDiscount,
-        roundCurrency((subtotalBeforeDiscount * (Number.isFinite(numericPercentage) ? numericPercentage : 0)) / 100),
-    );
-    const updatedSubtotal = Math.max(0, roundCurrency(subtotalBeforeDiscount - discountAmount));
-    const bookingFeeRate = normalizeBookingFeeRate(booking.bookingFeeRate);
-    const bookingFee = booking.bookingFeeMode === "included_in_price" ? 0 : roundCurrency((updatedSubtotal * bookingFeeRate) / 100);
-    const updatedTotal = Math.max(0, roundCurrency(updatedSubtotal + bookingFee));
-    const amountDue = Math.max(0, roundCurrency(updatedTotal - booking.amountPaid));
+    const pricing = calculateAdminDiscountedPricing({
+        subtotal: subtotalBeforeDiscount,
+        discountPercentage: numericPercentage,
+        bookingFeeMode: booking.bookingFeeMode,
+        bookingFeeRate: booking.bookingFeeRate,
+        amountPaid: booking.amountPaid,
+    });
 
     useEffect(() => {
         if (!state.messageId) return;
@@ -130,9 +122,9 @@ export default function AdminDiscountEditor({ booking }: { booking: AdminAppoint
                     <div className="space-y-2 rounded-2xl border border-border/60 bg-background p-4">
                         <SummaryRow label="Current subtotal" value={formatMoney(subtotalBeforeDiscount)} />
                         <SummaryRow label="Discount" value={`${numericPercentage}%`} />
-                        <SummaryRow label="Discount amount" value={`-${formatMoney(discountAmount)}`} />
-                        <SummaryRow label="Updated total" value={formatMoney(updatedTotal)} emphasized />
-                        <SummaryRow label="Amount due" value={formatMoney(amountDue)} emphasized />
+                        <SummaryRow label="Discount amount" value={`-${formatMoney(pricing.discountAmount)}`} />
+                        <SummaryRow label="Updated total" value={formatMoney(pricing.total)} emphasized />
+                        <SummaryRow label="Amount due" value={formatMoney(pricing.amountDue)} emphasized />
                     </div>
 
                     <button

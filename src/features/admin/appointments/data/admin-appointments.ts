@@ -382,6 +382,14 @@ function mapProfile(row: AdminAppointmentRow["profiles"]) {
     };
 }
 
+function mapPreferredContactMethod(
+    value: string | null,
+): PreferredContactMethod | null {
+    return value === "email" || value === "phone" || value === "instagram"
+        ? value
+        : null;
+}
+
 function latestByCreatedAt<T extends { created_at: string }>(rows: T[] | null | undefined) {
     return (
         rows
@@ -410,7 +418,9 @@ function mapListItem(row: AdminAppointmentRow): AdminAppointmentListItem {
             displayName: row.client_display_name,
             email: row.client_email,
             instagramHandle: row.client_instagram_handle,
-            preferredContactMethod: row.client_preferred_contact_method,
+            preferredContactMethod: mapPreferredContactMethod(
+                row.client_preferred_contact_method,
+            ),
         },
         latestCancellationStatus: latestByCreatedAt(row.cancellation_requests)?.status ?? null,
         inspoStatus: latestByCreatedAt(row.booking_inspo_prompts)?.status ?? null,
