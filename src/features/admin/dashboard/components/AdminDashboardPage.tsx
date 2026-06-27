@@ -45,7 +45,10 @@ export default function AdminDashboardPage({
                     ))}
                 </div>
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                    <Link href="/admin/appointments" className="btn-primary">
+                    <Link href="/admin/appointments/new" className="btn-primary">
+                        Create appointment
+                    </Link>
+                    <Link href="/admin/appointments" className="btn-secondary">
                         Manage appointments
                     </Link>
                     <Link href="/admin/availability" className="btn-secondary">

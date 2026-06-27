@@ -3,7 +3,10 @@ import {
     getAdminAppointments,
     type AdminAppointmentListItem,
 } from "@/features/admin/appointments/data/admin-appointments";
-import { matchesAdminAppointmentView } from "@/features/admin/appointments/utils/admin-appointment-views";
+import {
+    matchesAdminAppointmentView,
+    needsAdminAction,
+} from "@/features/admin/appointments/utils/admin-appointment-views";
 
 export type AdminDashboardData = {
     metrics: {
@@ -33,17 +36,22 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
             const bTime = b.startsAt ? new Date(b.startsAt).getTime() : 0;
             return aTime - bTime;
         });
-    const queue = appointments.filter(
-        (booking) =>
-            (!booking.endsAt || new Date(booking.endsAt).getTime() >= now) &&
-            (booking.status === "requested" ||
-                booking.depositStatus === "marked_sent" ||
-                booking.latestCancellationStatus === "pending" ||
-                booking.inspoStatus === "sent"),
-    );
+    const queue = appointments
+        .filter((booking) => needsAdminAction(booking, now))
+        .sort((a, b) => {
+            const aTime = a.startsAt
+                ? new Date(a.startsAt).getTime()
+                : Number.NEGATIVE_INFINITY;
+            const bTime = b.startsAt
+                ? new Date(b.startsAt).getTime()
+                : Number.NEGATIVE_INFINITY;
+            return aTime - bTime;
+        });
     const current = upcoming.find((booking) => {
-        if (!booking.startsAt || !booking.endsAt) return false;
-        return new Date(booking.startsAt).getTime() <= now && new Date(booking.endsAt).getTime() >= now;
+        if (!booking.startsAt) return false;
+        const startsAt = new Date(booking.startsAt).getTime();
+        const endsAt = booking.endsAt ? new Date(booking.endsAt).getTime() : startsAt + 90 * 60_000;
+        return startsAt <= now && endsAt >= now;
     }) ?? upcoming.find((booking) => booking.startsAt && new Date(booking.startsAt).getTime() - now <= 90 * 60_000) ?? null;
 
     return {

@@ -1,9 +1,11 @@
 export default function AdminStatusPill({
     label,
     tone = "neutral",
+    className = "",
 }: {
     label: string;
     tone?: "neutral" | "success" | "warning" | "danger";
+    className?: string;
 }) {
     const toneClass = {
         neutral: "border-border/60 bg-background text-muted",
@@ -17,6 +19,7 @@ export default function AdminStatusPill({
             className={[
                 "inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-xs font-semibold",
                 toneClass,
+                className,
             ].join(" ")}
         >
             {label}

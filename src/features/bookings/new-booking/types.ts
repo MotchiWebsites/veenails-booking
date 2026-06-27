@@ -12,7 +12,8 @@ export type BookingFeeMode = Database["public"]["Enums"]["fee_mode"];
 export type AvailableAppointmentSlot = {
     id: string;
     startsAt: string;
-    endsAt: string;
+    endsAt: string | null;
+    availability: "available" | "booked";
 };
 
 export type BookingSettingsSummary = {

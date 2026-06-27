@@ -7,10 +7,29 @@ import type { Enums } from "@/types/supabase";
 
 const EDITABLE_STATUSES: Enums<"slot_status">[] = ["available", "blocked"];
 
-function parseSlotDate(formData: FormData, timeKey: string) {
+export type AvailabilityActionState = {
+    error: string;
+    success: string;
+    messageId: string;
+};
+
+function actionState(
+    input: Omit<AvailabilityActionState, "messageId">,
+): AvailabilityActionState {
+    return {
+        ...input,
+        messageId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    };
+}
+
+function parseSlotDate(formData: FormData, timeKey: string, optional = false) {
     const date = String(formData.get("date") ?? "");
     const time = String(formData.get(timeKey) ?? "");
     const offset = Number(formData.get("timezoneOffset") ?? 0);
+
+    if (optional && !time) {
+        return null;
+    }
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) {
         throw new Error("Choose a valid date and time.");
@@ -25,12 +44,24 @@ function parseSlotDate(formData: FormData, timeKey: string) {
     return new Date(Date.UTC(year, month - 1, day, hour, minute) + offset * 60_000);
 }
 
+function parseRequiredSlotDate(formData: FormData, timeKey: string) {
+    const value = parseSlotDate(formData, timeKey);
+    if (!value) {
+        throw new Error("Choose a valid date and time.");
+    }
+    return value;
+}
+
 async function assertNoOverlap(
     admin: ReturnType<typeof createAdminClient>,
     startsAt: Date,
-    endsAt: Date,
+    endsAt: Date | null,
     excludedSlotId?: string,
 ) {
+    if (!endsAt) {
+        return;
+    }
+
     let query = admin
         .from("availability_slots")
         .select("id")
@@ -45,48 +76,77 @@ async function assertNoOverlap(
     if (data?.length) throw new Error("That time overlaps another active slot.");
 }
 
-export async function createAvailabilitySlotAction(formData: FormData) {
-    const { user } = await requireAdmin();
-    const startsAt = parseSlotDate(formData, "startTime");
-    const endsAt = parseSlotDate(formData, "endTime");
-    const status = String(formData.get("status") ?? "available") as Enums<"slot_status">;
-    const notes = String(formData.get("notes") ?? "").trim() || null;
+export async function createAvailabilitySlotAction(
+    _previousState: AvailabilityActionState,
+    formData: FormData,
+): Promise<AvailabilityActionState> {
+    try {
+        const { user } = await requireAdmin();
+        const startsAt = parseRequiredSlotDate(formData, "startTime");
+        const endsAt = parseSlotDate(formData, "endTime", true);
+        const status = String(formData.get("status") ?? "available") as Enums<"slot_status">;
+        const notes = String(formData.get("notes") ?? "").trim() || null;
+        const regularsFirst = formData.getAll("regularsFirst").includes("on");
 
-    if (startsAt >= endsAt || startsAt < new Date()) {
-        throw new Error("Choose a valid start and end time.");
-    }
+        if ((endsAt && startsAt >= endsAt) || startsAt < new Date()) {
+            return actionState({ error: "Choose a valid future start time.", success: "" });
+        }
 
-    if (!EDITABLE_STATUSES.includes(status)) throw new Error("Invalid slot status.");
+        if (!EDITABLE_STATUSES.includes(status)) {
+            return actionState({ error: "Invalid slot status.", success: "" });
+        }
 
-    const admin = createAdminClient();
-    await assertNoOverlap(admin, startsAt, endsAt);
-    const { error } = await admin.from("availability_slots").insert({
-        starts_at: startsAt.toISOString(),
-        ends_at: endsAt.toISOString(),
-        status,
-        notes,
-        created_by: user.id,
-    });
+        const admin = createAdminClient();
+        await assertNoOverlap(admin, startsAt, endsAt);
+        const { data: settings } = await admin
+            .from("booking_settings")
+            .select("regular_early_access_hours")
+            .eq("id", 1)
+            .maybeSingle()
+            .overrideTypes<{ regular_early_access_hours: number } | null>();
+        const earlyAccessHours = Math.min(
+            48,
+            Math.max(0, Number(settings?.regular_early_access_hours ?? 24)),
+        );
+        const publicAccessAt =
+            regularsFirst && status === "available"
+                ? new Date(Date.now() + earlyAccessHours * 60 * 60 * 1000)
+                : new Date();
+        const { error } = await admin.from("availability_slots").insert({
+            starts_at: startsAt.toISOString(),
+            ends_at: endsAt?.toISOString() ?? null,
+            status,
+            notes,
+            created_by: user.id,
+            regulars_first: regularsFirst && status === "available",
+            public_access_at: publicAccessAt.toISOString(),
+        });
 
-    if (error) {
+        if (error) {
+            console.error("[admin:availability:create]", error);
+            return actionState({ error: "We couldn't create that availability slot.", success: "" });
+        }
+
+        revalidatePath("/admin");
+        revalidatePath("/admin/availability");
+
+        return actionState({ error: "", success: "Availability added." });
+    } catch (error) {
         console.error("[admin:availability:create]", error);
-        throw new Error("We couldn't create that availability slot.");
+        return actionState({ error: error instanceof Error ? error.message : "We couldn't create that availability slot.", success: "" });
     }
-
-    revalidatePath("/admin");
-    revalidatePath("/admin/availability");
 }
 
 export async function updateAvailabilitySlotAction(formData: FormData) {
     await requireAdmin();
     const slotId = String(formData.get("slotId") ?? "");
-    const startsAt = parseSlotDate(formData, "startTime");
-    const endsAt = parseSlotDate(formData, "endTime");
+    const startsAt = parseRequiredSlotDate(formData, "startTime");
+    const endsAt = parseSlotDate(formData, "endTime", true);
     const status = String(formData.get("status") ?? "available") as Enums<"slot_status">;
     const notes = String(formData.get("notes") ?? "").trim() || null;
 
-    if (!slotId || startsAt >= endsAt || startsAt < new Date()) {
-        throw new Error("Choose a valid future time range.");
+    if (!slotId || (endsAt && startsAt >= endsAt) || startsAt < new Date()) {
+        throw new Error("Choose a valid future start time.");
     }
     if (!EDITABLE_STATUSES.includes(status)) throw new Error("Invalid slot status.");
 
@@ -94,7 +154,7 @@ export async function updateAvailabilitySlotAction(formData: FormData) {
     await assertNoOverlap(admin, startsAt, endsAt, slotId);
     const { data, error } = await admin
         .from("availability_slots")
-        .update({ starts_at: startsAt.toISOString(), ends_at: endsAt.toISOString(), status, notes })
+        .update({ starts_at: startsAt.toISOString(), ends_at: endsAt?.toISOString() ?? null, status, notes })
         .eq("id", slotId)
         .eq("active", true)
         .in("status", EDITABLE_STATUSES)

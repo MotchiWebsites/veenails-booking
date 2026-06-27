@@ -4,11 +4,21 @@ import type {
     BookingSettingsSummary,
     DesignTier,
 } from "@/features/bookings/new-booking/types";
+import { getUser } from "@/features/auth/guards/get-user";
 import type { Database } from "@/types/supabase";
+import type { Enums } from "@/types/supabase";
 
 type SlotRow = Pick<
     Database["public"]["Tables"]["availability_slots"]["Row"],
-    "id" | "starts_at" | "ends_at"
+    "id" | "starts_at" | "ends_at" | "status"
+> & {
+    regulars_first: boolean;
+    public_access_at: string;
+};
+
+type ProfileAccessRow = Pick<
+    Database["public"]["Tables"]["profiles"]["Row"],
+    "is_regular"
 >;
 
 type SettingsRow = Pick<
@@ -30,6 +40,17 @@ type DesignTierImageRow = Pick<
     | "display_order"
 >;
 
+const CLIENT_VISIBLE_SLOT_STATUSES: Enums<"slot_status">[] = [
+    "available",
+    "held",
+    "requested",
+    "confirmed",
+];
+
+function getClientSlotAvailability(status: Enums<"slot_status">) {
+    return status === "available" ? "available" : "booked";
+}
+
 export async function getNewBookingPageData(): Promise<{
     slots: AvailableAppointmentSlot[];
     settings: BookingSettingsSummary;
@@ -37,6 +58,29 @@ export async function getNewBookingPageData(): Promise<{
 }> {
     const supabase = await createClient();
     const now = new Date().toISOString();
+    const user = await getUser();
+
+    const profileResult = user
+        ? await supabase
+              .from("profiles")
+              .select("is_regular")
+              .eq("id", user.id)
+              .maybeSingle()
+              .overrideTypes<ProfileAccessRow | null>()
+        : { data: null, error: null };
+    const isRegular = Boolean(profileResult.data?.is_regular);
+
+    let slotsQuery = supabase
+        .from("availability_slots")
+        .select("id, starts_at, ends_at, status, regulars_first, public_access_at")
+        .eq("active", true)
+        .in("status", CLIENT_VISIBLE_SLOT_STATUSES)
+        .gte("starts_at", now)
+        .order("starts_at", { ascending: true });
+
+    if (!isRegular) {
+        slotsQuery = slotsQuery.or(`status.neq.available,regulars_first.eq.false,public_access_at.lte.${now}`);
+    }
 
     const [
         slotsResult,
@@ -44,14 +88,7 @@ export async function getNewBookingPageData(): Promise<{
         designTiersResult,
         designTierImagesResult,
     ] = await Promise.all([
-        supabase
-            .from("availability_slots")
-            .select("id, starts_at, ends_at")
-            .eq("active", true)
-            .eq("status", "available")
-            .gte("starts_at", now)
-            .order("starts_at", { ascending: true })
-            .overrideTypes<SlotRow[]>(),
+        slotsQuery.overrideTypes<SlotRow[]>(),
 
         supabase
             .from("booking_settings")
@@ -75,6 +112,7 @@ export async function getNewBookingPageData(): Promise<{
             .eq("active", true)
             .order("display_order", { ascending: true })
             .overrideTypes<DesignTierImageRow[]>(),
+
     ]);
 
     if (slotsResult.error) {
@@ -115,10 +153,20 @@ export async function getNewBookingPageData(): Promise<{
     }
 
     return {
-        slots: (slotsResult.data ?? []).map((slot) => ({
+        slots: (slotsResult.data ?? [])
+            .filter(
+                (slot) =>
+                    slot.status !== "available" ||
+                    isRegular ||
+                    !slot.regulars_first ||
+                    new Date(slot.public_access_at).getTime() <=
+                        new Date(now).getTime(),
+            )
+            .map((slot) => ({
             id: slot.id,
             startsAt: slot.starts_at,
             endsAt: slot.ends_at,
+            availability: getClientSlotAvailability(slot.status),
         })),
         settings: settingsResult.data
             ? {

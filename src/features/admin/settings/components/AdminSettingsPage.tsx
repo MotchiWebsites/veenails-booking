@@ -54,11 +54,22 @@ export default function AdminSettingsPage({
                         </select>
                     </label>
                     <label className="space-y-2">
+                        <span className="label-text">Regulars early access (days)</span>
+                        <input
+                            className="input-field"
+                            name="regularEarlyAccessHours"
+                            type="number"
+                            step="1"
+                            defaultValue={settings.regular_early_access_hours / 24}
+                        />
+                    </label>
+                    <label className="space-y-2">
                         <span className="label-text">Hold minutes</span>
                         <input
                             className="input-field"
                             name="holdMinutes"
                             type="number"
+                            step="1"
                             defaultValue={settings.hold_minutes}
                         />
                     </label>

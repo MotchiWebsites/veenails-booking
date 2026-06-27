@@ -23,6 +23,7 @@ import {
     getServiceOptionGroups,
     groupSlotsByDay,
     isReviewReady,
+    isSlotBookable,
     normalizeBookingFeeRate,
 } from "@/features/bookings/new-booking/utils";
 import {
@@ -66,7 +67,8 @@ export function useBookingFlow({
     const { error: showErrorToast } = useToast();
 
     const appliedInitialSlotRef = useRef<string | null>(
-        initialSlotId && slots.some((slot) => slot.id === initialSlotId)
+        initialSlotId &&
+            slots.some((slot) => slot.id === initialSlotId && isSlotBookable(slot))
             ? initialSlotId
             : null,
     );
@@ -76,7 +78,7 @@ export function useBookingFlow({
             return;
         }
 
-        if (!slots.some((slot) => slot.id === initialSlotId)) {
+        if (!slots.some((slot) => slot.id === initialSlotId && isSlotBookable(slot))) {
             appliedInitialSlotRef.current = initialSlotId;
             return;
         }
@@ -106,7 +108,7 @@ export function useBookingFlow({
         if (
             !draft ||
             !isReviewReady(draft) ||
-            !slots.some((slot) => slot.id === draft.slotId)
+            !slots.some((slot) => slot.id === draft.slotId && isSlotBookable(slot))
         ) {
             return;
         }
@@ -153,7 +155,8 @@ export function useBookingFlow({
         () => calculateEstimate(selections, normalizedSettings, designTiers),
         [designTiers, selections, normalizedSettings],
     );
-    const reviewReady = isReviewReady(selections);
+    const hasBookableSelectedSlot = Boolean(summary.slot);
+    const reviewReady = hasBookableSelectedSlot && isReviewReady(selections);
     const reachableSteps = getReachableSteps(selections);
     const depositNote = getDepositNote(normalizedSettings);
     const holdNote = getHoldNote(normalizedSettings);
@@ -195,6 +198,11 @@ export function useBookingFlow({
     }
 
     function handleSlotSelect(slotId: string) {
+        const slot = slots.find((item) => item.id === slotId);
+        if (!isSlotBookable(slot)) {
+            return;
+        }
+
         setSelections((current) => ({
             ...current,
             slotId,
@@ -282,7 +290,7 @@ export function useBookingFlow({
 
     function goNext() {
         if (activeStep === "time") {
-            if (selections.slotId) {
+            if (hasBookableSelectedSlot) {
                 setActiveStep("removal");
             }
 
@@ -326,7 +334,7 @@ export function useBookingFlow({
 
     const nextDisabledReason =
         activeStep === "time"
-            ? selections.slotId
+            ? hasBookableSelectedSlot
                 ? null
                 : "Select an appointment time to continue."
             : activeStep === "removal"
@@ -416,7 +424,10 @@ function getInitialSelections(
     slots: AvailableAppointmentSlot[],
     initialSlotId: string | null,
 ) {
-    if (!initialSlotId || !slots.some((slot) => slot.id === initialSlotId)) {
+    if (
+        !initialSlotId ||
+        !slots.some((slot) => slot.id === initialSlotId && isSlotBookable(slot))
+    ) {
         return initialSelections;
     }
 

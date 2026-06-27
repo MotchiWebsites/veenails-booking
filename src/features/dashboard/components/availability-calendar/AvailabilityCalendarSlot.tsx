@@ -19,7 +19,7 @@ export default function AvailabilityCalendarSlot({
                     {timeRange}
                 </p>
                 <p className="mt-1 text-xs font-medium text-muted">
-                    Unavailable
+                    Booked
                 </p>
             </div>
         );

@@ -1,7 +1,7 @@
 export type DashboardCalendarSlot = {
     id: string;
     startsAt: string;
-    endsAt: string;
+    endsAt: string | null;
     available: boolean;
 };
 
@@ -46,10 +46,14 @@ export function formatVisibleDateRange(days: DashboardCalendarDay[]) {
     )}, ${year}`;
 }
 
-export function formatSlotTime(startsAt: string, endsAt: string) {
-    return `${timeFormatter.format(new Date(startsAt))} - ${timeFormatter.format(
-        new Date(endsAt),
-    )}`;
+export function formatSlotTime(startsAt: string, endsAt: string | null) {
+    const start = timeFormatter.format(new Date(startsAt));
+
+    if (!endsAt) {
+        return start;
+    }
+
+    return `${start} - ${timeFormatter.format(new Date(endsAt))}`;
 }
 
 export function sortSlotsByStartTime(slots: DashboardCalendarSlot[]) {

@@ -29,7 +29,7 @@ export type DashboardOverviewData = {
             slots: {
                 id: string;
                 startsAt: string;
-                endsAt: string;
+                endsAt: string | null;
                 available: boolean;
             }[];
         }[];

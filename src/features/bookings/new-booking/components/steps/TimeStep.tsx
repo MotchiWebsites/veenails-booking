@@ -65,32 +65,40 @@ export default function TimeStep({
 
                             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                                 {group.slots.map((slot) => {
-                                    const selected = selectedSlotId === slot.id;
+                                    const bookable = slot.availability === "available";
+                                    const selected = bookable && selectedSlotId === slot.id;
 
                                     return (
                                         <button
                                             key={slot.id}
                                             type="button"
-                                            aria-pressed={selected}
+                                            aria-pressed={bookable ? selected : undefined}
+                                            disabled={!bookable}
                                             onClick={() =>
                                                 onSelectSlot(slot.id)
                                             }
                                             className={[
-                                                "clickable relative min-h-40 rounded-3xl border p-4 text-left shadow-sm transition-all duration-200",
+                                                "relative min-h-40 rounded-3xl border p-4 text-left shadow-sm transition-all duration-200",
                                                 selected
                                                     ? "border-pink-300 bg-pink-50 ring-2 ring-ring"
-                                                    : "border-border/60 bg-background hover:border-pink-200 hover:bg-pink-50/70",
+                                                    : bookable
+                                                      ? "clickable border-border/60 bg-background hover:border-pink-200 hover:bg-pink-50/70"
+                                                      : "cursor-not-allowed border-border/60 bg-surface-2 opacity-75",
                                             ].join(" ")}
                                         >
                                             {selected ? (
                                                 <span className="absolute right-4 top-4 inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-success">
                                                     Selected
                                                 </span>
+                                            ) : !bookable ? (
+                                                <span className="absolute right-4 top-4 inline-flex rounded-full bg-background px-3 py-1 text-xs font-semibold text-muted">
+                                                    Booked
+                                                </span>
                                             ) : null}
 
                                             <div
                                                 className={
-                                                    selected ? "pr-24" : ""
+                                                    selected || !bookable ? "pr-24" : ""
                                                 }
                                             >
                                                 <p className="text-sm font-semibold leading-snug text-dark-green">
@@ -100,19 +108,22 @@ export default function TimeStep({
                                                 </p>
 
                                                 <p className="mt-3 whitespace-nowrap text-lg font-semibold leading-tight text-foreground sm:text-xl">
-                                                    {formatSlotTime(
-                                                        slot.startsAt,
-                                                    )}
+                                                    {slot.endsAt
+                                                        ? `${formatSlotTime(slot.startsAt)} - ${formatSlotTime(slot.endsAt)}`
+                                                        : formatSlotTime(slot.startsAt)}
                                                 </p>
 
-                                                <p className="mt-3 text-sm leading-relaxed text-muted">
-                                                    Ends{" "}
-                                                    <span className="whitespace-nowrap">
-                                                        {formatSlotTime(
-                                                            slot.endsAt,
-                                                        )}
-                                                    </span>
-                                                </p>
+                                                {slot.endsAt ? null : (
+                                                    <p className="mt-3 text-sm leading-relaxed text-muted">
+                                                        End time pending
+                                                    </p>
+                                                )}
+
+                                                {!bookable ? (
+                                                    <p className="mt-3 text-sm font-medium text-muted">
+                                                        This time is already booked.
+                                                    </p>
+                                                ) : null}
                                             </div>
                                         </button>
                                     );

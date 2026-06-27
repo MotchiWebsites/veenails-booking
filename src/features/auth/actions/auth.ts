@@ -128,6 +128,13 @@ export async function signUpWithPassword(
         };
     }
 
+    if (!instagramHandle) {
+        return {
+            error: "Instagram handle is required.",
+            messageId: createMessageId(),
+        };
+    }
+
     const contactPreferenceError = validateContactPreference({
         preferredContactMethod,
         phone,

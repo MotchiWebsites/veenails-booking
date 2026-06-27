@@ -55,6 +55,11 @@ type UserCreditRow = Pick<
     "id" | "amount" | "active" | "expires_at" | "used_at" | "created_at"
 >;
 
+type CheckoutProfileRow = Pick<
+    Database["public"]["Tables"]["profiles"]["Row"],
+    "display_name" | "email" | "is_regular"
+>;
+
 type CreditReversal =
     | {
           id: string;
@@ -700,14 +705,31 @@ export async function submitBookingCheckout(
             });
         }
 
+        const { data: bookingProfile, error: profileError } = await admin
+            .from("profiles")
+            .select("display_name, email, is_regular")
+            .eq("id", user.id)
+            .maybeSingle()
+            .overrideTypes<CheckoutProfileRow | null>();
+
+        if (profileError) {
+            throw profileError;
+        }
+
         const { data: lockedSlot, error: lockError } = await admin
             .from("availability_slots")
             .update({ status: "requested" })
             .eq("id", slotId)
             .eq("status", "available")
             .eq("active", true)
-            .select("id, starts_at, ends_at")
-            .maybeSingle();
+            .or(
+                bookingProfile?.is_regular
+                    ? "regulars_first.eq.true,regulars_first.eq.false"
+                    : `regulars_first.eq.false,public_access_at.lte.${new Date().toISOString()}`,
+            )
+            .select("id, starts_at, ends_at, regulars_first, public_access_at")
+            .maybeSingle()
+            .overrideTypes<{ id: string; starts_at: string; ends_at: string | null; regulars_first: boolean; public_access_at: string } | null>();
 
         if (lockError) {
             throw lockError;
@@ -716,6 +738,22 @@ export async function submitBookingCheckout(
         if (!lockedSlot) {
             return state({
                 error: "This appointment time is no longer available.",
+            });
+        }
+
+        if (
+            !bookingProfile?.is_regular &&
+            lockedSlot.regulars_first &&
+            new Date(lockedSlot.public_access_at).getTime() > Date.now()
+        ) {
+            await admin
+                .from("availability_slots")
+                .update({ status: "available" })
+                .eq("id", slotId)
+                .eq("status", "requested");
+
+            return state({
+                error: "This appointment time is not available yet.",
             });
         }
 
@@ -838,7 +876,6 @@ export async function submitBookingCheckout(
             throw eventError;
         }
 
-        const { data: bookingProfile } = await admin.from("profiles").select("display_name, email").eq("id", user.id).maybeSingle().overrideTypes<{ display_name: string; email: string } | null>();
         const appointment = new Intl.DateTimeFormat("en-CA", { dateStyle: "full", timeStyle: "short" }).format(new Date(lockedSlot.starts_at));
         const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
         if (bookingProfile?.email) {

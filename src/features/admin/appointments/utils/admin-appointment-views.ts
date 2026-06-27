@@ -7,7 +7,8 @@ export const adminAppointmentViews = {
     },
     pending_requests: {
         label: "Pending requests",
-        description: "Upcoming booking requests waiting for confirmation.",
+        description:
+            "Booking requests waiting for a decision, including overdue requests.",
     },
     pending_cancellations: {
         label: "Pending cancellations",
@@ -35,8 +36,6 @@ export function matchesAdminAppointmentView(
     const startsAt = booking.startsAt
         ? new Date(booking.startsAt).getTime()
         : null;
-    const endsAt = booking.endsAt ? new Date(booking.endsAt).getTime() : null;
-
     if (view === "upcoming_confirmed") {
         return (
             booking.status === "confirmed" &&
@@ -46,10 +45,7 @@ export function matchesAdminAppointmentView(
     }
 
     if (view === "pending_requests") {
-        return (
-            booking.status === "requested" &&
-            (endsAt === null || endsAt >= now)
-        );
+        return booking.status === "requested" || booking.status === "held";
     }
 
     if (view === "pending_cancellations") {
@@ -57,4 +53,29 @@ export function matchesAdminAppointmentView(
     }
 
     return booking.inspoStatus === "sent";
+}
+
+export function needsAdminAction(
+    booking: AdminAppointmentListItem,
+    now: number,
+) {
+    const startsAt = booking.startsAt
+        ? new Date(booking.startsAt).getTime()
+        : null;
+    const started = startsAt !== null && startsAt <= now;
+    const unresolvedRequest =
+        booking.status === "requested" || booking.status === "held";
+    const unresolvedDeposit =
+        booking.status === "confirmed" &&
+        (booking.depositStatus === "pending" ||
+            booking.depositStatus === "marked_sent");
+    const readyToClose = booking.status === "confirmed" && started;
+
+    return (
+        unresolvedRequest ||
+        unresolvedDeposit ||
+        readyToClose ||
+        booking.latestCancellationStatus === "pending" ||
+        booking.inspoStatus === "sent"
+    );
 }

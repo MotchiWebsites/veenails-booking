@@ -10,6 +10,8 @@ type ProfileRow = Pick<
     | "email"
     | "phone"
     | "instagram_handle"
+    | "is_regular"
+    | "regular_since"
     | "preferred_contact_method"
     | "created_at"
 >;
@@ -33,6 +35,8 @@ export type AdminUserListItem = {
     phone: string | null;
     instagramHandle: string | null;
     preferredContactMethod: Enums<"preferred_contact_method">;
+    isRegular: boolean;
+    regularSince: string | null;
     createdAt: string;
     bookingCount: number;
     upcomingBookingCount: number;
@@ -91,6 +95,8 @@ function mapUser(row: ProfileRow, bookings: BookingRow[]): AdminUserListItem {
         phone: row.phone,
         instagramHandle: row.instagram_handle,
         preferredContactMethod: row.preferred_contact_method,
+        isRegular: row.is_regular,
+        regularSince: row.regular_since,
         createdAt: row.created_at,
         bookingCount: bookings.length,
         upcomingBookingCount: bookings.filter(
@@ -113,7 +119,7 @@ export async function getAdminUsers(search = "") {
     const { data, error } = await admin
         .from("profiles")
         .select(
-            "id, display_name, email, phone, instagram_handle, preferred_contact_method, created_at",
+            "id, display_name, email, phone, instagram_handle, is_regular, regular_since, preferred_contact_method, created_at",
         )
         .order("created_at", { ascending: false })
         .limit(100)
@@ -153,7 +159,7 @@ export async function getAdminUserDetails(userId: string) {
     const { data: profile, error } = await admin
         .from("profiles")
         .select(
-            "id, display_name, email, phone, instagram_handle, preferred_contact_method, created_at",
+            "id, display_name, email, phone, instagram_handle, is_regular, regular_since, preferred_contact_method, created_at",
         )
         .eq("id", userId)
         .maybeSingle()

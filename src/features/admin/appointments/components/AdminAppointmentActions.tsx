@@ -1,11 +1,8 @@
 import {
-    confirmAppointmentAction,
-    markDepositReceivedAction,
-    rejectAppointmentAction,
     reviewCancellationAction,
-    updateAppointmentStatusAction,
 } from "@/features/admin/appointments/actions/admin-appointments";
 import AdminCancellationButton from "@/features/admin/appointments/components/AdminCancellationButton";
+import AdminBookingWorkflowButton from "@/features/admin/appointments/components/AdminBookingWorkflowButton";
 import type { AdminAppointmentDetails } from "@/features/admin/appointments/data/admin-appointments";
 import { getAdminAppointmentActionRules } from "@/features/admin/appointments/utils/admin-appointment-actions";
 
@@ -55,7 +52,7 @@ export default function AdminAppointmentActions({
         <section className="rounded-3xl border border-border/60 bg-surface p-5 shadow-sm">
             <h2 className="text-lg font-semibold text-foreground">Actions</h2>
             <p className="mt-1 text-sm text-muted">
-                Available actions reflect the appointment’s current state.
+                Available actions reflect the appointment&apos;s current state.
             </p>
 
             {rules.canReviewCancellation && request ? (
@@ -84,75 +81,18 @@ export default function AdminAppointmentActions({
             ) : null}
 
             {hasOperationalActions ? (
-                <div className="mt-5 grid gap-3">
-                    {rules.canConfirm ? (
-                        <form action={confirmAppointmentAction}>
-                            <BookingId id={booking.id} />
-                            <button type="submit" className="btn-primary w-full">
-                                Confirm appointment
-                            </button>
-                        </form>
-                    ) : null}
-                    {rules.canConfirmDeposit ? (
-                        <form action={markDepositReceivedAction}>
-                            <BookingId id={booking.id} />
-                            <button type="submit" className="btn-secondary w-full">
-                                Confirm deposit received
-                            </button>
-                        </form>
-                    ) : null}
-                    {rules.canComplete ? (
-                        <form action={updateAppointmentStatusAction}>
-                            <BookingId id={booking.id} />
-                            <input type="hidden" name="status" value="completed" />
-                            <button type="submit" className="btn-primary w-full">
-                                Mark completed
-                            </button>
-                        </form>
-                    ) : null}
-                    {rules.canMarkNoShow ? (
-                        <details className="rounded-2xl border border-border/60 bg-background p-4">
-                            <summary className="cursor-pointer text-sm font-semibold text-foreground">
-                                Mark as no-show
-                            </summary>
-                            <form action={updateAppointmentStatusAction} className="mt-4 space-y-3">
-                                <BookingId id={booking.id} />
-                                <input type="hidden" name="status" value="no_show" />
-                                <ReasonField
-                                    label="No-show note"
-                                    name="note"
-                                    placeholder="Record what happened and any contact attempt…"
-                                    required
-                                />
-                                <button type="submit" className="btn-secondary w-full">
-                                    Confirm no-show
-                                </button>
-                            </form>
-                        </details>
-                    ) : null}
+                <div className="mt-5 max-w-xl mx-auto">
+                    <AdminBookingWorkflowButton booking={booking} />
                 </div>
             ) : null}
 
-            {rules.canReject || rules.canCancel ? (
+            {rules.canCancel ? (
                 <details className="mt-5 rounded-2xl border border-border/60 bg-background p-4">
                     <summary className="cursor-pointer text-sm font-semibold text-foreground">
-                        Decline or cancel
+                        Cancel appointment
                     </summary>
-                    <div className="mt-4 space-y-5">
-                        {rules.canReject ? (
-                            <form action={rejectAppointmentAction} className="space-y-3">
-                                <BookingId id={booking.id} />
-                                <ReasonField
-                                    label="Rejection reason"
-                                    placeholder="Explain why this appointment request is being rejected…"
-                                    required
-                                />
-                                <button type="submit" className="btn-secondary w-full">
-                                    Reject appointment
-                                </button>
-                            </form>
-                        ) : null}
-                        {rules.canCancel ? <div className="border-t border-border/60 pt-5 first:border-0 first:pt-0"><AdminCancellationButton booking={booking} /></div> : null}
+                    <div className="mt-4">
+                        <AdminCancellationButton booking={booking} />
                     </div>
                 </details>
             ) : null}

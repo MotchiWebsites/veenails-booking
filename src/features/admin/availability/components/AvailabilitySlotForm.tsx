@@ -1,8 +1,13 @@
 "use client";
 
 import CalendarDateSelector from "@/components/shared/date/CalendarDateSelector";
-import { createAvailabilitySlotAction } from "@/features/admin/availability/actions/admin-availability";
-import { useMemo, useState } from "react";
+import { useToast } from "@/components/shared/toast/ToastProvider";
+import {
+    createAvailabilitySlotAction,
+    type AvailabilityActionState,
+} from "@/features/admin/availability/actions/admin-availability";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useMemo, useState } from "react";
 
 function dateKey(date: Date) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -26,14 +31,38 @@ const TIMES = Array.from({ length: 57 }, (_, index) => {
 export default function AvailabilitySlotForm() {
     const today = dateKey(new Date());
     const [startTime, setStartTime] = useState("09:00");
+    const router = useRouter();
+    const { error, success } = useToast();
+    const initialState: AvailabilityActionState = {
+        error: "",
+        success: "",
+        messageId: "",
+    };
+    const [state, formAction, pending] = useActionState(
+        createAvailabilitySlotAction,
+        initialState,
+    );
 
     const endTimeOptions = useMemo(() => {
         const startIndex = TIMES.findIndex((time) => time.value === startTime);
         return TIMES.slice(Math.min(startIndex + 1, TIMES.length - 1));
     }, [startTime]);
 
+    useEffect(() => {
+        if (!state.messageId) return;
+
+        if (state.error) {
+            error(state.error, "Availability not added");
+        }
+
+        if (state.success) {
+            success(state.success, "Availability added");
+            router.refresh();
+        }
+    }, [error, router, state.error, state.messageId, state.success, success]);
+
     return (
-        <form action={createAvailabilitySlotAction} className="mt-6 space-y-5">
+        <form action={formAction} className="mt-6 space-y-5">
             <input
                 type="hidden"
                 name="timezoneOffset"
@@ -61,12 +90,13 @@ export default function AvailabilitySlotForm() {
                             </select>
                         </label>
                         <label className="space-y-2">
-                            <span className="label-text">End time</span>
+                            <span className="label-text">End time (optional)</span>
                             <select
                                 name="endTime"
                                 className="input-field"
-                                defaultValue="10:30"
+                                defaultValue=""
                             >
+                                <option value="">No end time</option>
                                 {endTimeOptions.map((time) => (
                                     <option key={time.value} value={time.value}>
                                         {time.label}
@@ -86,6 +116,24 @@ export default function AvailabilitySlotForm() {
                             <option value="blocked">Blocked time</option>
                         </select>
                     </label>
+                    <label className="flex items-start gap-3 rounded-2xl border border-border/60 bg-surface px-4 py-3 text-sm text-foreground">
+                        <input type="hidden" name="regularsFirst" value="off" />
+                        <input
+                            type="checkbox"
+                            name="regularsFirst"
+                            value="on"
+                            defaultChecked
+                            className="mt-1"
+                        />
+                        <span>
+                            <span className="block font-semibold">
+                                Regular customers first
+                            </span>
+                            <span className="text-muted">
+                                Regular customers can book now. Everyone else can book after the early-access window.
+                            </span>
+                        </span>
+                    </label>
                     <label className="block space-y-2">
                         <span className="label-text">
                             Internal note (optional)
@@ -100,12 +148,13 @@ export default function AvailabilitySlotForm() {
                     <button
                         type="submit"
                         className="btn-primary w-full sm:w-auto"
+                        disabled={pending}
                     >
-                        Add availability
+                        {pending ? "Adding..." : "Add availability"}
                     </button>
                     <p className="text-xs text-muted">
-                        Times use 15-minute increments and cannot overlap
-                        another active slot.
+                        Times use 15-minute increments. Slots with an end time
+                        cannot overlap another active slot.
                     </p>
                 </div>
             </div>

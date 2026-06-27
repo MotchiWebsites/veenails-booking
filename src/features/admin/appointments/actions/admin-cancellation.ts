@@ -3,12 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/features/admin/auth/require-admin";
 import { cancellationTemplate } from "@/features/notifications/email/templates/cancellation-template";
+import { resolveBookingRecipient } from "@/features/notifications/utils/resolve-booking-recipient";
 import { sendTransactionalEmail } from "@/lib/email/brevo";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Enums } from "@/types/supabase";
 
 export type AdminCancellationState = { error: string; success: string; messageId: string };
-type Outcome = "refund" | "credit" | "no_refund";
+type Outcome = "credit" | "no_refund";
 
 function result(input: Omit<AdminCancellationState, "messageId">): AdminCancellationState {
     return { ...input, messageId: `${Date.now()}-${Math.random().toString(36).slice(2)}` };
@@ -31,18 +32,18 @@ export async function cancelAppointmentWithOutcomeAction(
     const requestedOutcome = value(formData, "outcome") as Outcome;
 
     if (!bookingId || reason.length < 4) return result({ error: "Add a cancellation reason.", success: "" });
-    if (!(["refund", "credit", "no_refund"] as const).includes(requestedOutcome)) return result({ error: "Choose what should happen to the deposit.", success: "" });
+    if (!(["credit", "no_refund"] as const).includes(requestedOutcome)) return result({ error: "Choose what should happen to the deposit.", success: "" });
 
     const admin = createAdminClient();
     const { data: booking, error: bookingError } = await admin
         .from("bookings")
-        .select("id, booking_reference, user_id, status, deposit_status, deposit_amount, slot_id, profiles:user_id(display_name, email), availability_slots:slot_id(starts_at, ends_at)")
+        .select("id, booking_reference, user_id, status, deposit_status, deposit_amount, slot_id, client_display_name, client_email, client_instagram_handle, client_preferred_contact_method, profiles:user_id(display_name, email, instagram_handle, preferred_contact_method), availability_slots:slot_id(starts_at, ends_at)")
         .eq("id", bookingId)
         .maybeSingle()
         .overrideTypes<{
-            id: string; booking_reference: string; user_id: string; status: Enums<"booking_status">; deposit_status: Enums<"deposit_status">; deposit_amount: number; slot_id: string | null;
-            profiles: { display_name: string; email: string } | null;
-            availability_slots: { starts_at: string; ends_at: string } | null;
+            id: string; booking_reference: string; user_id: string | null; status: Enums<"booking_status">; deposit_status: Enums<"deposit_status">; deposit_amount: number; slot_id: string | null; client_display_name: string | null; client_email: string | null; client_instagram_handle: string | null; client_preferred_contact_method: string | null;
+            profiles: { display_name: string; email: string; instagram_handle: string | null; preferred_contact_method: string | null } | null;
+            availability_slots: { starts_at: string; ends_at: string | null } | null;
         } | null>();
 
     if (bookingError) console.error("[admin:cancellation:booking]", bookingError);
@@ -65,15 +66,17 @@ export async function cancelAppointmentWithOutcomeAction(
         if (depositReceived && !payment) return result({ error: "The received deposit record could not be verified.", success: "" });
 
         const depositAmount = Number(payment?.amount ?? booking.deposit_amount ?? 0);
-        if ((outcome === "refund" || outcome === "credit") && depositAmount <= 0) return result({ error: "A positive received deposit amount is required for that outcome.", success: "" });
+        if (outcome === "credit" && !booking.user_id) return result({ error: "Account credit can only be issued to an app customer.", success: "" });
+        if (outcome === "credit" && depositAmount <= 0) return result({ error: "A positive received deposit amount is required for that outcome.", success: "" });
         let issuedCreditId: string | null = null;
         if (payment) {
-            const paymentStatus: Enums<"payment_status"> = outcome === "refund" ? "refunded" : outcome === "credit" ? "credited" : "forfeited";
+            const paymentStatus: Enums<"payment_status"> = outcome === "credit" ? "credited" : "forfeited";
             const { data: changedPayment, error } = await admin.from("booking_payments").update({ status: paymentStatus, notes: internalNote || reason, marked_by: user.id }).eq("id", payment.id).eq("status", "received").select("id").maybeSingle();
             if (error || !changedPayment) return result({ error: "The deposit was already processed. Refresh before trying again.", success: "" });
         }
 
         if (outcome === "credit") {
+            if (!booking.user_id) return result({ error: "Account credit can only be issued to an app customer.", success: "" });
             const { data: existingCredit, error: creditCheckError } = await admin
                 .from("user_credits")
                 .select("id")
@@ -96,11 +99,11 @@ export async function cancelAppointmentWithOutcomeAction(
             issuedCreditId = issuedCredit.id;
         }
 
-        const depositStatus: Enums<"deposit_status"> = !depositReceived ? booking.deposit_status : outcome === "refund" ? "refunded" : outcome === "credit" ? "credited" : "forfeited";
+        const depositStatus: Enums<"deposit_status"> = !depositReceived ? booking.deposit_status : outcome === "credit" ? "credited" : "forfeited";
         const { data: cancelled, error: cancelError } = await admin.from("bookings").update({ status: "cancelled", cancelled_at: now, deposit_status: depositStatus }).eq("id", bookingId).in("status", ["held", "requested", "confirmed", "cancellation_requested"]).select("id").maybeSingle();
         if (cancelError || !cancelled) {
             if (issuedCreditId) await admin.from("user_credits").delete().eq("id", issuedCreditId);
-            if (payment) await admin.from("booking_payments").update({ status: "received" }).eq("id", payment.id).eq("status", outcome === "refund" ? "refunded" : outcome === "credit" ? "credited" : "forfeited");
+            if (payment) await admin.from("booking_payments").update({ status: "received" }).eq("id", payment.id).eq("status", outcome === "credit" ? "credited" : "forfeited");
             throw cancelError ?? new Error("Booking status changed while cancelling.");
         }
 
@@ -115,7 +118,7 @@ export async function cancelAppointmentWithOutcomeAction(
             if (error) throw error;
         }
 
-        const outcomeLabel = outcome === "refund" ? "Deposit refund" : outcome === "credit" ? "Deposit converted to studio credit" : depositReceived ? "No refund / deposit forfeited" : "No deposit received";
+        const outcomeLabel = outcome === "credit" ? "Deposit converted to studio credit" : depositReceived ? "No refund / deposit forfeited" : "No deposit received";
         const { error: eventError } = await admin.from("booking_events").insert([
             { booking_id: bookingId, actor_type: "admin", actor_user_id: user.id, event_type: "admin_booking_cancelled", message: `Admin cancelled the appointment: ${reason}`, metadata: { previousStatus: booking.status, newStatus: "cancelled", reason, internalNote: internalNote || null, outcome, depositAmount } },
             { booking_id: bookingId, actor_type: "admin" as const, actor_user_id: user.id, event_type: "cancellation_deposit_decision", message: outcomeLabel, metadata: { outcome, depositAmount, previousDepositStatus: booking.deposit_status, newDepositStatus: depositStatus } },
@@ -124,13 +127,13 @@ export async function cancelAppointmentWithOutcomeAction(
         ]);
         if (eventError) throw eventError;
 
-        revalidatePath("/admin"); revalidatePath("/admin/appointments"); revalidatePath(`/admin/appointments/${bookingId}`); revalidatePath(`/admin/users/${booking.user_id}`); revalidatePath("/booking"); revalidatePath("/dashboard"); revalidatePath("/credits"); revalidatePath("/book");
+        revalidatePath("/admin"); revalidatePath("/admin/appointments"); revalidatePath(`/admin/appointments/${bookingId}`); if (booking.user_id) revalidatePath(`/admin/users/${booking.user_id}`); revalidatePath("/booking"); revalidatePath("/dashboard"); revalidatePath("/credits"); revalidatePath("/book");
 
-        if (booking.profiles?.email) {
-            const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
-            const template = cancellationTemplate({ name: booking.profiles.display_name, reference: booking.booking_reference, heading: "Appointment cancelled", appointment: booking.availability_slots ? new Intl.DateTimeFormat("en-CA", { dateStyle: "full", timeStyle: "short" }).format(new Date(booking.availability_slots.starts_at)) : "Not scheduled", reason, outcome: outcomeLabel, message: "Your appointment has been cancelled by the studio.", detailsUrl: siteUrl ? `${siteUrl}/booking/${booking.booking_reference}` : undefined });
-            await sendTransactionalEmail({ to: { email: booking.profiles.email, name: booking.profiles.display_name }, ...template, notificationType: "admin_cancellation", bookingId, userId: booking.user_id });
-        }
+        const recipient = resolveBookingRecipient(booking);
+        const recipientName = recipient.displayName ?? "Client";
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+        const template = cancellationTemplate({ name: recipientName, reference: booking.booking_reference, heading: "Appointment cancelled", appointment: booking.availability_slots ? new Intl.DateTimeFormat("en-CA", { dateStyle: "full", timeStyle: "short" }).format(new Date(booking.availability_slots.starts_at)) : "Not scheduled", reason, outcome: outcomeLabel, message: "Your appointment has been cancelled by the studio.", detailsUrl: booking.user_id && siteUrl ? `${siteUrl}/booking/${booking.booking_reference}` : undefined });
+        await sendTransactionalEmail({ to: { email: recipient.email, name: recipientName }, ...template, notificationType: "admin_cancellation", bookingId, userId: booking.user_id });
         return result({ error: "", success: `Appointment cancelled. ${outcomeLabel}.` });
     } catch (error) {
         console.error("[admin:cancellation]", error);

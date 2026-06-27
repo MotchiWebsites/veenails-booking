@@ -17,7 +17,7 @@ function formatStatus(status: string) {
 
 function formatRefundMethod(method: string) {
     if (method === "refund_etransfer") {
-        return "E-transfer refund";
+        return "Legacy e-transfer refund";
     }
 
     if (method === "account_credit") {

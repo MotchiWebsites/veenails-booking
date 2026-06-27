@@ -42,7 +42,7 @@ export function formatBookingDateTime(
 
     return `${dateFormatter.format(startDate)} at ${timeFormatter.format(
         startDate,
-    )}-${timeFormatter.format(endDate)}`;
+    )} - ${timeFormatter.format(endDate)}`;
 }
 
 export function formatBookingDate(startsAt: string | null) {

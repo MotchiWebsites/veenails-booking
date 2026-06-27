@@ -18,5 +18,6 @@ export function buildSlotFromDraft(
         id: draft.slotId ?? "",
         startsAt: draft.slotStartsAt,
         endsAt: draft.slotEndsAt,
+        availability: "available",
     };
 }

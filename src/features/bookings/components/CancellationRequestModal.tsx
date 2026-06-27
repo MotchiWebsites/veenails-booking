@@ -78,18 +78,14 @@ export default function CancellationRequestModal({
                     name="requestedRefundMethod"
                     defaultValue="account_credit"
                     options={[
-                        { value: "account_credit", label: "Convert deposit to credit" },
-                        {
-                            value: "refund_etransfer",
-                            label: "Refund deposit",
-                        },
+                        { value: "account_credit", label: "Convert deposit to account credit" },
                         { value: "no_refund", label: "No refund needed" },
                     ]}
                 />
 
                 <p className="rounded-2xl bg-pink-main/10 px-4 py-3 text-sm leading-relaxed text-muted">
                     Submitting this sends your request for review. The studio
-                    may follow up before confirming any cancellation or refund.
+                    may follow up before confirming the cancellation outcome.
                 </p>
 
                 <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

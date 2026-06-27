@@ -5,7 +5,11 @@ import CalendarDateSelector from "@/components/shared/date/CalendarDateSelector"
 import { updateAvailabilitySlotAction } from "@/features/admin/availability/actions/admin-availability";
 import type { AdminAvailabilitySlot } from "@/features/admin/availability/data/admin-availability";
 
-function localParts(value: string) {
+function localParts(value: string | null) {
+    if (!value) {
+        return { date: "", time: "" };
+    }
+
     const date = new Date(value);
 
     return {
@@ -91,13 +95,14 @@ export default function EditAvailabilitySlotForm({
                                 </select>
                             </label>
                             <label className="space-y-2">
-                                <span className="label-text">End time</span>
-                                <select
-                                    name="endTime"
-                                    defaultValue={end.time}
-                                    className="input-field"
-                                >
-                                    {TIMES.map((time) => (
+                            <span className="label-text">End time (optional)</span>
+                            <select
+                                name="endTime"
+                                defaultValue={end.time}
+                                className="input-field"
+                            >
+                                <option value="">No end time</option>
+                                {TIMES.map((time) => (
                                         <option key={time.value} value={time.value}>
                                             {time.label}
                                         </option>

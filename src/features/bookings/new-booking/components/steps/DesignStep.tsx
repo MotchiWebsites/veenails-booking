@@ -29,7 +29,17 @@ export default function DesignStep({
                 </p>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <Link
+                href="https://veenailstudio.ca/pricing#design-tiers"
+                target="_blank"
+                rel="noreferrer noopener"
+                className="link-default inline-flex items-center gap-2 text-sm font-medium"
+            >
+                Need inspiration? View the full design guide
+                <FiExternalLink className="h-4 w-4" aria-hidden="true" />
+            </Link>
+
+            <div className="grid gap-4 xl:grid-cols-2">
                 {designTiers.map((tier) => {
                     const selected = selectedDesignTierId === tier.id;
 
@@ -47,13 +57,13 @@ export default function DesignStep({
                             ].join(" ")}
                         >
                             {tier.imageSrc ? (
-                                <div className="relative h-70 overflow-hidden rounded-2xl bg-surface-2">
+                                <div className="relative aspect-4/5 w-full overflow-hidden rounded-2xl bg-surface-2 sm:aspect-5/4 xl:aspect-4/5">
                                     <Image
                                         src={tier.imageSrc}
                                         alt={tier.imageAlt}
-                                        fill
-                                        sizes="(min-width: 1280px) 33vw, (min-width: 768px) 50vw, 100vw"
-                                        quality={95}
+                                        width={1000}
+                                        height={1000}
+                                        priority
                                         className="object-cover"
                                     />
                                 </div>
@@ -81,16 +91,6 @@ export default function DesignStep({
                     );
                 })}
             </div>
-
-            <Link
-                href="https://veenailstudio.ca/pricing#design-tiers"
-                target="_blank"
-                rel="noreferrer noopener"
-                className="link-default inline-flex items-center gap-2 text-sm font-medium"
-            >
-                View more design examples
-                <FiExternalLink className="h-4 w-4" aria-hidden="true" />
-            </Link>
         </div>
     );
 }

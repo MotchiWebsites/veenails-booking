@@ -2,6 +2,7 @@ import { updateAppointmentSlotAction } from "@/features/admin/appointments/actio
 import AdminServiceEditor from "@/features/admin/appointments/components/AdminServiceEditor";
 import type { AdminAppointmentDetails } from "@/features/admin/appointments/data/admin-appointments";
 import { formatBookingDateTime } from "@/features/admin/components/admin-formatters";
+import AppSelect from "@/components/shared/form/AppSelect";
 
 export default function AdminAppointmentEditor({
     booking,
@@ -26,17 +27,19 @@ export default function AdminAppointmentEditor({
                     className="mt-5 flex flex-col gap-3 xl:flex-row xl:items-end"
                 >
                     <input type="hidden" name="bookingId" value={booking.id} />
-                    <label className="block flex-1 space-y-2">
-                        <span className="label-text">Move to an open slot</span>
-                        <select name="slotId" className="input-field" required defaultValue="">
-                            <option value="" disabled>Select date and time</option>
-                            {booking.editorSlots.map((slot) => (
-                                <option key={slot.id} value={slot.id}>
-                                    {formatBookingDateTime(slot.startsAt, slot.endsAt)}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
+                    <AppSelect
+                        name="slotId"
+                        label="Move to an open slot"
+                        placeholder="Select date and time"
+                        required
+                        options={booking.editorSlots.map((slot) => ({
+                            value: slot.id,
+                            label: formatBookingDateTime(
+                                slot.startsAt,
+                                slot.endsAt,
+                            ),
+                        }))}
+                    />
                     <button type="submit" className="btn-secondary xl:shrink-0">
                         Update time
                     </button>

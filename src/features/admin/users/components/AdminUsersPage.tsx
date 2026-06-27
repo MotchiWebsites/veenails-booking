@@ -65,6 +65,7 @@ export default function AdminUsersPage({
                             </div>
                             <div className="mt-4 flex flex-col gap-2 border-t border-border/60 pt-4 sm:flex-row">
                                 <Link href={`/admin/users/${user.id}`} className="btn-secondary inline-flex items-center justify-center gap-2">View profile <FiArrowRight aria-hidden="true" /></Link>
+                                <Link href={`/admin/appointments/new?userId=${encodeURIComponent(user.id)}`} className="btn-secondary inline-flex items-center justify-center gap-2"><FiCalendar aria-hidden="true" /> Create appointment</Link>
                                 <Link href={`/admin/appointments?q=${encodeURIComponent(user.email)}`} className="btn-secondary inline-flex items-center justify-center gap-2"><FiCalendar aria-hidden="true" /> View appointments</Link>
                                 <span className="self-center text-xs text-muted sm:ml-auto">Open user details</span>
                             </div>

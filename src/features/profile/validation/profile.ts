@@ -60,7 +60,7 @@ export function normalizeProfilePhone(value: string) {
 }
 
 export function normalizeInstagramHandle(value: string) {
-    const handle = value.trim().replace(/^@+/, "");
+    const handle = value.trim().replace(/^@+/, "").toLowerCase();
 
     return handle || null;
 }
@@ -69,11 +69,11 @@ export function validateInstagramHandle(value: string) {
     const handle = normalizeInstagramHandle(value);
 
     if (!handle) {
-        return null;
+        return "Instagram handle is required.";
     }
 
-    if (handle.length > 30 || !/^[A-Za-z0-9._]+$/.test(handle)) {
-        return "Enter a valid Instagram handle without @.";
+    if (handle.length > 30 || !/^[a-z0-9._]+$/.test(handle)) {
+        return "Use lowercase letters, numbers, periods, or underscores only.";
     }
 
     return null;
