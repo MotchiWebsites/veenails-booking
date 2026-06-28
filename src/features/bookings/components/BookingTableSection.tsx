@@ -15,6 +15,7 @@ import {
 import {
     formatBookingDate,
     formatBookingReference,
+    formatMoney,
     formatShortLineItems,
     getBookingTotalDisplay,
 } from "@/features/bookings/utils/booking-formatters";
@@ -22,6 +23,7 @@ import type {
     BookingStatusFilter,
     BookingSummary,
 } from "@/features/bookings/types/bookings";
+import { getBookingDiscounts } from "@/features/bookings/utils/booking-pricing";
 
 type SortKey = "status" | "booking" | "appointment" | "total";
 type SortDirection = "asc" | "desc";
@@ -150,6 +152,7 @@ function PaginationControls({
 
 function BookingMobileCard({ booking }: { booking: BookingSummary }) {
     const total = getBookingTotalDisplay(booking);
+    const discounts = getBookingDiscounts(booking);
 
     return (
         <article className="rounded-2xl border border-border/60 bg-background p-4">
@@ -180,6 +183,17 @@ function BookingMobileCard({ booking }: { booking: BookingSummary }) {
                         {total.value}
                     </span>
                 </div>
+                {discounts.map((discount) => (
+                    <div
+                        key={discount.id}
+                        className="flex justify-between gap-4 text-xs"
+                    >
+                        <span className="text-muted">{discount.label}</span>
+                        <span className="font-semibold text-dark-green">
+                            -{formatMoney(discount.amount)}
+                        </span>
+                    </div>
+                ))}
             </div>
 
             {booking.cancellationRequest ? (
@@ -444,6 +458,8 @@ export default function BookingTableSection({
                                 {paginatedBookings.map((booking) => {
                                     const total =
                                         getBookingTotalDisplay(booking);
+                                    const discounts =
+                                        getBookingDiscounts(booking);
 
                                     return (
                                         <tr
@@ -479,6 +495,17 @@ export default function BookingTableSection({
                                                 <p className="mt-1 text-xs text-muted">
                                                     {total.label}
                                                 </p>
+                                                {discounts.map((discount) => (
+                                                    <p
+                                                        key={discount.id}
+                                                        className="mt-1 text-xs font-semibold text-dark-green"
+                                                    >
+                                                        {discount.label}: -
+                                                        {formatMoney(
+                                                            discount.amount,
+                                                        )}
+                                                    </p>
+                                                ))}
                                             </td>
                                             <td className="px-5 py-4">
                                                 <BookingActions

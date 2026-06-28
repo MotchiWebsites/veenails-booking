@@ -46,11 +46,17 @@ function getNumber(formData: FormData, key: string) {
     return Number.isFinite(number) ? number : null;
 }
 
-function revalidateAdminBooking(bookingId: string) {
+function revalidateAdminBooking(
+    bookingId: string,
+    bookingReference?: string,
+) {
     revalidatePath("/admin");
     revalidatePath("/admin/appointments");
     revalidatePath(`/admin/appointments/${bookingId}`);
     revalidatePath("/booking");
+    if (bookingReference) {
+        revalidatePath(`/booking/${bookingReference}`);
+    }
     revalidatePath("/dashboard");
 }
 
@@ -95,7 +101,7 @@ async function getBooking(admin: ReturnType<typeof createAdminClient>, bookingId
 
 async function emailBookingStatus(booking: Awaited<ReturnType<typeof getBooking>>, status: string, message: string, notificationType: string) {
     const recipient = resolveBookingRecipient(booking);
-    const recipientName = recipient.displayName ?? "Client";
+    const recipientName = recipient.displayName;
     const appointment = booking.availability_slots?.starts_at ? new Intl.DateTimeFormat("en-CA", { dateStyle: "full", timeStyle: "short" }).format(new Date(booking.availability_slots.starts_at)) : "Not scheduled";
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
     const template = appointmentStatusTemplate({ name: recipientName, reference: booking.booking_reference, status, appointment, message, detailsUrl: booking.user_id && siteUrl ? `${siteUrl}/booking/${booking.booking_reference}` : undefined });
@@ -290,7 +296,7 @@ export async function processAdminBookingWorkflowAction(
                 "appointment_confirmed",
             );
 
-            revalidateAdminBooking(bookingId);
+            revalidateAdminBooking(bookingId, booking.booking_reference);
             return workflowState({
                 error: "",
                 success: started
@@ -415,7 +421,7 @@ export async function processAdminBookingWorkflowAction(
             );
             revalidatePath(`/admin/users/${booking.user_id}`);
             revalidatePath("/credits");
-            revalidateAdminBooking(bookingId);
+            revalidateAdminBooking(bookingId, booking.booking_reference);
             return workflowState({
                 error: "",
                 success: "Booking rejected and deposit credit issued.",
@@ -648,7 +654,7 @@ export async function confirmAppointmentAction(
         });
         await emailBookingStatus(booking, "confirmed", "The studio confirmed your appointment.", "appointment_confirmed");
 
-        revalidateAdminBooking(bookingId);
+        revalidateAdminBooking(bookingId, booking.booking_reference);
     } catch (error) {
         console.error("[admin:confirm-appointment]", error);
     }
@@ -932,7 +938,7 @@ export async function reviewCancellationAction(
             },
         });
         const recipient = resolveBookingRecipient(booking);
-        const recipientName = recipient.displayName ?? "Client";
+        const recipientName = recipient.displayName;
         const appointment = booking.availability_slots?.starts_at ? new Intl.DateTimeFormat("en-CA", { dateStyle: "full", timeStyle: "short" }).format(new Date(booking.availability_slots.starts_at)) : "Not scheduled";
         const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
         const template = cancellationTemplate({ name: recipientName, reference: booking.booking_reference, heading: status === "approved" ? "Cancellation approved" : "Cancellation request declined", appointment, reason: reason || "No additional note", outcome: status === "approved" ? "Appointment cancelled" : "Appointment remains confirmed", message: status === "approved" ? "The studio approved your cancellation request." : "The studio reviewed your request and your appointment remains confirmed.", detailsUrl: booking.user_id && siteUrl ? `${siteUrl}/booking/${booking.booking_reference}` : undefined });
@@ -1279,7 +1285,7 @@ export async function updateAppointmentDiscountAction(
                 },
             });
 
-            revalidateAdminBooking(bookingId);
+            revalidateAdminBooking(bookingId, booking.booking_reference);
             return editState({ success: "Discount removed." });
         }
 
@@ -1318,7 +1324,7 @@ export async function updateAppointmentDiscountAction(
                 },
             });
 
-            revalidateAdminBooking(bookingId);
+            revalidateAdminBooking(bookingId, booking.booking_reference);
             return editState({ success: "Discount updated." });
         }
 
@@ -1354,7 +1360,7 @@ export async function updateAppointmentDiscountAction(
             },
         });
 
-        revalidateAdminBooking(bookingId);
+        revalidateAdminBooking(bookingId, booking.booking_reference);
         return editState({ success: "Discount saved." });
     } catch (error) {
         console.error("[admin:update-discount]", error);

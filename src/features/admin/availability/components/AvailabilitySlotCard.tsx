@@ -1,8 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { FiEdit2, FiX } from "react-icons/fi";
-import { deactivateAvailabilitySlotAction } from "@/features/admin/availability/actions/admin-availability";
+import { FiArrowRight, FiEdit2, FiX } from "react-icons/fi";
+import {
+    deactivateAvailabilitySlotAction,
+    releasePriorityAvailabilitySlotAction,
+} from "@/features/admin/availability/actions/admin-availability";
 import EditAvailabilitySlotForm from "@/features/admin/availability/components/EditAvailabilitySlotForm";
 import type { AdminAvailabilitySlot } from "@/features/admin/availability/data/admin-availability";
 import AdminStatusPill from "@/features/admin/components/AdminStatusPill";
@@ -20,9 +24,11 @@ function friendlyStatus(slot: AdminAvailabilitySlot) {
 
 export default function AvailabilitySlotCard({
     slot,
+    regularEarlyAccessHours,
     history = false,
 }: {
     slot: AdminAvailabilitySlot;
+    regularEarlyAccessHours: number;
     history?: boolean;
 }) {
     const [editing, setEditing] = useState(false);
@@ -30,6 +36,7 @@ export default function AvailabilitySlotCard({
         !history &&
         slot.active &&
         (slot.status === "available" || slot.status === "blocked");
+    const canReleasePriority = !history && slot.canReleasePriority;
 
     useEffect(() => {
         if (!editing) return;
@@ -52,13 +59,15 @@ export default function AvailabilitySlotCard({
                 <div className="min-w-0">
                     <p className="font-semibold text-foreground">
                         {formatDateTime(slot.startsAt)}
-                        {slot.endsAt ? ` · ${formatBookingTimeRange(slot.startsAt, slot.endsAt)}` : ""}
+                        {slot.endsAt
+                            ? ` · ${formatBookingTimeRange(slot.startsAt, slot.endsAt)}`
+                            : ""}
                     </p>
                     {slot.status === "available" && slot.active ? (
                         <p className="mt-1 text-sm text-muted">
                             {slot.regularsFirst
                                 ? `Priority access · Public after ${formatDateTime(slot.publicAccessAt)}`
-                                : "Available to everyone now"}
+                                : "Released to everyone"}
                         </p>
                     ) : null}
                     {slot.notes ? (
@@ -76,27 +85,66 @@ export default function AvailabilitySlotCard({
                         />
                     </div>
 
+                    {canReleasePriority ? (
+                        <form action={releasePriorityAvailabilitySlotAction}>
+                            <input
+                                type="hidden"
+                                name="slotId"
+                                value={slot.id}
+                            />
+                            <button
+                                type="submit"
+                                className="btn-primary w-full"
+                            >
+                                Release to everyone now
+                            </button>
+                        </form>
+                    ) : null}
+
                     {canEdit ? (
                         <button
                             type="button"
                             onClick={() => setEditing((value) => !value)}
                             aria-expanded={editing}
                             aria-controls={`edit-slot-${slot.id}`}
-                            className="btn-secondary inline-flex items-center justify-center gap-2 sm:min-w-[8.5rem]"
+                            className="btn-secondary inline-flex items-center justify-center gap-2 sm:min-w-34"
                         >
                             {editing ? (
                                 <FiX className="h-4 w-4" aria-hidden="true" />
                             ) : (
-                                <FiEdit2 className="h-4 w-4" aria-hidden="true" />
+                                <FiEdit2
+                                    className="h-4 w-4"
+                                    aria-hidden="true"
+                                />
                             )}
                             {editing ? "Close editor" : "Edit slot"}
                         </button>
                     ) : null}
 
+                    {slot.bookingId ? (
+                        <Link
+                            href={`/admin/appointments/${slot.bookingId}`}
+                            className="btn-primary inline-flex items-center justify-center gap-2"
+                        >
+                            View booking details
+                            <FiArrowRight
+                                className="h-4 w-4"
+                                aria-hidden="true"
+                            />
+                        </Link>
+                    ) : null}
+
                     {!history && slot.status === "available" && slot.active ? (
                         <form action={deactivateAvailabilitySlotAction}>
-                            <input type="hidden" name="slotId" value={slot.id} />
-                            <button type="submit" className="btn-secondary w-full">
+                            <input
+                                type="hidden"
+                                name="slotId"
+                                value={slot.id}
+                            />
+                            <button
+                                type="submit"
+                                className="btn-secondary w-full"
+                            >
                                 Deactivate
                             </button>
                         </form>
@@ -107,6 +155,7 @@ export default function AvailabilitySlotCard({
             {editing ? (
                 <EditAvailabilitySlotForm
                     slot={slot}
+                    regularEarlyAccessHours={regularEarlyAccessHours}
                     onClose={() => setEditing(false)}
                 />
             ) : null}

@@ -56,7 +56,7 @@ function getWorkflowOptions(
                 "Marks the deposit received and confirms the appointment in one step.",
         });
 
-        if (booking.profile) {
+        if (booking.userId) {
             options.push({
                 value: "reject_credit",
                 label: "Reject and issue deposit credit",
@@ -146,10 +146,6 @@ export default function AdminBookingWorkflowButton({
     );
     const selected = options.find((option) => option.value === decision);
     const needsReason = decision === "reject_credit" || decision === "no_show";
-    const clientName =
-        booking.profile?.displayName ??
-        booking.externalClient.displayName ??
-        "External client";
     const total =
         booking.finalTotal > 0 ? booking.finalTotal : booking.estimatedTotal;
 
@@ -182,7 +178,7 @@ export default function AdminBookingWorkflowButton({
                 {open ? (
                     <ModalShell
                         title="Update booking"
-                        description={`#${booking.bookingReference} · ${clientName}`}
+                        description={`#${booking.bookingReference} · ${booking.clientDisplayName}`}
                         onClose={() => setOpen(false)}
                     >
                         <form action={formAction} className="space-y-4">

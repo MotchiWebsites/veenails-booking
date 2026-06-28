@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/features/admin/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveBookingRecipient } from "@/features/notifications/utils/resolve-booking-recipient";
 import type { Database, Enums, Json } from "@/types/supabase";
 
 type BookingStatus = Enums<"booking_status">;
@@ -8,19 +9,11 @@ type DepositStatus = Enums<"deposit_status">;
 type PaymentStatus = Enums<"payment_status">;
 type CancellationStatus = Enums<"cancellation_request_status">;
 type InspoStatus = Enums<"booking_inspo_status">;
-type PreferredContactMethod = Enums<"preferred_contact_method">;
-
-export type AdminProfileSummary = {
-    id: string;
-    displayName: string;
-    email: string;
-    phone: string | null;
-    instagramHandle: string | null;
-    preferredContactMethod: PreferredContactMethod;
-};
+type ClientPreferredContactMethod = "email" | "instagram";
 
 export type AdminAppointmentListItem = {
     id: string;
+    userId: string | null;
     bookingReference: string;
     status: BookingStatus;
     depositStatus: DepositStatus;
@@ -29,13 +22,12 @@ export type AdminAppointmentListItem = {
     estimatedTotal: number;
     finalTotal: number;
     createdAt: string;
-    profile: AdminProfileSummary | null;
-    externalClient: {
-        displayName: string | null;
-        email: string | null;
-        instagramHandle: string | null;
-        preferredContactMethod: PreferredContactMethod | null;
-    };
+    clientDisplayName: string;
+    clientEmail: string | null;
+    clientPhone: string | null;
+    clientInstagramHandle: string | null;
+    clientPreferredContactMethod: ClientPreferredContactMethod | null;
+    isExternalClient: boolean;
     latestCancellationStatus: CancellationStatus | null;
     inspoStatus: InspoStatus | null;
     serviceSummary: string;
@@ -369,27 +361,6 @@ const detailsSelect = `
     )
 `;
 
-function mapProfile(row: AdminAppointmentRow["profiles"]) {
-    if (!row) return null;
-
-    return {
-        id: row.id,
-        displayName: row.display_name,
-        email: row.email,
-        phone: row.phone,
-        instagramHandle: row.instagram_handle,
-        preferredContactMethod: row.preferred_contact_method,
-    };
-}
-
-function mapPreferredContactMethod(
-    value: string | null,
-): PreferredContactMethod | null {
-    return value === "email" || value === "phone" || value === "instagram"
-        ? value
-        : null;
-}
-
 function latestByCreatedAt<T extends { created_at: string }>(rows: T[] | null | undefined) {
     return (
         rows
@@ -403,8 +374,11 @@ function latestByCreatedAt<T extends { created_at: string }>(rows: T[] | null | 
 }
 
 function mapListItem(row: AdminAppointmentRow): AdminAppointmentListItem {
+    const client = resolveBookingRecipient(row);
+
     return {
         id: row.id,
+        userId: row.user_id,
         bookingReference: row.booking_reference,
         status: row.status,
         depositStatus: row.deposit_status,
@@ -413,15 +387,12 @@ function mapListItem(row: AdminAppointmentRow): AdminAppointmentListItem {
         estimatedTotal: Number(row.estimated_total ?? 0),
         finalTotal: Number(row.final_total ?? 0),
         createdAt: row.created_at,
-        profile: mapProfile(row.profiles),
-        externalClient: {
-            displayName: row.client_display_name,
-            email: row.client_email,
-            instagramHandle: row.client_instagram_handle,
-            preferredContactMethod: mapPreferredContactMethod(
-                row.client_preferred_contact_method,
-            ),
-        },
+        clientDisplayName: client.displayName,
+        clientEmail: client.email,
+        clientPhone: row.profiles?.phone ?? null,
+        clientInstagramHandle: client.instagramHandle,
+        clientPreferredContactMethod: client.preferredContactMethod,
+        isExternalClient: row.user_id === null,
         latestCancellationStatus: latestByCreatedAt(row.cancellation_requests)?.status ?? null,
         inspoStatus: latestByCreatedAt(row.booking_inspo_prompts)?.status ?? null,
         serviceSummary: (row.booking_line_items ?? [])
@@ -565,13 +536,10 @@ export async function getAdminAppointments({
     return rows.filter((booking) =>
         [
             booking.bookingReference,
-            booking.profile?.displayName,
-            booking.profile?.email,
-            booking.profile?.phone,
-            booking.profile?.instagramHandle,
-            booking.externalClient.displayName,
-            booking.externalClient.email,
-            booking.externalClient.instagramHandle,
+            booking.clientDisplayName,
+            booking.clientEmail,
+            booking.clientPhone,
+            booking.clientInstagramHandle,
         ]
             .filter(Boolean)
             .join(" ")

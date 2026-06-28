@@ -29,34 +29,43 @@ export default function AvailabilityCalendarHeader({
                 </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-                <button
-                    type="button"
-                    onClick={onToday}
-                    disabled={!canGoBack}
-                    className="btn-secondary inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                    <FiRefreshCw className="h-4 w-4" aria-hidden="true" />
-                    Today
-                </button>
-                <button
-                    type="button"
-                    onClick={onPrevious}
-                    disabled={!canGoBack}
-                    aria-label="Show earlier dates"
-                    className="btn-secondary inline-flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                    <FiArrowLeft className="h-4 w-4" aria-hidden="true" />
-                </button>
-                <button
-                    type="button"
-                    onClick={onNext}
-                    disabled={!canGoForward}
-                    aria-label="Show later dates"
-                    className="btn-secondary inline-flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                    <FiArrowRight className="h-4 w-4" aria-hidden="true" />
-                </button>
+            <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={onToday}
+                        disabled={!canGoBack}
+                        className="btn-secondary inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                        <FiRefreshCw className="h-4 w-4" aria-hidden="true" />
+                        Today
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={onPrevious}
+                        disabled={!canGoBack}
+                        aria-label="Show earlier dates"
+                        className="btn-secondary inline-flex items-center justify-center disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                        <FiArrowLeft className="h-4 w-4" aria-hidden="true" />
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={onNext}
+                        disabled={!canGoForward}
+                        aria-label="Show later dates"
+                        className="btn-secondary inline-flex items-center justify-center disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                        <FiArrowRight className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                </div>
+
+                <p className="text-xs leading-relaxed text-muted md:hidden">
+                    Viewing two days at a time. Use the arrows to see more
+                    available dates.
+                </p>
             </div>
         </div>
     );

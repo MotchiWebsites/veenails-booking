@@ -130,7 +130,7 @@ export async function cancelAppointmentWithOutcomeAction(
         revalidatePath("/admin"); revalidatePath("/admin/appointments"); revalidatePath(`/admin/appointments/${bookingId}`); if (booking.user_id) revalidatePath(`/admin/users/${booking.user_id}`); revalidatePath("/booking"); revalidatePath("/dashboard"); revalidatePath("/credits"); revalidatePath("/book");
 
         const recipient = resolveBookingRecipient(booking);
-        const recipientName = recipient.displayName ?? "Client";
+        const recipientName = recipient.displayName;
         const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
         const template = cancellationTemplate({ name: recipientName, reference: booking.booking_reference, heading: "Appointment cancelled", appointment: booking.availability_slots ? new Intl.DateTimeFormat("en-CA", { dateStyle: "full", timeStyle: "short" }).format(new Date(booking.availability_slots.starts_at)) : "Not scheduled", reason, outcome: outcomeLabel, message: "Your appointment has been cancelled by the studio.", detailsUrl: booking.user_id && siteUrl ? `${siteUrl}/booking/${booking.booking_reference}` : undefined });
         await sendTransactionalEmail({ to: { email: recipient.email, name: recipientName }, ...template, notificationType: "admin_cancellation", bookingId, userId: booking.user_id });

@@ -9,7 +9,10 @@ import {
     type AdminCancellationState,
 } from "@/features/admin/appointments/actions/admin-cancellation";
 import type { AdminAppointmentDetails } from "@/features/admin/appointments/data/admin-appointments";
-import { formatMoney } from "@/features/admin/components/admin-formatters";
+import {
+    formatInstagramHandle,
+    formatMoney,
+} from "@/features/admin/components/admin-formatters";
 
 const initial: AdminCancellationState = {
     error: "",
@@ -31,7 +34,7 @@ export default function AdminCancellationModal({
     );
     const depositReceived = booking.depositStatus === "received";
     const preference = booking.cancellationRequest?.requestedRefundMethod;
-    const canIssueCredit = Boolean(booking.profile?.id);
+    const canIssueCredit = Boolean(booking.userId);
     const defaultOutcome =
         preference === "account_credit" && canIssueCredit
             ? "credit"
@@ -51,7 +54,7 @@ export default function AdminCancellationModal({
     return (
         <ModalShell
             title="Cancel appointment"
-            description={`#${booking.bookingReference} · ${booking.profile?.displayName ?? "Client"}`}
+            description={`#${booking.bookingReference} · ${booking.clientDisplayName}`}
             onClose={onClose}
         >
             <form action={action} className="space-y-4">
@@ -69,11 +72,23 @@ export default function AdminCancellationModal({
                     <p className="text-sm text-muted">
                         Client
                         <span className="mt-1 block font-semibold text-foreground">
-                            {booking.profile?.displayName ?? "Unknown"}
+                            {booking.clientDisplayName}
                         </span>
-                        <span className="mt-1 block text-xs">
-                            {booking.profile?.email}
-                        </span>
+                        {booking.clientEmail ? (
+                            <span className="mt-1 block text-xs">
+                                {booking.clientEmail}
+                            </span>
+                        ) : booking.clientInstagramHandle ? (
+                            <span className="mt-1 block text-xs">
+                                {formatInstagramHandle(
+                                    booking.clientInstagramHandle,
+                                )}
+                            </span>
+                        ) : (
+                            <span className="mt-1 block text-xs text-muted">
+                                Contact details unavailable
+                            </span>
+                        )}
                     </p>
                     <p className="text-sm text-muted">
                         Deposit

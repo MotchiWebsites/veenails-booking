@@ -38,7 +38,7 @@ function formatCancellationStatus(status: string): string {
 export const summaryRows = (
     booking: BookingSummary,
     totalDisplay: TotalDisplay,
-    estimatedAmountDue: number,
+    remainingBalance: number,
     creditUsed: number,
     data: SummaryRowsData,
 ): SummaryRow[] => [
@@ -66,8 +66,8 @@ export const summaryRows = (
     },
     { label: totalDisplay.label, value: totalDisplay.value },
     {
-        label: "Estimated amount due",
-        value: formatMoney(estimatedAmountDue),
+        label: "Remaining balance",
+        value: formatMoney(remainingBalance),
     },
     {
         label: "Deposit/payment status",

@@ -7,6 +7,7 @@ import {
     formatBookingDateTime,
     formatContactMethod,
     formatDateTime,
+    formatInstagramHandle,
     formatMoney,
 } from "@/features/admin/components/admin-formatters";
 import type { AdminAppointmentDetails } from "@/features/admin/appointments/data/admin-appointments";
@@ -46,27 +47,8 @@ export default function AdminAppointmentDetailsPage({
 }: {
     booking: AdminAppointmentDetails;
 }) {
-    const client = booking.profile;
-    const externalClient = booking.externalClient;
-    const displayClient = client
-        ? {
-              displayName: client.displayName,
-              email: client.email,
-              phone: client.phone,
-              instagramHandle: client.instagramHandle,
-              preferredContactMethod: client.preferredContactMethod,
-              label: "App customer",
-          }
-        : {
-              displayName: externalClient.displayName,
-              email: externalClient.email,
-              phone: null,
-              instagramHandle: externalClient.instagramHandle,
-              preferredContactMethod: externalClient.preferredContactMethod,
-              label: "External client",
-          };
     const instagramOnly =
-        !displayClient.email && Boolean(displayClient.instagramHandle);
+        !booking.clientEmail && Boolean(booking.clientInstagramHandle);
     const appointmentTotal = Math.max(
         0,
         booking.amountPaid + booking.amountDue,
@@ -96,10 +78,10 @@ export default function AdminAppointmentDetailsPage({
                         <AdminPageHeader
                             eyebrow="Appointment"
                             title={`#${booking.bookingReference}`}
-                            description={formatBookingDateTime(
+                            description={`${formatBookingDateTime(
                                 booking.startsAt,
                                 booking.endsAt,
-                            )}
+                            )} · ${booking.clientDisplayName}`}
                         />
                     </div>
                     <div className="mt-4 flex flex-wrap gap-2">
@@ -114,7 +96,7 @@ export default function AdminAppointmentDetailsPage({
                                 label={`Inspo ${booking.inspoPrompt.status}`}
                             />
                         ) : null}
-                        {!client ? (
+                        {booking.isExternalClient ? (
                             <AdminStatusPill label="External client" />
                         ) : null}
                     </div>
@@ -124,8 +106,12 @@ export default function AdminAppointmentDetailsPage({
                                 Email unavailable
                             </p>
                             <p className="mt-1 text-muted">
-                                Contact via Instagram: @
-                                {displayClient.instagramHandle}
+                                Contact via Instagram:{" "}
+                                {booking.clientInstagramHandle
+                                    ? formatInstagramHandle(
+                                          booking.clientInstagramHandle,
+                                      )
+                                    : null}
                             </p>
                         </div>
                     ) : null}
@@ -192,43 +178,49 @@ export default function AdminAppointmentDetailsPage({
                             Client
                         </h2>
                         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                            <Summary label="Type" value={displayClient.label} />
                             <Summary
-                                label="Name"
-                                value={displayClient.displayName}
-                            />
-                            <Summary
-                                label="Email"
+                                label="Type"
                                 value={
-                                    displayClient.email ??
-                                    (client ? null : "Email unavailable")
+                                    booking.isExternalClient
+                                        ? "External client"
+                                        : "App customer"
                                 }
                             />
                             <Summary
+                                label="Name"
+                                value={booking.clientDisplayName}
+                            />
+                            <Summary
+                                label="Email"
+                                value={booking.clientEmail}
+                            />
+                            <Summary
                                 label="Phone"
-                                value={displayClient.phone}
+                                value={booking.clientPhone}
                             />
                             <Summary
                                 label="Instagram"
                                 value={
-                                    displayClient.instagramHandle
-                                        ? `${instagramOnly ? "Contact via Instagram: " : ""}@${displayClient.instagramHandle}`
+                                    booking.clientInstagramHandle
+                                        ? formatInstagramHandle(
+                                              booking.clientInstagramHandle,
+                                          )
                                         : null
                                 }
                             />
                             <Summary
                                 label="Preferred contact"
                                 value={formatContactMethod(
-                                    displayClient.preferredContactMethod,
+                                    booking.clientPreferredContactMethod,
                                 )}
                             />
                         </div>
-                        {client ? (
+                        {booking.userId ? (
                             <Link
-                                href={`/admin/users/${client.id}`}
+                                href={`/admin/users/${booking.userId}`}
                                 className="btn-secondary mt-4 inline-flex"
                             >
-                                View customer
+                                View customer profile
                             </Link>
                         ) : null}
                     </div>
@@ -249,7 +241,7 @@ export default function AdminAppointmentDetailsPage({
                     <HistoryLog booking={booking} />
                 </div>
                 <div>
-                    {client ? (
+                    {booking.userId ? (
                         <div className="rounded-3xl border border-border/60 bg-surface p-5 shadow-sm">
                             <h2 className="text-lg font-semibold text-foreground">
                                 Issue credit
@@ -259,7 +251,7 @@ export default function AdminAppointmentDetailsPage({
                             </p>
                             <div className="mt-4">
                                 <AdminCreditForm
-                                    userId={client.id}
+                                    userId={booking.userId}
                                     bookingId={booking.id}
                                 />
                             </div>

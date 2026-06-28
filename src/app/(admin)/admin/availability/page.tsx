@@ -1,5 +1,5 @@
 import AdminAvailabilityPage from "@/features/admin/availability/components/AdminAvailabilityPage";
-import { getAdminAvailabilitySlots } from "@/features/admin/availability/data/admin-availability";
+import { getAdminAvailabilityPageData } from "@/features/admin/availability/data/admin-availability";
 import { buildMetadata } from "@/lib/seo/metadata";
 
 export const metadata = buildMetadata({
@@ -10,7 +10,13 @@ export const metadata = buildMetadata({
 });
 
 export default async function AdminAvailabilityRoute() {
-    const slots = await getAdminAvailabilitySlots();
+    const data = await getAdminAvailabilityPageData();
 
-    return <AdminAvailabilityPage slots={slots} nowIso={new Date().toISOString()} />;
+    return (
+        <AdminAvailabilityPage
+            slots={data.slots}
+            regularEarlyAccessHours={data.regularEarlyAccessHours}
+            nowIso={new Date().toISOString()}
+        />
+    );
 }

@@ -1,36 +1,29 @@
 "use client";
 
 import CalendarDateSelector from "@/components/shared/date/CalendarDateSelector";
+import AppSelect from "@/components/shared/form/AppSelect";
+import TimeSelect from "@/components/shared/form/TimeSelect";
 import { useToast } from "@/components/shared/toast/ToastProvider";
 import {
     createAvailabilitySlotAction,
     type AvailabilityActionState,
 } from "@/features/admin/availability/actions/admin-availability";
+import {
+    getSlotTimeOptions,
+    getStudioDateKey,
+} from "@/features/admin/availability/utils/slot-time-options";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useState } from "react";
 
-function dateKey(date: Date) {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-const TIMES = Array.from({ length: 57 }, (_, index) => {
-    const minutes = 8 * 60 + index * 15;
-    const hours = Math.floor(minutes / 60);
-    const minute = minutes % 60;
-    const value = `${String(hours).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-    const label = new Date(2000, 0, 1, hours, minute).toLocaleTimeString(
-        "en-CA",
-        {
-            hour: "numeric",
-            minute: "2-digit",
-        },
-    );
-    return { value, label };
-});
-
-export default function AvailabilitySlotForm() {
-    const today = dateKey(new Date());
+export default function AvailabilitySlotForm({
+    regularEarlyAccessHours,
+}: {
+    regularEarlyAccessHours: number;
+}) {
+    const today = getStudioDateKey();
+    const [selectedDate, setSelectedDate] = useState(today);
     const [startTime, setStartTime] = useState("09:00");
+    const [endTime, setEndTime] = useState("");
     const router = useRouter();
     const { error, success } = useToast();
     const initialState: AvailabilityActionState = {
@@ -43,10 +36,28 @@ export default function AvailabilitySlotForm() {
         initialState,
     );
 
-    const endTimeOptions = useMemo(() => {
-        const startIndex = TIMES.findIndex((time) => time.value === startTime);
-        return TIMES.slice(Math.min(startIndex + 1, TIMES.length - 1));
-    }, [startTime]);
+    const startTimeOptions = useMemo(
+        () => getSlotTimeOptions({ selectedDate }),
+        [selectedDate],
+    );
+    const selectedStartTime = startTimeOptions.some(
+        (option) => option.value === startTime,
+    )
+        ? startTime
+        : (startTimeOptions[0]?.value ?? "");
+    const endTimeOptions = useMemo(
+        () =>
+            getSlotTimeOptions({
+                selectedDate,
+                afterTime: selectedStartTime || null,
+            }),
+        [selectedDate, selectedStartTime],
+    );
+    const selectedEndTime = endTimeOptions.some(
+        (option) => option.value === endTime,
+    )
+        ? endTime
+        : "";
 
     useEffect(() => {
         if (!state.messageId) return;
@@ -63,47 +74,40 @@ export default function AvailabilitySlotForm() {
 
     return (
         <form action={formAction} className="mt-6 space-y-5">
-            <input
-                type="hidden"
-                name="timezoneOffset"
-                value={new Date().getTimezoneOffset()}
-            />
-            <div className="grid gap-5 xl:grid-cols-[minmax(19rem,26rem)_minmax(0,1fr)]">
-                <CalendarDateSelector name="date" defaultValue={today} />
+            <div className="grid gap-5 lg:grid-cols-[minmax(19rem,26rem)_minmax(0,1fr)]">
+                <CalendarDateSelector
+                    name="date"
+                    defaultValue={today}
+                    min={today}
+                    onChange={setSelectedDate}
+                />
                 <div className="space-y-4 rounded-3xl bg-background p-4 sm:p-5">
                     <div className="grid gap-4 sm:grid-cols-2">
-                        <label className="space-y-2">
-                            <span className="label-text">Start time</span>
-                            <select
-                                name="startTime"
-                                className="input-field"
-                                defaultValue="09:00"
-                                onChange={(event) =>
-                                    setStartTime(event.target.value)
-                                }
-                            >
-                                {TIMES.slice(0, -1).map((time) => (
-                                    <option key={time.value} value={time.value}>
-                                        {time.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-                        <label className="space-y-2">
-                            <span className="label-text">End time (optional)</span>
-                            <select
-                                name="endTime"
-                                className="input-field"
-                                defaultValue=""
-                            >
-                                <option value="">No end time</option>
-                                {endTimeOptions.map((time) => (
-                                    <option key={time.value} value={time.value}>
-                                        {time.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
+                        <TimeSelect
+                            name="startTime"
+                            label="Start time"
+                            value={selectedStartTime}
+                            options={startTimeOptions}
+                            onChange={(value) => {
+                                setStartTime(value);
+                                setEndTime("");
+                            }}
+                            disabled={startTimeOptions.length === 0}
+                            helperText={
+                                startTimeOptions.length === 0
+                                    ? "No future times remain on this date."
+                                    : undefined
+                            }
+                        />
+                        <TimeSelect
+                            name="endTime"
+                            label="End time (optional)"
+                            value={selectedEndTime}
+                            options={endTimeOptions}
+                            onChange={setEndTime}
+                            optional
+                            disabled={!selectedStartTime}
+                        />
                     </div>
                     <label className="block space-y-2">
                         <span className="label-text">Slot type</span>
@@ -116,24 +120,22 @@ export default function AvailabilitySlotForm() {
                             <option value="blocked">Blocked time</option>
                         </select>
                     </label>
-                    <label className="flex items-start gap-3 rounded-2xl border border-border/60 bg-surface px-4 py-3 text-sm text-foreground">
-                        <input type="hidden" name="regularsFirst" value="off" />
-                        <input
-                            type="checkbox"
-                            name="regularsFirst"
-                            value="on"
-                            defaultChecked
-                            className="mt-1"
-                        />
-                        <span>
-                            <span className="block font-semibold">
-                                Regular customers first
-                            </span>
-                            <span className="text-muted">
-                                Regular customers can book now. Everyone else can book after the early-access window.
-                            </span>
-                        </span>
-                    </label>
+                    <AppSelect
+                        name="accessMode"
+                        label="Booking access"
+                        defaultValue="priority"
+                        options={[
+                            {
+                                value: "priority",
+                                label: "Priority access",
+                            },
+                            {
+                                value: "everyone",
+                                label: "Everyone immediately",
+                            },
+                        ]}
+                        helperText={`Priority access opens to regular customers first, then releases publicly after ${regularEarlyAccessHours} ${regularEarlyAccessHours === 1 ? "hour" : "hours"}.`}
+                    />
                     <label className="block space-y-2">
                         <span className="label-text">
                             Internal note (optional)
@@ -148,12 +150,12 @@ export default function AvailabilitySlotForm() {
                     <button
                         type="submit"
                         className="btn-primary w-full sm:w-auto"
-                        disabled={pending}
+                        disabled={pending || startTimeOptions.length === 0}
                     >
                         {pending ? "Adding..." : "Add availability"}
                     </button>
                     <p className="text-xs text-muted">
-                        Times use 15-minute increments. Slots with an end time
+                        Times use 30-minute increments. Slots with an end time
                         cannot overlap another active slot.
                     </p>
                 </div>

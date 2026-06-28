@@ -3,13 +3,17 @@ import { FiList } from "react-icons/fi";
 import StepSectionCard from "@/components/shared/ui/StepSectionCard";
 import type { BookingDetailsData } from "@/features/bookings/details/data/booking-details";
 import { formatMoney } from "@/features/bookings/utils/booking-formatters";
+import { getBookingDiscounts } from "@/features/bookings/utils/booking-pricing";
 
 export default function BookingLineItemsCard({
     data,
 }: {
     data: BookingDetailsData;
 }) {
-    const items = data.summary.lineItems;
+    const items = data.summary.lineItems.filter(
+        (item) => item.itemType !== "discount",
+    );
+    const discounts = getBookingDiscounts(data.summary);
 
     return (
         <StepSectionCard
@@ -45,6 +49,27 @@ export default function BookingLineItemsCard({
                     Service details are still being finalized.
                 </p>
             )}
+            {discounts.length > 0 ? (
+                <div className="mt-4 space-y-2 rounded-3xl border border-border/60 bg-surface-2 p-4">
+                    {discounts.map((discount) => (
+                        <div key={discount.id}>
+                            <div className="flex justify-between gap-4 text-sm">
+                                <span className="font-semibold text-foreground">
+                                    {discount.label}
+                                </span>
+                                <span className="font-semibold text-dark-green">
+                                    -{formatMoney(discount.amount)}
+                                </span>
+                            </div>
+                            {discount.reason ? (
+                                <p className="mt-1 text-xs text-muted">
+                                    {discount.reason}
+                                </p>
+                            ) : null}
+                        </div>
+                    ))}
+                </div>
+            ) : null}
         </StepSectionCard>
     );
 }

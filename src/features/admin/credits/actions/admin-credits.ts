@@ -45,7 +45,7 @@ export async function issueAdminCreditAction(_previous: AdminCreditState, formDa
 
         const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
         const template = creditIssuedTemplate({ name: profile.display_name, amount: new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(amount), reason, expiresAt: expiresAt ? new Intl.DateTimeFormat("en-CA", { dateStyle: "long" }).format(new Date(expiresAt)) : null, creditsUrl: siteUrl ? `${siteUrl}/credits` : undefined });
-        await sendTransactionalEmail({ to: { email: profile.email, name: profile.display_name }, ...template, notificationType: "credit_issued", bookingId, userId });
+        await sendTransactionalEmail({ to: { email: profile.email, name: profile.display_name }, ...template, notificationType: "credit_issued", deduplicationKey: `credit_issued:${credit.id}`, bookingId, userId });
         return response({ error: "", success: "Credit issued successfully." });
     } catch (error) {
         console.error("[admin:credits:issue]", error);

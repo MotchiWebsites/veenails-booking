@@ -16,11 +16,16 @@ export type BookingSummary = {
     endsAt: string | null;
     estimatedTotal: number;
     finalTotal: number;
+    subtotalAmount: number;
+    bookingFeeAmount: number;
+    amountPaid: number;
+    amountDue: number;
     createdAt: string;
     lineItems: {
         id: string;
         itemType: string;
         label: string;
+        description: string | null;
         quantity: number;
         unitPrice: number;
         lineTotal: number;
