@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import { IoClose } from "react-icons/io5";
 
@@ -17,7 +18,11 @@ export default function ModalShell({
 }) {
     const reduceMotion = useReducedMotion();
 
-    return (
+    if (typeof document === "undefined") {
+        return null;
+    }
+
+    return createPortal(
         <motion.div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
             initial={{ opacity: 0 }}
@@ -28,7 +33,7 @@ export default function ModalShell({
             <motion.div
                 role="dialog"
                 aria-modal="true"
-                className="mx-4 w-full max-w-md rounded-2xl bg-white p-6 shadow-lg sm:mx-0"
+                className="mx-4 flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-lg sm:mx-0"
                 initial={
                     reduceMotion
                         ? { opacity: 0 }
@@ -45,19 +50,27 @@ export default function ModalShell({
                     ease: [0.22, 1, 0.36, 1],
                 }}
             >
-                <div className="flex w-full items-start justify-between">
+                <div className="flex w-full shrink-0 items-start justify-between border-b border-border/50 px-6 py-5">
                     <div>
                         {title ? <h3 className="text-lg font-semibold">{title}</h3> : null}
                         {description ? <div className="mt-2 text-sm text-muted">{description}</div> : null}
                     </div>
 
-                    <button aria-label="Close" onClick={onClose} className="text-muted">
+                    <button
+                        type="button"
+                        aria-label="Close"
+                        onClick={onClose}
+                        className="text-muted"
+                    >
                         <IoClose className="h-5 w-5" />
                     </button>
                 </div>
 
-                <div className="mt-4">{children}</div>
+                <div className="min-h-0 overflow-y-auto overscroll-contain px-6 py-5">
+                    {children}
+                </div>
             </motion.div>
-        </motion.div>
+        </motion.div>,
+        document.body,
     );
 }

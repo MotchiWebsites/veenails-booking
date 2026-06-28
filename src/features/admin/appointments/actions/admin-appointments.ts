@@ -9,7 +9,17 @@ import { appointmentStatusTemplate } from "@/features/notifications/email/templa
 import { cancellationTemplate } from "@/features/notifications/email/templates/cancellation-template";
 import { resolveBookingRecipient } from "@/features/notifications/utils/resolve-booking-recipient";
 import { sendTransactionalEmail } from "@/lib/email/brevo";
-import { parseAdminDiscountPercentage } from "@/features/admin/appointments/utils/admin-discount";
+import { getAppBaseUrl } from "@/lib/email/config";
+import {
+    calculateAdminDiscountedPricing,
+    parseAdminDiscountPercentage,
+} from "@/features/admin/appointments/utils/admin-discount";
+import { completeBookingWithSettlement } from "@/features/admin/appointments/utils/complete-booking";
+import { calculateBookingLedger } from "@/features/bookings/utils/booking-ledger";
+import {
+    syncBookingRescheduleToGoogleCalendar,
+    syncBookingToGoogleCalendar,
+} from "@/features/integrations/google-calendar/services/sync";
 
 export type AdminAppointmentEditState = {
     error?: string;
@@ -63,7 +73,7 @@ function revalidateAdminBooking(
 async function getBooking(admin: ReturnType<typeof createAdminClient>, bookingId: string) {
     const { data, error } = await admin
         .from("bookings")
-        .select("id, booking_reference, status, slot_id, user_id, deposit_status, deposit_amount, client_display_name, client_email, client_instagram_handle, client_preferred_contact_method, availability_slots:slot_id(starts_at, ends_at), profiles:user_id(display_name, email, instagram_handle, preferred_contact_method)")
+        .select("id, booking_reference, status, slot_id, user_id, deposit_status, deposit_amount, booking_fee_mode, booking_fee_rate, client_display_name, client_email, client_instagram_handle, client_preferred_contact_method, availability_slots:slot_id(starts_at, ends_at), profiles:user_id(display_name, email, instagram_handle, preferred_contact_method)")
         .eq("id", bookingId)
         .maybeSingle()
         .overrideTypes<{
@@ -78,6 +88,8 @@ async function getBooking(admin: ReturnType<typeof createAdminClient>, bookingId
             client_preferred_contact_method: string | null;
             deposit_status: Enums<"deposit_status">;
             deposit_amount: number;
+            booking_fee_mode: Enums<"fee_mode">;
+            booking_fee_rate: number;
             availability_slots: { starts_at: string; ends_at: string | null } | null;
             profiles: {
                 display_name: string;
@@ -103,7 +115,7 @@ async function emailBookingStatus(booking: Awaited<ReturnType<typeof getBooking>
     const recipient = resolveBookingRecipient(booking);
     const recipientName = recipient.displayName;
     const appointment = booking.availability_slots?.starts_at ? new Intl.DateTimeFormat("en-CA", { dateStyle: "full", timeStyle: "short" }).format(new Date(booking.availability_slots.starts_at)) : "Not scheduled";
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+    const siteUrl = getAppBaseUrl();
     const template = appointmentStatusTemplate({ name: recipientName, reference: booking.booking_reference, status, appointment, message, detailsUrl: booking.user_id && siteUrl ? `${siteUrl}/booking/${booking.booking_reference}` : undefined });
     await sendTransactionalEmail({ to: { email: recipient.email, name: recipientName }, ...template, notificationType, bookingId: booking.id, userId: booking.user_id });
 }
@@ -296,6 +308,7 @@ export async function processAdminBookingWorkflowAction(
                 "appointment_confirmed",
             );
 
+            await syncBookingToGoogleCalendar(bookingId);
             revalidateAdminBooking(bookingId, booking.booking_reference);
             return workflowState({
                 error: "",
@@ -419,6 +432,7 @@ export async function processAdminBookingWorkflowAction(
                 `The studio could not accept this request. Your ${depositAmount.toFixed(2)} deposit was added to your account as studio credit. Reason: ${reason}`,
                 "appointment_rejected_credit_issued",
             );
+            await syncBookingToGoogleCalendar(bookingId);
             revalidatePath(`/admin/users/${booking.user_id}`);
             revalidatePath("/credits");
             revalidateAdminBooking(bookingId, booking.booking_reference);
@@ -502,7 +516,8 @@ export async function processAdminBookingWorkflowAction(
                 "appointment_rejected",
             );
 
-            revalidateAdminBooking(bookingId);
+            await syncBookingToGoogleCalendar(bookingId);
+            revalidateAdminBooking(bookingId, booking.booking_reference);
             return workflowState({
                 error: "",
                 success: "Booking rejected and recorded as deposit not received.",
@@ -523,20 +538,26 @@ export async function processAdminBookingWorkflowAction(
                 });
             }
 
-            const now = new Date().toISOString();
-            const { data: updated, error } = await admin
-                .from("bookings")
-                .update(
-                    decision === "completed"
-                        ? { status: "completed", completed_at: now }
-                        : { status: "no_show" },
-                )
-                .eq("id", bookingId)
-                .eq("status", "confirmed")
-                .select("id")
-                .maybeSingle();
-            if (error || !updated) {
-                throw error ?? new Error("Booking status changed.");
+            const settlement =
+                decision === "completed"
+                    ? await completeBookingWithSettlement({
+                          admin,
+                          bookingId,
+                          userId: booking.user_id,
+                          adminUserId: user.id,
+                      })
+                    : null;
+            if (decision === "no_show") {
+                const { data: updated, error } = await admin
+                    .from("bookings")
+                    .update({ status: "no_show" })
+                    .eq("id", bookingId)
+                    .eq("status", "confirmed")
+                    .select("id")
+                    .maybeSingle();
+                if (error || !updated) {
+                    throw error ?? new Error("Booking status changed.");
+                }
             }
 
             await insertEvent({
@@ -552,23 +573,34 @@ export async function processAdminBookingWorkflowAction(
                     previousStatus: booking.status,
                     newStatus: decision,
                     note: reason || null,
+                    overpaymentCredit:
+                        settlement?.overpaymentCredit || null,
                 },
             });
             await emailBookingStatus(
                 booking,
                 decision === "completed" ? "completed" : "marked no-show",
                 decision === "completed"
-                    ? "Your appointment was marked completed."
+                    ? settlement?.overpaymentCredit
+                        ? `Your appointment was completed. An overpayment of $${settlement.overpaymentCredit.toFixed(2)} was returned as studio credit.`
+                        : "Your appointment was marked completed."
                     : `The appointment was marked as a no-show. ${reason}`,
                 `appointment_${decision}`,
             );
 
-            revalidateAdminBooking(bookingId);
+            if (settlement?.overpaymentCredit && booking.user_id) {
+                revalidatePath("/credits");
+                revalidatePath(`/admin/users/${booking.user_id}`);
+            }
+            await syncBookingToGoogleCalendar(bookingId);
+            revalidateAdminBooking(bookingId, booking.booking_reference);
             return workflowState({
                 error: "",
                 success:
                     decision === "completed"
-                        ? "Appointment marked completed."
+                        ? settlement?.overpaymentCredit
+                            ? `Appointment completed and $${settlement.overpaymentCredit.toFixed(2)} returned as studio credit.`
+                            : "Appointment marked completed."
                         : "Appointment marked no-show.",
             });
         }
@@ -654,6 +686,7 @@ export async function confirmAppointmentAction(
         });
         await emailBookingStatus(booking, "confirmed", "The studio confirmed your appointment.", "appointment_confirmed");
 
+        await syncBookingToGoogleCalendar(bookingId);
         revalidateAdminBooking(bookingId, booking.booking_reference);
     } catch (error) {
         console.error("[admin:confirm-appointment]", error);
@@ -705,7 +738,8 @@ export async function rejectAppointmentAction(
         });
         await emailBookingStatus(booking, "rejected", `The studio could not accept this request. Reason: ${reason}`, "appointment_rejected");
 
-        revalidateAdminBooking(bookingId);
+        await syncBookingToGoogleCalendar(bookingId);
+        revalidateAdminBooking(bookingId, booking.booking_reference);
     } catch (error) {
         console.error("[admin:reject-appointment]", error);
     }
@@ -792,7 +826,8 @@ export async function markDepositReceivedAction(
                 : "appointment_confirmed",
         );
 
-        revalidateAdminBooking(bookingId);
+        await syncBookingToGoogleCalendar(bookingId);
+        revalidateAdminBooking(bookingId, booking.booking_reference);
     } catch (error) {
         console.error("[admin:deposit-received]", error);
     }
@@ -819,18 +854,23 @@ export async function updateAppointmentStatusAction(
             new Date(booking.availability_slots.starts_at) > new Date()
         ) return;
         if (nextStatus === "no_show" && !note) return;
-        const now = new Date().toISOString();
-        const update =
+        const settlement =
             nextStatus === "completed"
-                ? { status: nextStatus, completed_at: now }
-                : { status: nextStatus };
-
-        const { error } = await admin
-            .from("bookings")
-            .update(update)
-            .eq("id", bookingId);
-
-        if (error) throw error;
+                ? await completeBookingWithSettlement({
+                      admin,
+                      bookingId,
+                      userId: booking.user_id,
+                      adminUserId: user.id,
+                  })
+                : null;
+        if (nextStatus === "no_show") {
+            const { error } = await admin
+                .from("bookings")
+                .update({ status: nextStatus })
+                .eq("id", bookingId)
+                .eq("status", "confirmed");
+            if (error) throw error;
+        }
 
         await insertEvent({
             admin,
@@ -845,19 +885,51 @@ export async function updateAppointmentStatusAction(
                 previousStatus: booking.status,
                 newStatus: nextStatus,
                 note: note || null,
+                overpaymentCredit: settlement?.overpaymentCredit || null,
             },
         });
-        await emailBookingStatus(booking, nextStatus === "no_show" ? "marked no-show" : "completed", nextStatus === "no_show" ? `The appointment was marked as a no-show. ${note}` : "Your appointment was marked completed.", `appointment_${nextStatus}`);
+        await emailBookingStatus(
+            booking,
+            nextStatus === "no_show" ? "marked no-show" : "completed",
+            nextStatus === "no_show"
+                ? `The appointment was marked as a no-show. ${note}`
+                : settlement?.overpaymentCredit
+                  ? `Your appointment was completed. An overpayment of $${settlement.overpaymentCredit.toFixed(2)} was returned as studio credit.`
+                  : "Your appointment was marked completed.",
+            `appointment_${nextStatus}`,
+        );
 
-        revalidateAdminBooking(bookingId);
+        if (settlement?.overpaymentCredit && booking.user_id) {
+            revalidatePath("/credits");
+            revalidatePath(`/admin/users/${booking.user_id}`);
+        }
+        await syncBookingToGoogleCalendar(bookingId);
+        revalidateAdminBooking(bookingId, booking.booking_reference);
     } catch (error) {
         console.error("[admin:update-status]", error);
     }
 }
 
+export type AdminCancellationReviewState = {
+    error: string;
+    success: string;
+    messageId: string;
+};
+
+function cancellationReviewState(
+    input: Omit<AdminCancellationReviewState, "messageId">,
+): AdminCancellationReviewState {
+    return {
+        ...input,
+        messageId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    };
+}
+
 export async function reviewCancellationAction(
+    _previousState: AdminCancellationReviewState,
     formData: FormData,
-): Promise<void> {
+): Promise<AdminCancellationReviewState> {
+    void _previousState;
     const { user } = await requireAdmin();
     const bookingId = getString(formData, "bookingId");
     const requestId = getString(formData, "requestId");
@@ -866,14 +938,27 @@ export async function reviewCancellationAction(
     const admin = createAdminClient();
 
     if (!requestId || decision !== "rejected") {
-        return;
+        return cancellationReviewState({
+            error: "This cancellation request could not be reviewed.",
+            success: "",
+        });
     }
 
     try {
         const booking = await getBooking(admin, bookingId);
-        if (booking.status !== "cancellation_requested") return;
+        if (booking.status !== "cancellation_requested") {
+            return cancellationReviewState({
+                error: "This cancellation request is no longer pending.",
+                success: "",
+            });
+        }
         const status = decision as "approved" | "rejected";
-        if (status === "rejected" && !reason) return;
+        if (status === "rejected" && !reason) {
+            return cancellationReviewState({
+                error: "Add a reason for declining the cancellation request.",
+                success: "",
+            });
+        }
         const now = new Date().toISOString();
 
         const { data, error } = await admin
@@ -940,13 +1025,22 @@ export async function reviewCancellationAction(
         const recipient = resolveBookingRecipient(booking);
         const recipientName = recipient.displayName;
         const appointment = booking.availability_slots?.starts_at ? new Intl.DateTimeFormat("en-CA", { dateStyle: "full", timeStyle: "short" }).format(new Date(booking.availability_slots.starts_at)) : "Not scheduled";
-        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+        const siteUrl = getAppBaseUrl();
         const template = cancellationTemplate({ name: recipientName, reference: booking.booking_reference, heading: status === "approved" ? "Cancellation approved" : "Cancellation request declined", appointment, reason: reason || "No additional note", outcome: status === "approved" ? "Appointment cancelled" : "Appointment remains confirmed", message: status === "approved" ? "The studio approved your cancellation request." : "The studio reviewed your request and your appointment remains confirmed.", detailsUrl: booking.user_id && siteUrl ? `${siteUrl}/booking/${booking.booking_reference}` : undefined });
         await sendTransactionalEmail({ to: { email: recipient.email, name: recipientName }, ...template, notificationType: `cancellation_${status}`, bookingId, userId: booking.user_id });
 
-        revalidateAdminBooking(bookingId);
+        await syncBookingToGoogleCalendar(bookingId);
+        revalidateAdminBooking(bookingId, booking.booking_reference);
+        return cancellationReviewState({
+            error: "",
+            success: "Cancellation request declined. The appointment remains confirmed.",
+        });
     } catch (error) {
         console.error("[admin:review-cancellation]", error);
+        return cancellationReviewState({
+            error: "We couldn't decline this cancellation request. Refresh and try again.",
+            success: "",
+        });
     }
 }
 
@@ -1020,6 +1114,11 @@ export async function updateAppointmentSlotAction(formData: FormData): Promise<v
     if (booking.slot_id) await admin.from("availability_slots").update({ status: "available" }).eq("id", booking.slot_id);
 
     await insertEvent({ admin, bookingId, adminUserId: user.id, eventType: "admin_appointment_rescheduled", message: "Admin changed the appointment time.", metadata: { previousSlotId: booking.slot_id, previousStartsAt: booking.availability_slots?.starts_at ?? null, previousEndsAt: booking.availability_slots?.ends_at ?? null, newSlotId, startsAt: slot.starts_at, endsAt: slot.ends_at } });
+    await syncBookingRescheduleToGoogleCalendar({
+        bookingId,
+        previousSlotId: booking.slot_id,
+        newSlotId,
+    });
     revalidateAdminBooking(bookingId);
 }
 
@@ -1192,6 +1291,7 @@ export async function updateAppointmentServicesAction(
                 newSubtotal: nextItems.reduce((sum, item) => sum + item.unit_price * item.quantity, 0),
             },
         });
+        await syncBookingToGoogleCalendar(bookingId);
         revalidateAdminBooking(bookingId);
         return editState({ success: "Service changes saved." });
     } catch (error) {
@@ -1253,8 +1353,39 @@ export async function updateAppointmentDiscountAction(
         const discountAmount = Math.min(eligibleSubtotal, roundCurrency((eligibleSubtotal * normalizedPercentage) / 100));
         const now = new Date().toISOString();
 
+        const { data: payments, error: paymentsError } = await admin
+            .from("booking_payments")
+            .select("payment_type, status, amount")
+            .eq("booking_id", bookingId);
+
+        if (paymentsError) throw paymentsError;
+
+        const appliedPayments = calculateBookingLedger({
+            appointmentTotal: 0,
+            payments: (payments ?? []).map((payment) => ({
+                type: payment.payment_type,
+                status: payment.status,
+                amount: Number(payment.amount),
+            })),
+        }).totalApplied;
+        const proposedPricing = calculateAdminDiscountedPricing({
+            subtotal: eligibleSubtotal,
+            discountPercentage: normalizedPercentage,
+            bookingFeeMode: booking.booking_fee_mode,
+            bookingFeeRate: Number(booking.booking_fee_rate),
+            amountPaid: appliedPayments,
+        });
+
         if (normalizedPercentage > 0 && eligibleSubtotal <= 0) {
             return editState({ error: "Add services before applying a discount." });
+        }
+        if (
+            normalizedPercentage > 0 &&
+            proposedPricing.total < appliedPayments
+        ) {
+            return editState({
+                error: "This discount would make the appointment total lower than payments already applied. Reduce the discount or leave the fully paid booking unchanged.",
+            });
         }
 
         if (normalizedPercentage === 0) {

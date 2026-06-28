@@ -6,6 +6,9 @@ type SlotRow = Pick<
     Database["public"]["Tables"]["availability_slots"]["Row"],
     "id" | "starts_at" | "ends_at" | "status" | "active" | "notes" | "created_at"
 > & {
+    google_calendar_event_id: string | null;
+    google_calendar_synced_at: string | null;
+    google_calendar_sync_error: string | null;
     regulars_first: boolean;
     public_access_at: string;
     bookings:
@@ -30,6 +33,7 @@ export type AdminAvailabilitySlot = {
     createdAt: string;
     canReleasePriority: boolean;
     bookingId: string | null;
+    googleSyncState: "synced" | "pending" | "issue" | "not_connected";
 };
 
 export async function getAdminAvailabilityPageData() {
@@ -40,7 +44,7 @@ export async function getAdminAvailabilityPageData() {
         admin
             .from("availability_slots")
             .select(
-                "id, starts_at, ends_at, status, active, notes, created_at, regulars_first, public_access_at, bookings:bookings!bookings_slot_id_fkey(id, status, created_at)",
+                "id, starts_at, ends_at, status, active, notes, created_at, regulars_first, public_access_at, google_calendar_event_id, google_calendar_synced_at, google_calendar_sync_error, bookings:bookings!bookings_slot_id_fkey(id, status, created_at)",
             )
             .order("starts_at", { ascending: false })
             .limit(240)
@@ -92,6 +96,14 @@ export async function getAdminAvailabilityPageData() {
                     new Date(slot.starts_at).getTime() > now &&
                     new Date(slot.public_access_at).getTime() > now,
                 bookingId: occupied ? latestBooking?.id ?? null : null,
+                googleSyncState:
+                    (slot.google_calendar_sync_error === "not_connected"
+                        ? "not_connected"
+                        : slot.google_calendar_sync_error
+                          ? "issue"
+                          : slot.google_calendar_synced_at
+                            ? "synced"
+                            : "pending") as AdminAvailabilitySlot["googleSyncState"],
             };
         }),
         regularEarlyAccessHours: Math.max(

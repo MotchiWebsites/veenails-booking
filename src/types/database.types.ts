@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       admin_users: {
@@ -98,6 +123,9 @@ export type Database = {
           deactivated_by: string | null
           deactivation_reason: string | null
           ends_at: string | null
+          google_calendar_event_id: string | null
+          google_calendar_sync_error: string | null
+          google_calendar_synced_at: string | null
           id: string
           notes: string | null
           public_access_at: string
@@ -114,6 +142,9 @@ export type Database = {
           deactivated_by?: string | null
           deactivation_reason?: string | null
           ends_at?: string | null
+          google_calendar_event_id?: string | null
+          google_calendar_sync_error?: string | null
+          google_calendar_synced_at?: string | null
           id?: string
           notes?: string | null
           public_access_at?: string
@@ -130,6 +161,9 @@ export type Database = {
           deactivated_by?: string | null
           deactivation_reason?: string | null
           ends_at?: string | null
+          google_calendar_event_id?: string | null
+          google_calendar_sync_error?: string | null
+          google_calendar_synced_at?: string | null
           id?: string
           notes?: string | null
           public_access_at?: string
@@ -565,6 +599,9 @@ export type Database = {
           deposit_status: Database["public"]["Enums"]["deposit_status"]
           estimated_total: number
           final_total: number
+          google_calendar_event_id: string | null
+          google_calendar_sync_error: string | null
+          google_calendar_synced_at: string | null
           hold_expires_at: string | null
           id: string
           slot_id: string | null
@@ -593,6 +630,9 @@ export type Database = {
           deposit_status?: Database["public"]["Enums"]["deposit_status"]
           estimated_total?: number
           final_total?: number
+          google_calendar_event_id?: string | null
+          google_calendar_sync_error?: string | null
+          google_calendar_synced_at?: string | null
           hold_expires_at?: string | null
           id?: string
           slot_id?: string | null
@@ -621,6 +661,9 @@ export type Database = {
           deposit_status?: Database["public"]["Enums"]["deposit_status"]
           estimated_total?: number
           final_total?: number
+          google_calendar_event_id?: string | null
+          google_calendar_sync_error?: string | null
+          google_calendar_synced_at?: string | null
           hold_expires_at?: string | null
           id?: string
           slot_id?: string | null
@@ -998,6 +1041,62 @@ export type Database = {
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "gallery_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      google_calendar_integrations: {
+        Row: {
+          admin_user_id: string
+          calendar_id: string
+          calendar_name: string
+          connected_at: string
+          created_at: string
+          encrypted_refresh_token: string
+          google_email: string | null
+          id: string
+          is_active: boolean
+          last_sync_at: string | null
+          last_sync_error: string | null
+          needs_reconnect: boolean
+          updated_at: string
+        }
+        Insert: {
+          admin_user_id: string
+          calendar_id?: string
+          calendar_name?: string
+          connected_at?: string
+          created_at?: string
+          encrypted_refresh_token: string
+          google_email?: string | null
+          id?: string
+          is_active?: boolean
+          last_sync_at?: string | null
+          last_sync_error?: string | null
+          needs_reconnect?: boolean
+          updated_at?: string
+        }
+        Update: {
+          admin_user_id?: string
+          calendar_id?: string
+          calendar_name?: string
+          connected_at?: string
+          created_at?: string
+          encrypted_refresh_token?: string
+          google_email?: string | null
+          id?: string
+          is_active?: boolean
+          last_sync_at?: string | null
+          last_sync_error?: string | null
+          needs_reconnect?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_calendar_integrations_admin_user_id_fkey"
+            columns: ["admin_user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1702,6 +1801,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: ["owner", "admin"],

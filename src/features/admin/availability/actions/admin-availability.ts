@@ -5,8 +5,10 @@ import { requireAdmin } from "@/features/admin/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { studioDateTimeToDate } from "@/features/admin/availability/utils/slot-time-options";
 import type { Enums } from "@/types/supabase";
+import { syncAvailabilitySlotToGoogleCalendar } from "@/features/integrations/google-calendar/services/sync";
 
 const EDITABLE_STATUSES: Enums<"slot_status">[] = ["available", "blocked"];
+const FALLBACK_SLOT_DURATION_MINUTES = 90;
 
 export type AvailabilityActionState = {
     error: string;
@@ -48,22 +50,44 @@ async function assertNoOverlap(
     endsAt: Date | null,
     excludedSlotId?: string,
 ) {
-    if (!endsAt) {
-        return;
-    }
+    const effectiveEnd =
+        endsAt ??
+        new Date(
+            startsAt.getTime() + FALLBACK_SLOT_DURATION_MINUTES * 60 * 1000,
+        );
 
     let query = admin
         .from("availability_slots")
-        .select("id")
+        .select("id, starts_at, ends_at")
         .eq("active", true)
-        .lt("starts_at", endsAt.toISOString())
-        .gt("ends_at", startsAt.toISOString())
-        .limit(1);
+        .lt("starts_at", effectiveEnd.toISOString());
 
     if (excludedSlotId) query = query.neq("id", excludedSlotId);
     const { data, error } = await query;
     if (error) throw error;
-    if (data?.length) throw new Error("That time overlaps another active slot.");
+    const overlaps = data?.some((slot) => {
+        const existingStart = new Date(slot.starts_at);
+        const existingEnd = slot.ends_at
+            ? new Date(slot.ends_at)
+            : new Date(
+                  existingStart.getTime() +
+                      FALLBACK_SLOT_DURATION_MINUTES * 60 * 1000,
+              );
+        return existingStart < effectiveEnd && existingEnd > startsAt;
+    });
+    if (overlaps) throw new Error("That time overlaps another active slot.");
+}
+
+function isSlotOverlapConstraintError(error: {
+    code?: string;
+    message?: string;
+}) {
+    return (
+        error.code === "23P01" ||
+        error.code === "23505" ||
+        error.message?.includes("availability_slots_one_active_start_idx") ===
+            true
+    );
 }
 
 export async function createAvailabilitySlotAction(
@@ -106,20 +130,31 @@ export async function createAvailabilitySlotAction(
             regularsFirst && status === "available"
                 ? new Date(Date.now() + earlyAccessHours * 60 * 60 * 1000)
                 : new Date();
-        const { error } = await admin.from("availability_slots").insert({
-            starts_at: startsAt.toISOString(),
-            ends_at: endsAt?.toISOString() ?? null,
-            status,
-            notes,
-            created_by: user.id,
-            regulars_first: regularsFirst && status === "available",
-            public_access_at: publicAccessAt.toISOString(),
-        });
+        const { data: slot, error } = await admin
+            .from("availability_slots")
+            .insert({
+                starts_at: startsAt.toISOString(),
+                ends_at: endsAt?.toISOString() ?? null,
+                status,
+                notes,
+                created_by: user.id,
+                regulars_first: regularsFirst && status === "available",
+                public_access_at: publicAccessAt.toISOString(),
+            })
+            .select("id")
+            .single();
 
         if (error) {
             console.error("[admin:availability:create]", error);
+            if (isSlotOverlapConstraintError(error)) {
+                return actionState({
+                    error: "That time overlaps another active slot.",
+                    success: "",
+                });
+            }
             return actionState({ error: "We couldn't create that availability slot.", success: "" });
         }
+        await syncAvailabilitySlotToGoogleCalendar(slot.id);
 
         revalidatePath("/admin");
         revalidatePath("/admin/availability");
@@ -220,8 +255,12 @@ async function updateAvailabilitySlot(formData: FormData) {
 
     if (error || !data) {
         if (error) console.error("[admin:availability:update]", error);
+        if (error && isSlotOverlapConstraintError(error)) {
+            throw new Error("That time overlaps another active slot.");
+        }
         throw new Error("Only open or blocked future slots can be edited.");
     }
+    await syncAvailabilitySlotToGoogleCalendar(slotId);
 
     revalidatePath("/admin");
     revalidatePath("/admin/availability");
@@ -269,6 +308,7 @@ export async function deactivateAvailabilitySlotAction(formData: FormData) {
         console.error("[admin:availability:deactivate]", error);
         throw new Error("We couldn't deactivate that slot.");
     }
+    await syncAvailabilitySlotToGoogleCalendar(slotId);
 
     revalidatePath("/admin/availability");
     revalidatePath("/book");

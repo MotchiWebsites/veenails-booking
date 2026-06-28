@@ -26,6 +26,8 @@ import type { BookingCheckoutActionState } from "@/features/bookings/checkout/ty
 import type { Database } from "@/types/supabase";
 import { appointmentStatusTemplate } from "@/features/notifications/email/templates/appointment-status-template";
 import { sendTransactionalEmail } from "@/lib/email/brevo";
+import { getAppBaseUrl, getEmailConfig } from "@/lib/email/config";
+import { calculateCheckoutPaymentPlan } from "@/features/bookings/utils/booking-ledger";
 
 type BookingSettingsRow = Pick<
     Database["public"]["Tables"]["booking_settings"]["Row"],
@@ -433,7 +435,8 @@ async function applyCreditAmount({
                 payment_type: "credit",
                 method: "account_credit",
                 amount: creditAmount,
-                status: "credited",
+                status: "completed",
+                paid_at: new Date().toISOString(),
                 notes: "Client applied account credit during checkout.",
             });
 
@@ -654,6 +657,11 @@ export async function submitBookingCheckout(
     }
 
     const estimate = calculateEstimate(draft, normalizedSettings, designTiers);
+    const paymentPlan = calculateCheckoutPaymentPlan({
+        appointmentTotal: estimate.total,
+        configuredDeposit: normalizedSettings.depositAmount,
+        creditAmount,
+    });
     const bookingReference = await generateBookingReference(admin);
     const holdExpiresAt = new Date(
         Date.now() + normalizedSettings.holdMinutes * 60_000,
@@ -687,9 +695,9 @@ export async function submitBookingCheckout(
         });
     }
 
-    if (creditAmount > estimate.total) {
+    if (creditAmount > paymentPlan.maxCreditAmount) {
         return state({
-            error: "Your credit amount cannot be more than the estimated booking total.",
+            error: "Your credit amount leaves less than the required deposit. Review the updated payment summary.",
         });
     }
 
@@ -765,7 +773,7 @@ export async function submitBookingCheckout(
                 slot_id: slotId,
                 status: "requested",
                 hold_expires_at: holdExpiresAt,
-                deposit_amount: normalizedSettings.depositAmount,
+                deposit_amount: paymentPlan.depositDue,
                 deposit_status: "marked_sent",
                 booking_fee_rate: normalizedSettings.bookingFeeRate,
                 booking_fee_mode: normalizedSettings.bookingFeeMode,
@@ -804,7 +812,7 @@ export async function submitBookingCheckout(
                 user_id: user.id,
                 payment_type: "deposit",
                 method: "etransfer",
-                amount: normalizedSettings.depositAmount,
+                amount: paymentPlan.depositDue,
                 status: "marked_sent",
                 notes: "Client confirmed e-Transfer deposit was sent during checkout.",
             });
@@ -864,7 +872,7 @@ export async function submitBookingCheckout(
                                 : serviceOption,
                     }),
                     designTier: selectedDesignTier?.name ?? null,
-                    depositAmount: normalizedSettings.depositAmount,
+                    depositAmount: paymentPlan.depositDue,
                     creditAmount: creditAmount > 0 ? creditAmount : null,
                     estimatedSubtotal: estimate.subtotal,
                     estimatedBookingFee: estimate.bookingFee,
@@ -877,8 +885,8 @@ export async function submitBookingCheckout(
         }
 
         const appointment = new Intl.DateTimeFormat("en-CA", { dateStyle: "full", timeStyle: "short" }).format(new Date(lockedSlot.starts_at));
-        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
-        const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL;
+        const siteUrl = getAppBaseUrl();
+        const adminEmail = getEmailConfig().adminNotificationEmail;
         const template = appointmentStatusTemplate({ name: bookingProfile?.display_name ?? "Client", reference: bookingReference, status: "requested", appointment, message: "Your booking request was submitted and your deposit was marked as sent.", detailsUrl: siteUrl ? `${siteUrl}/booking/${bookingReference}` : undefined });
         await sendTransactionalEmail({
             to: {
@@ -906,7 +914,7 @@ export async function submitBookingCheckout(
             bookingReference,
             startsAt: lockedSlot.starts_at,
             endsAt: lockedSlot.ends_at,
-            depositAmount: normalizedSettings.depositAmount,
+            depositAmount: paymentPlan.depositDue,
         });
     } catch (error) {
         console.error("[bookings:checkout.submit]", error);

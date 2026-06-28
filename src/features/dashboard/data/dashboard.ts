@@ -3,6 +3,12 @@ import { getDashboardUpcomingBookings } from "@/features/bookings/data/bookings"
 import { getCreditsPageData } from "@/features/credits/data/credits";
 import type { DashboardOverviewData } from "@/features/dashboard/types/dashboard";
 import type { Enums } from "@/types/supabase";
+import {
+    addDaysToStudioDateKey,
+    getStudioDateKey,
+    getStudioDateKeyDay,
+    studioDateTimeToDate,
+} from "@/lib/utils/studio-time";
 
 const CLIENT_VISIBLE_SLOT_STATUSES: Enums<"slot_status">[] = [
     "available",
@@ -11,11 +17,12 @@ const CLIENT_VISIBLE_SLOT_STATUSES: Enums<"slot_status">[] = [
     "confirmed",
 ];
 
-function getStartOfCurrentWeek(date: Date) {
-    const start = new Date(date);
-    start.setHours(0, 0, 0, 0);
-    start.setDate(start.getDate() - start.getDay());
-    return start;
+function getStartOfCurrentWeekDateKey(date: Date) {
+    const todayKey = getStudioDateKey(date);
+    return addDaysToStudioDateKey(
+        todayKey,
+        -getStudioDateKeyDay(todayKey),
+    );
 }
 
 function getFallbackDisplayName(email?: string | null) {
@@ -37,8 +44,11 @@ export async function getDashboardOverviewData(
     const supabase = await createClient();
     const now = new Date();
     const nowIso = now.toISOString();
-    const weekStart = getStartOfCurrentWeek(now);
-    const weekStartIso = weekStart.toISOString();
+    const weekStartDateKey = getStartOfCurrentWeekDateKey(now);
+    const weekStartIso = studioDateTimeToDate(
+        weekStartDateKey,
+        "00:00",
+    ).toISOString();
 
     const { data: profile, error: profileError } = await supabase
         .from("profiles")
@@ -110,7 +120,11 @@ export async function getDashboardOverviewData(
                       new Date(slot.public_access_at).getTime() <= now.getTime())
                 : true,
     );
-    const days = buildAvailabilityDays(visibleAvailability, weekStart);
+    const days = buildAvailabilityDays(
+        visibleAvailability,
+        weekStartDateKey,
+        getStudioDateKey(now),
+    );
 
     return {
         profile: {
@@ -143,7 +157,8 @@ function buildAvailabilityDays(
         public_access_at: string;
         status: Enums<"slot_status">;
     }>,
-    startDate = new Date(),
+    startDateKey = getStudioDateKey(),
+    todayKey = getStudioDateKey(),
 ) {
     const dayMap = new Map<
         string,
@@ -164,25 +179,27 @@ function buildAvailabilityDays(
     >();
 
     for (let offset = 0; offset < 21; offset += 1) {
-        const date = new Date(startDate);
-        date.setDate(startDate.getDate() + offset);
-        const key = date.toISOString().slice(0, 10);
-        const todayKey = new Date().toISOString().slice(0, 10);
+        const key = addDaysToStudioDateKey(startDateKey, offset);
+        const date = new Date(`${key}T12:00:00Z`);
 
         dayMap.set(key, {
             date: key,
-            label: date.toLocaleDateString(undefined, {
+            label: date.toLocaleDateString("en-CA", {
+                timeZone: "UTC",
                 weekday: "short",
                 month: "short",
                 day: "numeric",
             }),
-            dayName: date.toLocaleDateString(undefined, {
+            dayName: date.toLocaleDateString("en-CA", {
+                timeZone: "UTC",
                 weekday: "short",
             }),
-            dayNumber: date.toLocaleDateString(undefined, {
+            dayNumber: date.toLocaleDateString("en-CA", {
+                timeZone: "UTC",
                 day: "numeric",
             }),
-            monthLabel: date.toLocaleDateString(undefined, {
+            monthLabel: date.toLocaleDateString("en-CA", {
+                timeZone: "UTC",
                 month: "short",
             }),
             isToday: key === todayKey,
@@ -191,7 +208,7 @@ function buildAvailabilityDays(
     }
 
     for (const slot of slots) {
-        const dateKey = slot.starts_at.slice(0, 10);
+        const dateKey = getStudioDateKey(new Date(slot.starts_at));
         const day = dayMap.get(dateKey);
 
         if (!day) {

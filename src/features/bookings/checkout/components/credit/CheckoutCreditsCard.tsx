@@ -12,7 +12,8 @@ export default function CheckoutCreditsCard({
     creditAmount,
     maxEligibleCreditAmount,
     estimateTotal,
-    totalAfterCredit,
+    depositDue,
+    balanceAfterDeposit,
     setCreditAmountSafely,
     useAllEligibleCredit,
     clearCredit,
@@ -21,7 +22,8 @@ export default function CheckoutCreditsCard({
     creditAmount: number;
     maxEligibleCreditAmount: number;
     estimateTotal: number;
-    totalAfterCredit: number;
+    depositDue: number;
+    balanceAfterDeposit: number;
     setCreditAmountSafely: (value: number) => void;
     useAllEligibleCredit: () => void;
     clearCredit: () => void;
@@ -63,8 +65,21 @@ export default function CheckoutCreditsCard({
                         <TotalsRow
                             label="Estimated total"
                             value={formatAmount(estimateTotal, true)}
-                            prominent
                         />
+                        <TotalsRow
+                            label="Deposit due now"
+                            value={`-${formatAmount(depositDue, true)}`}
+                        />
+                        <div className="mt-4 border-t border-border/60 pt-4">
+                            <TotalsRow
+                                label="Balance after deposit"
+                                value={formatAmount(
+                                    balanceAfterDeposit,
+                                    true,
+                                )}
+                                prominent
+                            />
+                        </div>
                     </div>
                 </div>
             ) : (
@@ -77,10 +92,9 @@ export default function CheckoutCreditsCard({
                                 </p>
                                 <p className="mt-2 text-sm leading-relaxed text-muted">
                                     Choose how much credit to apply. This
-                                    reduces the remaining appointment total, but
-                                    you may still need to confirm your deposit
-                                    so the studio can hold and review your
-                                    request.
+                                    reduces the remaining appointment total.
+                                    The required deposit is reserved first so
+                                    checkout cannot create an overpayment.
                                 </p>
                             </div>
 
@@ -202,14 +216,18 @@ export default function CheckoutCreditsCard({
                                 />
                             ) : null}
 
+                            <TotalsRow
+                                label="Deposit due now"
+                                value={`-${formatAmount(depositDue, true)}`}
+                            />
+
                             <div className="mt-4 border-t border-border/60 pt-4">
                                 <TotalsRow
-                                    label={
-                                        hasSelectedCredit
-                                            ? "After credit"
-                                            : "Estimated total"
-                                    }
-                                    value={formatAmount(totalAfterCredit, true)}
+                                    label="Balance after deposit"
+                                    value={formatAmount(
+                                        balanceAfterDeposit,
+                                        true,
+                                    )}
                                     prominent
                                 />
                             </div>

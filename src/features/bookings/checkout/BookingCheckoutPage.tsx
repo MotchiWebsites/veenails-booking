@@ -133,9 +133,12 @@ export default function BookingCheckoutPage({
         useAllEligibleCredit,
         clearCredit,
         totalAfterCredit,
+        depositDue,
+        balanceAfterDeposit,
     } = useCheckoutCreditAmount({
         totalActiveAmount: credits.totalActiveAmount,
         estimateTotal: estimate?.total ?? 0,
+        depositAmount: settings?.depositAmount ?? 0,
     });
 
     const etransferMessage = useMemo(() => {
@@ -298,6 +301,8 @@ export default function BookingCheckoutPage({
                         bookingFeeRate={bookingFeeRate}
                         creditAmount={creditAmount}
                         totalAfterCredit={totalAfterCredit}
+                        depositDue={depositDue}
+                        balanceAfterDeposit={balanceAfterDeposit}
                         editHref={editAppointmentHref}
                     />
                 ) : null}
@@ -315,7 +320,8 @@ export default function BookingCheckoutPage({
                         creditAmount={creditAmount}
                         maxEligibleCreditAmount={maxEligibleCreditAmount}
                         estimateTotal={estimate.total}
-                        totalAfterCredit={totalAfterCredit}
+                        depositDue={depositDue}
+                        balanceAfterDeposit={balanceAfterDeposit}
                         setCreditAmountSafely={setCreditAmountSafely}
                         useAllEligibleCredit={useAllEligibleCredit}
                         clearCredit={clearCredit}
@@ -325,7 +331,7 @@ export default function BookingCheckoutPage({
                 {activeStep === "deposit" ? (
                     <CheckoutDepositInstructionsCard
                         etransferEmail={settings.etransferEmail}
-                        depositAmount={settings.depositAmount}
+                        depositAmount={depositDue}
                         holdNote={holdNote}
                         etransferMessage={etransferMessage}
                         depositConfirmed={depositConfirmed}

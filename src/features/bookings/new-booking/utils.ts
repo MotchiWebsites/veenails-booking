@@ -9,20 +9,27 @@ import type {
     ServiceConfig,
     ServiceOption,
 } from "@/features/bookings/new-booking/types";
+import {
+    getStudioDateKey,
+    STUDIO_TIME_ZONE,
+} from "@/lib/utils/studio-time";
 
 const fullDateFormatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: STUDIO_TIME_ZONE,
     weekday: "long",
     month: "long",
     day: "numeric",
 });
 
 const shortDateFormatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: STUDIO_TIME_ZONE,
     weekday: "short",
     month: "short",
     day: "numeric",
 });
 
 const timeFormatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: STUDIO_TIME_ZONE,
     hour: "numeric",
     minute: "2-digit",
 });
@@ -277,8 +284,7 @@ export function groupSlotsByDay(slots: AvailableAppointmentSlot[]) {
     >();
 
     for (const slot of slots) {
-        const date = new Date(slot.startsAt);
-        const key = date.toISOString().slice(0, 10);
+        const key = getStudioDateKey(new Date(slot.startsAt));
 
         if (!groups.has(key)) {
             groups.set(key, {

@@ -62,6 +62,10 @@ export function getDepositStatusLabel(status: DepositStatus) {
     return depositStatusLabels[status];
 }
 
+export function canShowClientArrivalInfo(status: BookingStatus) {
+    return status === "confirmed";
+}
+
 export function isUpcomingBooking(
     status: BookingStatus,
     startsAt?: string | null,

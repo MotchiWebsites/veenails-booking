@@ -1,6 +1,9 @@
 import AdminSettingsPage from "@/features/admin/settings/components/AdminSettingsPage";
+import AdminEmailTestCard from "@/features/admin/settings/components/AdminEmailTestCard";
 import { getAdminBookingSettings } from "@/features/admin/settings/data/admin-settings";
 import { buildMetadata } from "@/lib/seo/metadata";
+import GoogleCalendarSettingsCard from "@/features/integrations/google-calendar/components/GoogleCalendarSettingsCard";
+import { getGoogleCalendarSettingsData } from "@/features/integrations/google-calendar/data/integration";
 
 export const metadata = buildMetadata({
     title: "Admin Settings",
@@ -9,8 +12,29 @@ export const metadata = buildMetadata({
     noIndex: true,
 });
 
-export default async function AdminSettingsRoute() {
-    const settings = await getAdminBookingSettings();
+export default async function AdminSettingsRoute({
+    searchParams,
+}: {
+    searchParams: Promise<{ googleCalendar?: string | string[] }>;
+}) {
+    const params = await searchParams;
+    const [settings, googleCalendar] = await Promise.all([
+        getAdminBookingSettings(),
+        getGoogleCalendarSettingsData(),
+    ]);
+    const callbackResult = Array.isArray(params.googleCalendar)
+        ? params.googleCalendar[0]
+        : params.googleCalendar;
 
-    return <AdminSettingsPage settings={settings} />;
+    return (
+        <div className="space-y-8">
+            <AdminSettingsPage settings={settings} />
+            <GoogleCalendarSettingsCard
+                key={googleCalendar.calendarId ?? "unselected"}
+                integration={googleCalendar}
+                callbackResult={callbackResult}
+            />
+            <AdminEmailTestCard />
+        </div>
+    );
 }

@@ -8,6 +8,8 @@ import {
     getBookingDiscounts,
     getBookingSubtotalBeforeDiscount,
 } from "@/features/bookings/utils/booking-pricing";
+import { calculateBookingLedger } from "@/features/bookings/utils/booking-ledger";
+import { normalizeBookingFeeRate } from "@/features/bookings/new-booking/utils";
 
 function formatPaymentLabel(value: string) {
     return value
@@ -26,6 +28,23 @@ export default function BookingPaymentSummaryCard({
             ? data.summary.finalTotal
             : data.summary.estimatedTotal;
     const discounts = getBookingDiscounts(data.summary);
+    const discountTotal = discounts.reduce(
+        (total, discount) => total + discount.amount,
+        0,
+    );
+    const discountedSubtotal = Math.max(
+        0,
+        getBookingSubtotalBeforeDiscount(data.summary) - discountTotal,
+    );
+    const ledger = calculateBookingLedger({
+        appointmentTotal: displayTotal,
+        payments: data.payments.map((payment) => ({
+            type: payment.type,
+            status: payment.status,
+            amount: payment.amount,
+        })),
+    });
+    const bookingFeeRate = normalizeBookingFeeRate(data.bookingFeeRate);
 
     return (
         <StepSectionCard
@@ -47,13 +66,23 @@ export default function BookingPaymentSummaryCard({
                         value={`-${formatMoney(discount.amount)}`}
                     />
                 ))}
+                {discountTotal > 0 ? (
+                    <TotalsRow
+                        label="Discounted subtotal"
+                        value={formatMoney(discountedSubtotal)}
+                    />
+                ) : null}
                 <TotalsRow
-                    label="Booking fee"
-                    value={formatMoney(data.bookingFeeAmount)}
-                />
-                <TotalsRow
-                    label="Amount paid"
-                    value={formatMoney(data.amountPaid)}
+                    label={
+                        data.bookingFeeMode === "included_in_price"
+                            ? `Booking fee (${bookingFeeRate}% included)`
+                            : `Booking fee (${bookingFeeRate}%)`
+                    }
+                    value={
+                        data.bookingFeeMode === "included_in_price"
+                            ? "Included"
+                            : `+${formatMoney(data.bookingFeeAmount)}`
+                    }
                 />
                 <div className="mt-4 border-t border-border/60 pt-4">
                     <TotalsRow
@@ -65,12 +94,32 @@ export default function BookingPaymentSummaryCard({
                         value={formatMoney(displayTotal)}
                         prominent
                     />
+                </div>
+                {ledger.cashApplied > 0 ? (
                     <TotalsRow
-                        label="Remaining balance"
-                        value={formatMoney(Math.max(0, data.amountDue))}
+                        label="Deposit/payments applied"
+                        value={`-${formatMoney(ledger.cashApplied)}`}
+                    />
+                ) : null}
+                {ledger.creditApplied > 0 ? (
+                    <TotalsRow
+                        label="Account credit applied"
+                        value={`-${formatMoney(ledger.creditApplied)}`}
+                    />
+                ) : null}
+                <div className="mt-4 border-t border-border/60 pt-4">
+                    <TotalsRow
+                        label="Amount to be charged"
+                        value={formatMoney(ledger.amountDue)}
                         prominent
                     />
                 </div>
+                {ledger.overpayment > 0 ? (
+                    <p className="mt-3 text-xs leading-relaxed text-muted">
+                        {formatMoney(ledger.overpayment)} will be returned as
+                        studio credit when this appointment is completed.
+                    </p>
+                ) : null}
             </div>
 
             {data.payments.length > 0 ? (

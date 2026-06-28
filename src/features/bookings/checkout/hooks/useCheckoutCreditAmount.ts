@@ -1,30 +1,40 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-
-function roundCurrency(value: number) {
-    return Math.round(value * 100) / 100;
-}
+import { calculateCheckoutPaymentPlan } from "@/features/bookings/utils/booking-ledger";
 
 function clampCreditAmount(value: number, maxEligibleCreditAmount: number) {
     if (!Number.isFinite(value)) {
         return 0;
     }
 
-    return roundCurrency(Math.min(Math.max(0, value), maxEligibleCreditAmount));
+    return Math.round(
+        Math.min(Math.max(0, value), maxEligibleCreditAmount) * 100,
+    ) / 100;
 }
 
 export function useCheckoutCreditAmount({
     totalActiveAmount,
     estimateTotal,
+    depositAmount,
 }: {
     totalActiveAmount: number;
     estimateTotal: number;
+    depositAmount: number;
 }) {
     const [creditAmount, setCreditAmount] = useState(0);
+    const paymentPlan = useMemo(
+        () =>
+            calculateCheckoutPaymentPlan({
+                appointmentTotal: estimateTotal,
+                configuredDeposit: depositAmount,
+                creditAmount,
+            }),
+        [creditAmount, depositAmount, estimateTotal],
+    );
     const maxEligibleCreditAmount = useMemo(
-        () => roundCurrency(Math.min(totalActiveAmount, estimateTotal)),
-        [estimateTotal, totalActiveAmount],
+        () => Math.min(totalActiveAmount, paymentPlan.maxCreditAmount),
+        [paymentPlan.maxCreditAmount, totalActiveAmount],
     );
 
     useEffect(() => {
@@ -55,8 +65,8 @@ export function useCheckoutCreditAmount({
         maxEligibleCreditAmount,
         useAllEligibleCredit,
         clearCredit,
-        totalAfterCredit: roundCurrency(
-            Math.max(0, estimateTotal - creditAmount),
-        ),
+        totalAfterCredit: paymentPlan.totalAfterCredit,
+        depositDue: paymentPlan.depositDue,
+        balanceAfterDeposit: paymentPlan.balanceAfterDeposit,
     };
 }

@@ -44,15 +44,6 @@ function useVisibleDayCount() {
     );
 }
 
-function getTodayDateKey() {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, "0");
-    const day = String(today.getDate()).padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
-}
-
 export default function DashboardAvailabilityCalendar({
     days,
 }: {
@@ -61,10 +52,7 @@ export default function DashboardAvailabilityCalendar({
     const visibleCount = useVisibleDayCount();
     const [pageOffset, setPageOffset] = useState(0);
     const normalizedDays = useMemo(() => days ?? [], [days]);
-    const todayDateKey = getTodayDateKey();
-    const todayIndex = normalizedDays.findIndex(
-        (day) => day.isToday || day.date >= todayDateKey,
-    );
+    const todayIndex = normalizedDays.findIndex((day) => day.isToday);
     const baseStartIndex = todayIndex >= 0 ? todayIndex : 0;
     const maxOffset = Math.max(0, normalizedDays.length - 1 - baseStartIndex);
     const boundedPageOffset = Math.min(pageOffset, maxOffset);

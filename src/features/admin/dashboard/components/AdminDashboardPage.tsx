@@ -11,10 +11,26 @@ export default function AdminDashboardPage({
     data: AdminDashboardData;
 }) {
     const metrics = [
-        { label: "Upcoming confirmed", value: data.metrics.upcomingConfirmed, view: "upcoming_confirmed" },
-        { label: "Pending requests", value: data.metrics.pendingRequests, view: "pending_requests" },
-        { label: "Pending cancellations", value: data.metrics.pendingCancellations, view: "pending_cancellations" },
-        { label: "Inspo to review", value: data.metrics.pendingInspoReviews, view: "inspo_reviews" },
+        {
+            label: "Upcoming confirmed",
+            value: data.metrics.upcomingConfirmed,
+            view: "upcoming_confirmed",
+        },
+        {
+            label: "Pending requests",
+            value: data.metrics.pendingRequests,
+            view: "pending_requests",
+        },
+        {
+            label: "Pending cancellations",
+            value: data.metrics.pendingCancellations,
+            view: "pending_cancellations",
+        },
+        {
+            label: "Inspo to review",
+            value: data.metrics.pendingInspoReviews,
+            view: "inspo_reviews",
+        },
     ] as const;
 
     return (
@@ -35,17 +51,29 @@ export default function AdminDashboardPage({
                         >
                             <div className="flex items-start justify-between gap-3">
                                 <div>
-                                    <p className="text-sm text-muted">{metric.label}</p>
-                                    <p className="mt-2 text-2xl font-semibold text-foreground">{metric.value}</p>
+                                    <p className="text-sm text-muted">
+                                        {metric.label}
+                                    </p>
+                                    <p className="mt-2 text-2xl font-semibold text-foreground">
+                                        {metric.value}
+                                    </p>
                                 </div>
-                                <FiArrowRight className="mt-1 h-4 w-4 text-muted transition group-hover:translate-x-0.5 group-hover:text-dark-green" aria-hidden="true" />
+                                <FiArrowRight
+                                    className="mt-1 h-4 w-4 text-muted transition group-hover:translate-x-0.5 group-hover:text-dark-green"
+                                    aria-hidden="true"
+                                />
                             </div>
-                            <p className="mt-3 text-xs font-semibold text-dark-green">View appointments</p>
+                            <p className="mt-3 text-xs font-semibold text-dark-green">
+                                View appointments
+                            </p>
                         </Link>
                     ))}
                 </div>
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                    <Link href="/admin/appointments/new" className="btn-primary">
+                    <Link
+                        href="/admin/appointments/new"
+                        className="btn-primary"
+                    >
                         Create appointment
                     </Link>
                     <Link href="/admin/appointments" className="btn-secondary">
@@ -61,9 +89,15 @@ export default function AdminDashboardPage({
             </section>
             {data.current ? (
                 <section className="rounded-3xl border border-dark-green/20 bg-surface-2 p-5 shadow-sm sm:p-7">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-dark-green">Now / next</p>
-                    <h2 className="mt-2 text-xl font-semibold text-foreground">Keep this appointment close</h2>
-                    <div className="mt-4"><AdminAppointmentRow booking={data.current} /></div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-dark-green">
+                        Now / next
+                    </p>
+                    <h2 className="mt-2 text-xl font-semibold text-foreground">
+                        Next appointment
+                    </h2>
+                    <div className="mt-4">
+                        <AdminAppointmentRow booking={data.current} />
+                    </div>
                 </section>
             ) : null}
             <section className="grid gap-6 xl:grid-cols-2">
@@ -85,7 +119,7 @@ export default function AdminDashboardPage({
                 </div>
                 <div className="space-y-3 rounded-3xl border border-border/60 bg-surface p-5 shadow-sm sm:p-7">
                     <h2 className="text-lg font-semibold text-foreground">
-                        Upcoming
+                        Future appointments
                     </h2>
                     {data.upcoming.length > 0 ? (
                         data.upcoming.map((booking) => (

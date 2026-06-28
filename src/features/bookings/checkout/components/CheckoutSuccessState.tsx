@@ -70,8 +70,8 @@ export default function CheckoutSuccessState({
                     <Link href="/booking" className="btn-primary">
                         View My Bookings
                     </Link>
-                    <Link href="/" className="btn-secondary">
-                        Back to Home
+                    <Link href="/dashboard" className="btn-secondary">
+                        Back to Dashboard
                     </Link>
                 </div>
             </div>

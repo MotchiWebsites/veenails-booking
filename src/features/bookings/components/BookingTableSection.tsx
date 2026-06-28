@@ -229,8 +229,8 @@ export default function BookingTableSection({
 }) {
     const [query, setQuery] = useState(initialSearch);
     const [status, setStatus] = useState<BookingStatusFilter>(initialStatus);
-    const [sortKey, setSortKey] = useState<SortKey>("status");
-    const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+    const [sortKey, setSortKey] = useState<SortKey>("appointment");
+    const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
     const [currentPage, setCurrentPage] = useState(1);
     const [, startTransition] = useTransition();
     const deferredQuery = useDeferredValue(query);
@@ -433,7 +433,7 @@ export default function BookingTableSection({
                                     </th>
                                     <th className="w-40 px-5 py-3 font-semibold">
                                         <SortButton
-                                            label="Appointment"
+                                            label="Date"
                                             sortKey="appointment"
                                             activeSortKey={sortKey}
                                             direction={sortDirection}

@@ -31,6 +31,7 @@ import {
     parseAdminDiscountPercentage,
     roundCurrency,
 } from "@/features/admin/appointments/utils/admin-discount";
+import { calculateBookingLedger } from "@/features/bookings/utils/booking-ledger";
 
 const EDITABLE_ITEM_TYPES = new Set([
     "service",
@@ -113,14 +114,22 @@ export default function AdminServiceEditor({
         designTiers,
     );
     const currentTotal = roundCurrency(
-        booking.amountPaid + booking.amountDue,
+        booking.subtotalAmount + booking.bookingFeeAmount,
     );
+    const currentLedger = calculateBookingLedger({
+        appointmentTotal: currentTotal,
+        payments: booking.payments.map((payment) => ({
+            type: payment.paymentType,
+            status: payment.status,
+            amount: payment.amount,
+        })),
+    });
     const updatedPricing = calculateAdminDiscountedPricing({
         subtotal: preservedSubtotal + estimate.subtotal,
         discountPercentage,
         bookingFeeMode: booking.bookingFeeMode,
         bookingFeeRate: booking.bookingFeeRate,
-        amountPaid: booking.amountPaid,
+        amountPaid: currentLedger.totalApplied,
     });
     const difference = roundCurrency(updatedPricing.total - currentTotal);
     const hasChanges = comparable(selections) !== comparable(initialSelections);

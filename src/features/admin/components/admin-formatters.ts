@@ -2,6 +2,7 @@ import {
     formatBookingDateTime,
     formatMoney,
 } from "@/features/bookings/utils/booking-formatters";
+import { STUDIO_TIME_ZONE } from "@/lib/utils/studio-time";
 
 export { formatBookingDateTime, formatMoney };
 
@@ -9,6 +10,7 @@ export function formatDateTime(value: string | null | undefined) {
     if (!value) return "Not set";
 
     return new Intl.DateTimeFormat("en-CA", {
+        timeZone: STUDIO_TIME_ZONE,
         month: "short",
         day: "numeric",
         year: "numeric",

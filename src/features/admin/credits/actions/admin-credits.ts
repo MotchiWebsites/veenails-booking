@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/features/admin/auth/require-admin";
 import { creditIssuedTemplate } from "@/features/notifications/email/templates/credit-issued-template";
 import { sendTransactionalEmail } from "@/lib/email/brevo";
+import { getAppBaseUrl } from "@/lib/email/config";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type AdminCreditState = { error: string; success: string; messageId: string };
@@ -43,7 +44,7 @@ export async function issueAdminCreditAction(_previous: AdminCreditState, formDa
         revalidatePath(`/admin/users/${userId}`); revalidatePath("/admin/users"); revalidatePath("/credits");
         if (bookingId) revalidatePath(`/admin/appointments/${bookingId}`);
 
-        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+        const siteUrl = getAppBaseUrl();
         const template = creditIssuedTemplate({ name: profile.display_name, amount: new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(amount), reason, expiresAt: expiresAt ? new Intl.DateTimeFormat("en-CA", { dateStyle: "long" }).format(new Date(expiresAt)) : null, creditsUrl: siteUrl ? `${siteUrl}/credits` : undefined });
         await sendTransactionalEmail({ to: { email: profile.email, name: profile.display_name }, ...template, notificationType: "credit_issued", deduplicationKey: `credit_issued:${credit.id}`, bookingId, userId });
         return response({ error: "", success: "Credit issued successfully." });

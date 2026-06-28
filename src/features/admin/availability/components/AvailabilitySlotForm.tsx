@@ -155,8 +155,8 @@ export default function AvailabilitySlotForm({
                         {pending ? "Adding..." : "Add availability"}
                     </button>
                     <p className="text-xs text-muted">
-                        Times use 30-minute increments. Slots with an end time
-                        cannot overlap another active slot.
+                        Times use 30-minute increments. Slots without an end
+                        time reserve a 90-minute window for overlap checks.
                     </p>
                 </div>
             </div>

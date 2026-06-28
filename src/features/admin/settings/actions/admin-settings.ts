@@ -5,6 +5,11 @@ import { requireAdmin } from "@/features/admin/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Enums } from "@/types/supabase";
 
+export type AdminSettingsActionState = {
+    error: string;
+    success: string;
+};
+
 function numberFromForm(formData: FormData, key: string) {
     const value = Number(formData.get(key));
     return Number.isFinite(value) ? value : null;
@@ -40,7 +45,10 @@ export async function updateBookingSettingsAction(formData: FormData) {
         holdMinutes === null ||
         regularEarlyAccessHours === null
     ) {
-        throw new Error("Booking settings are incomplete.");
+        return {
+            error: "Booking settings are incomplete.",
+            success: "",
+        };
     }
     if (
         depositAmount < 0 ||
@@ -49,7 +57,10 @@ export async function updateBookingSettingsAction(formData: FormData) {
         regularEarlyAccessHours < 0 ||
         regularEarlyAccessHours > 168
     ) {
-        throw new Error("Booking settings contain an invalid value.");
+        return {
+            error: "Booking settings contain an invalid value.",
+            success: "",
+        };
     }
 
     const admin = createAdminClient();
@@ -70,7 +81,10 @@ export async function updateBookingSettingsAction(formData: FormData) {
 
     if (error) {
         console.error("[admin:settings:update]", error);
-        throw new Error("We couldn't update booking settings.");
+        return {
+            error: "We couldn't update booking settings.",
+            success: "",
+        };
     }
 
     revalidatePath("/admin/settings");
@@ -78,4 +92,9 @@ export async function updateBookingSettingsAction(formData: FormData) {
     revalidatePath("/book/checkout");
     revalidatePath("/booking");
     revalidatePath("/dashboard");
+
+    return {
+        error: "",
+        success: "Settings saved.",
+    };
 }
