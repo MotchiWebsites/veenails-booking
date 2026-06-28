@@ -11,6 +11,7 @@ import type { Database, Enums } from "@/types/supabase";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { appointmentStatusTemplate } from "@/features/notifications/email/templates/appointment-status-template";
 import { sendTransactionalEmail } from "@/lib/email/brevo";
+import { getAppBaseUrl, getEmailConfig } from "@/lib/email/config";
 
 type InspoPromptRow = Pick<
     Database["public"]["Tables"]["booking_inspo_prompts"]["Row"],
@@ -463,12 +464,12 @@ export async function markBookingInspoSent(
     const { error: eventError } = await admin.from("booking_events").insert({ booking_id: data.booking_id, actor_type: "client", actor_user_id: user.id, event_type: "design_inspo_sent", message: "Client marked design inspo as sent for studio review.", metadata: { promptId: data.id } });
     if (eventError) console.error("[booking-inspo:sent-event]", eventError);
 
-    const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL;
+    const adminEmail = getEmailConfig().adminNotificationEmail;
     if (adminEmail) {
         const { data: booking } = await admin.from("bookings").select("id, booking_reference, availability_slots:slot_id(starts_at, ends_at), profiles:user_id(display_name)").eq("id", data.booking_id).maybeSingle().overrideTypes<{ id: string; booking_reference: string; availability_slots: { starts_at: string; ends_at: string } | null; profiles: { display_name: string } | null } | null>();
         if (booking) {
             const appointment = booking.availability_slots?.starts_at ? new Intl.DateTimeFormat("en-CA", { dateStyle: "full", timeStyle: "short" }).format(new Date(booking.availability_slots.starts_at)) : "Not scheduled";
-            const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+            const siteUrl = getAppBaseUrl();
             const template = appointmentStatusTemplate({ name: "Vee", reference: booking.booking_reference, status: "inspo ready", appointment, message: `${booking.profiles?.display_name ?? "A client"} marked their design inspo as sent.`, detailsUrl: siteUrl ? `${siteUrl}/admin/appointments/${booking.id}#design-inspo` : undefined });
             await sendTransactionalEmail({ to: { email: adminEmail, name: "Vee’s Nail Studio" }, ...template, notificationType: "admin_design_inspo_sent", bookingId: booking.id, userId: user.id });
         }

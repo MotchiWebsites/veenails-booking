@@ -16,6 +16,7 @@ import {
     getBookingTotalDisplay,
 } from "@/features/bookings/utils/booking-formatters";
 import {
+    canShowClientArrivalInfo,
     canEditBookingOnline,
     isUpcomingBooking,
 } from "@/features/bookings/utils/booking-status";
@@ -23,9 +24,11 @@ import {
     getBookingDiscounts,
     getBookingSubtotalBeforeDiscount,
 } from "@/features/bookings/utils/booking-pricing";
+import { calculateBookingLedger } from "@/features/bookings/utils/booking-ledger";
 import BookingDetailsHeader from "./BookingDetailsHeader";
 import { summaryRows } from "../data/summary-rows";
 import BookingCancellationSummary from "@/features/bookings/details/components/BookingCancellationSummary";
+import { normalizeBookingFeeRate } from "@/features/bookings/new-booking/utils";
 
 export default function BookingDetailsPage({
     data,
@@ -35,13 +38,27 @@ export default function BookingDetailsPage({
     const booking = data.summary;
     const totalDisplay = getBookingTotalDisplay(booking);
     const canEdit = canEditBookingOnline(booking.status, booking.startsAt);
-    const creditUsed = data.payments
-        .filter((payment) => payment.type === "credit")
-        .reduce((total, payment) => total + payment.amount, 0);
-
     const discounts = getBookingDiscounts(booking);
     const subtotalBeforeDiscount = getBookingSubtotalBeforeDiscount(booking);
-    const remainingBalance = Math.max(0, data.amountDue);
+    const discountTotal = discounts.reduce(
+        (total, discount) => total + discount.amount,
+        0,
+    );
+    const discountedSubtotal = Math.max(
+        0,
+        subtotalBeforeDiscount - discountTotal,
+    );
+    const bookingFeeRate = normalizeBookingFeeRate(data.bookingFeeRate);
+    const ledger = calculateBookingLedger({
+        appointmentTotal: totalDisplay.amount,
+        payments: data.payments.map((payment) => ({
+            type: payment.type,
+            status: payment.status,
+            amount: payment.amount,
+        })),
+    });
+    const creditUsed = ledger.creditApplied;
+    const remainingBalance = ledger.amountDue;
     const showInspoAction =
         isUpcomingBooking(booking.status, booking.startsAt) &&
         shouldShowBookingInspoSubmission(data.inspoPrompt?.status);
@@ -91,10 +108,60 @@ export default function BookingDetailsPage({
                 </div>
             </div>
 
+            {booking.status === "rejected" ? (
+                <div className="mb-2 rounded-3xl border border-border/60 bg-background p-5">
+                    <p className="text-base font-semibold text-foreground">
+                        Appointment not accepted
+                    </p>
+                    <p className="mt-2 text-sm leading-relaxed text-muted">
+                        {data.rejectionReason ??
+                            "The studio wasn’t able to accept this appointment request."}
+                    </p>
+                    <p className="mt-2 text-sm leading-relaxed text-muted">
+                        Please choose another available time or contact us if
+                        you have questions.
+                    </p>
+                </div>
+            ) : null}
+
             <BookingCancellationSummary data={data} />
 
             <div className="py-6">
                 <BookingDetailsHeader title="Appointment summary" />
+                {canShowClientArrivalInfo(booking.status) &&
+                data.arrivalInfo ? (
+                    <div className="mt-5 rounded-2xl border border-border/60 bg-surface-2 p-4">
+                        <p className="text-sm font-semibold text-foreground">
+                            Studio arrival information
+                        </p>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                            {data.arrivalInfo.address ? (
+                                <div>
+                                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+                                        Address
+                                    </p>
+                                    <p className="mt-1 text-sm text-foreground">
+                                        {data.arrivalInfo.address}
+                                    </p>
+                                </div>
+                            ) : null}
+                            {data.arrivalInfo.buzzerCode ? (
+                                <div>
+                                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+                                        Buzzer code
+                                    </p>
+                                    <p className="mt-1 text-sm font-semibold text-foreground">
+                                        {data.arrivalInfo.buzzerCode}
+                                    </p>
+                                </div>
+                            ) : null}
+                        </div>
+                        <p className="mt-3 text-sm text-muted">
+                            Please arrive 15 minutes early.
+                        </p>
+                    </div>
+                ) : null}
+
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
                     {summaryRows(
                         booking,
@@ -164,26 +231,24 @@ export default function BookingDetailsPage({
                             (item) => item.itemType !== "discount",
                         ) ? (
                             booking.lineItems
-                                .filter(
-                                    (item) => item.itemType !== "discount",
-                                )
+                                .filter((item) => item.itemType !== "discount")
                                 .map((item) => (
-                                <div
-                                    key={item.id}
-                                    className="flex items-start justify-between gap-4 rounded-2xl bg-background p-4"
-                                >
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-semibold text-foreground">
-                                            {item.label}
-                                        </p>
-                                        <p className="mt-1 text-xs text-muted">
-                                            Qty {item.quantity}
+                                    <div
+                                        key={item.id}
+                                        className="flex items-start justify-between gap-4 rounded-2xl bg-background p-4"
+                                    >
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-foreground">
+                                                {item.label}
+                                            </p>
+                                            <p className="mt-1 text-xs text-muted">
+                                                Qty {item.quantity}
+                                            </p>
+                                        </div>
+                                        <p className="shrink-0 text-sm font-semibold text-foreground">
+                                            {formatMoney(item.lineTotal)}
                                         </p>
                                     </div>
-                                    <p className="shrink-0 text-sm font-semibold text-foreground">
-                                        {formatMoney(item.lineTotal)}
-                                    </p>
-                                </div>
                                 ))
                         ) : (
                             <p className="rounded-2xl border border-dashed border-border/60 bg-background p-4 text-sm text-muted">
@@ -210,32 +275,57 @@ export default function BookingDetailsPage({
                                 ) : null}
                             </div>
                         ))}
-                        <TotalsRow
-                            label="Booking fee"
-                            value={formatMoney(data.bookingFeeAmount)}
-                        />
-                        <TotalsRow
-                            label="Amount paid"
-                            value={formatMoney(data.amountPaid)}
-                        />
-                        {creditUsed > 0 && (
+                        {discountTotal > 0 ? (
                             <TotalsRow
-                                label="Credits used"
-                                value={formatMoney(creditUsed * -1)}
+                                label="Discounted subtotal"
+                                value={formatMoney(discountedSubtotal)}
                             />
-                        )}
+                        ) : null}
+                        <TotalsRow
+                            label={
+                                data.bookingFeeMode === "included_in_price"
+                                    ? `Booking fee (${bookingFeeRate}% included)`
+                                    : `Booking fee (${bookingFeeRate}%)`
+                            }
+                            value={
+                                data.bookingFeeMode === "included_in_price"
+                                    ? "Included"
+                                    : `+${formatMoney(data.bookingFeeAmount)}`
+                            }
+                        />
                         <div className="mt-4 border-t border-border/60 pt-4">
                             <TotalsRow
                                 label={totalDisplay.label}
                                 value={totalDisplay.value}
                                 prominent
                             />
+                        </div>
+                        {ledger.cashApplied > 0 ? (
                             <TotalsRow
-                                label="Remaining balance"
+                                label="Deposit/payments applied"
+                                value={`-${formatMoney(ledger.cashApplied)}`}
+                            />
+                        ) : null}
+                        {creditUsed > 0 ? (
+                            <TotalsRow
+                                label="Account credit applied"
+                                value={`-${formatMoney(creditUsed)}`}
+                            />
+                        ) : null}
+                        <div className="mt-4 border-t border-border/60 pt-4">
+                            <TotalsRow
+                                label="Amount to be charged"
                                 value={formatMoney(remainingBalance)}
                                 prominent
                             />
                         </div>
+                        {ledger.overpayment > 0 ? (
+                            <p className="mt-3 text-xs leading-relaxed text-muted">
+                                {formatMoney(ledger.overpayment)} will be
+                                returned as studio credit when this appointment
+                                is completed.
+                            </p>
+                        ) : null}
                     </div>
                 </div>
             </div>

@@ -24,6 +24,8 @@ export default function CheckoutSummaryCard({
     bookingFeeRate,
     creditAmount,
     totalAfterCredit,
+    depositDue,
+    balanceAfterDeposit,
     editHref,
 }: {
     draft: BookingCheckoutDraft;
@@ -35,6 +37,8 @@ export default function CheckoutSummaryCard({
     bookingFeeRate: number;
     creditAmount: number;
     totalAfterCredit: number;
+    depositDue: number;
+    balanceAfterDeposit: number;
     editHref: string;
 }) {
     return (
@@ -105,18 +109,28 @@ export default function CheckoutSummaryCard({
                     />
                 </div>
                 {creditAmount > 0 ? (
-                    <div className="mt-4 border-t border-border/60 pt-4">
+                    <>
                         <TotalsRow
                             label="Credit applied"
                             value={`-${formatAmount(creditAmount, true)}`}
                         />
-                        <TotalsRow
-                            label="Estimated remaining total"
-                            value={formatAmount(totalAfterCredit, true)}
-                            prominent
-                        />
-                    </div>
+                    </>
                 ) : null}
+                <TotalsRow
+                    label="Total after credit"
+                    value={formatAmount(totalAfterCredit, true)}
+                />
+                <TotalsRow
+                    label="Deposit due now"
+                    value={`-${formatAmount(depositDue, true)}`}
+                />
+                <div className="mt-4 border-t border-border/60 pt-4">
+                    <TotalsRow
+                        label="Balance after deposit"
+                        value={formatAmount(balanceAfterDeposit, true)}
+                        prominent
+                    />
+                </div>
             </div>
         </section>
     );

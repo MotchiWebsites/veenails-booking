@@ -1,3 +1,5 @@
+import { STUDIO_TIME_ZONE } from "@/lib/utils/studio-time";
+
 export type DashboardCalendarSlot = {
     id: string;
     startsAt: string;
@@ -16,11 +18,13 @@ export type DashboardCalendarDay = {
 };
 
 const rangeFormatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "UTC",
     month: "short",
     day: "numeric",
 });
 
 const timeFormatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: STUDIO_TIME_ZONE,
     hour: "numeric",
     minute: "2-digit",
 });
@@ -33,9 +37,9 @@ export function formatVisibleDateRange(days: DashboardCalendarDay[]) {
         return "No dates";
     }
 
-    const firstDate = new Date(`${firstDay.date}T00:00:00`);
-    const lastDate = new Date(`${lastDay.date}T00:00:00`);
-    const year = lastDate.getFullYear();
+    const firstDate = new Date(`${firstDay.date}T12:00:00Z`);
+    const lastDate = new Date(`${lastDay.date}T12:00:00Z`);
+    const year = lastDate.getUTCFullYear();
 
     if (firstDay.date === lastDay.date) {
         return `${rangeFormatter.format(firstDate)}, ${year}`;

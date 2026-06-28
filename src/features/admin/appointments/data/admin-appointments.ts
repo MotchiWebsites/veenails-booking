@@ -3,6 +3,7 @@ import { requireAdmin } from "@/features/admin/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveBookingRecipient } from "@/features/notifications/utils/resolve-booking-recipient";
 import type { Database, Enums, Json } from "@/types/supabase";
+import { calculateBookingLedger } from "@/features/bookings/utils/booking-ledger";
 
 type BookingStatus = Enums<"booking_status">;
 type DepositStatus = Enums<"deposit_status">;
@@ -31,6 +32,7 @@ export type AdminAppointmentListItem = {
     latestCancellationStatus: CancellationStatus | null;
     inspoStatus: InspoStatus | null;
     serviceSummary: string;
+    googleSyncState: "synced" | "pending" | "issue" | "not_connected";
 };
 
 export type AdminLineItem = {
@@ -120,6 +122,9 @@ type AdminAppointmentRow = Pick<
     | "client_email"
     | "client_instagram_handle"
     | "client_preferred_contact_method"
+    | "google_calendar_event_id"
+    | "google_calendar_synced_at"
+    | "google_calendar_sync_error"
 > & {
     availability_slots:
         | Pick<
@@ -262,6 +267,9 @@ const listSelect = `
     client_email,
     client_instagram_handle,
     client_preferred_contact_method,
+    google_calendar_event_id,
+    google_calendar_synced_at,
+    google_calendar_sync_error,
     availability_slots:slot_id ( starts_at, ends_at ),
     profiles:user_id (
         id,
@@ -289,6 +297,9 @@ const detailsSelect = `
     client_email,
     client_instagram_handle,
     client_preferred_contact_method,
+    google_calendar_event_id,
+    google_calendar_synced_at,
+    google_calendar_sync_error,
     availability_slots:slot_id ( starts_at, ends_at ),
     profiles:user_id (
         id,
@@ -399,6 +410,14 @@ function mapListItem(row: AdminAppointmentRow): AdminAppointmentListItem {
             .filter((item) => item.active && !item.removed_at && item.item_type !== "discount")
             .map((item) => item.label_snapshot)
             .join(" · ") || "No services listed",
+        googleSyncState:
+            row.google_calendar_sync_error === "not_connected"
+                ? "not_connected"
+                : row.google_calendar_sync_error
+                  ? "issue"
+                  : row.google_calendar_synced_at
+                    ? "synced"
+                    : "pending",
     };
 }
 
@@ -406,12 +425,40 @@ function mapDetails(row: AdminAppointmentDetailsRow): Omit<AdminAppointmentDetai
     const listItem = mapListItem(row);
     const cancellation = latestByCreatedAt(row.cancellation_requests);
     const inspo = latestByCreatedAt(row.booking_inspo_prompts);
+    const payments = (row.booking_payments ?? [])
+        .slice()
+        .sort(
+            (a, b) =>
+                new Date(b.created_at).getTime() -
+                new Date(a.created_at).getTime(),
+        )
+        .map((payment) => ({
+            id: payment.id,
+            amount: Number(payment.amount ?? 0),
+            status: payment.status,
+            paymentType: payment.payment_type,
+            method: payment.method,
+            paidAt: payment.paid_at,
+            notes: payment.notes,
+        }));
+    const appointmentTotal =
+        listItem.finalTotal > 0
+            ? listItem.finalTotal
+            : listItem.estimatedTotal;
+    const ledger = calculateBookingLedger({
+        appointmentTotal,
+        payments: payments.map((payment) => ({
+            type: payment.paymentType,
+            status: payment.status,
+            amount: payment.amount,
+        })),
+    });
 
     return {
         ...listItem,
         adminNotes: row.admin_notes,
-        amountDue: Number(row.amount_due ?? 0),
-        amountPaid: Number(row.amount_paid ?? 0),
+        amountDue: ledger.amountDue,
+        amountPaid: ledger.totalApplied,
         subtotalAmount: Number(row.subtotal_amount ?? 0),
         bookingFeeAmount: Number(row.booking_fee_amount ?? 0),
         bookingFeeMode: row.booking_fee_mode,
@@ -436,22 +483,7 @@ function mapDetails(row: AdminAppointmentDetailsRow): Omit<AdminAppointmentDetai
                 sourceId: item.source_id,
                 sourceTable: item.source_table,
             })),
-        payments: (row.booking_payments ?? [])
-            .slice()
-            .sort(
-                (a, b) =>
-                    new Date(b.created_at).getTime() -
-                    new Date(a.created_at).getTime(),
-            )
-            .map((payment) => ({
-                id: payment.id,
-                amount: Number(payment.amount ?? 0),
-                status: payment.status,
-                paymentType: payment.payment_type,
-                method: payment.method,
-                paidAt: payment.paid_at,
-                notes: payment.notes,
-            })),
+        payments,
         cancellationRequest: cancellation
             ? {
                   id: cancellation.id,

@@ -7,7 +7,9 @@ import type {
     DepositStatus,
 } from "@/features/bookings/types/bookings";
 import type { DesignTier } from "@/features/bookings/new-booking/types";
+import { canShowClientArrivalInfo } from "@/features/bookings/utils/booking-status";
 import type { Database, Enums } from "@/types/supabase";
+import { calculateBookingLedger } from "@/features/bookings/utils/booking-ledger";
 
 type BookingDetailsBaseRow = Pick<
     Database["public"]["Tables"]["bookings"]["Row"],
@@ -138,6 +140,8 @@ export type BookingDetailsInspoPrompt = {
 export type BookingDetailsData = {
     summary: BookingSummary;
     clientNotes: string | null;
+    rejectionReason: string | null;
+    cancellationReason: string | null;
     subtotalAmount: number;
     bookingFeeAmount: number;
     bookingFeeMode: Enums<"fee_mode">;
@@ -310,6 +314,21 @@ function mapDetails(row: BookingDetailsRow): BookingDetailsData {
     const slot = getSlotRelation(row);
     const estimatedTotal = Number(row.estimated_total || 0);
     const finalTotal = Number(row.final_total || 0);
+    const payments = sortByCreatedAt(row.booking_payments ?? []).map(
+        (payment) => ({
+            id: payment.id,
+            type: payment.payment_type,
+            method: payment.method,
+            amount: Number(payment.amount || 0),
+            status: payment.status,
+            paidAt: payment.paid_at,
+            createdAt: payment.created_at,
+        }),
+    );
+    const ledger = calculateBookingLedger({
+        appointmentTotal: finalTotal > 0 ? finalTotal : estimatedTotal,
+        payments,
+    });
 
     const summary: BookingSummary = {
         id: row.id,
@@ -322,8 +341,8 @@ function mapDetails(row: BookingDetailsRow): BookingDetailsData {
         finalTotal,
         subtotalAmount: Number(row.subtotal_amount || 0),
         bookingFeeAmount: Number(row.booking_fee_amount || 0),
-        amountPaid: Number(row.amount_paid || 0),
-        amountDue: Number(row.amount_due || 0),
+        amountPaid: ledger.totalApplied,
+        amountDue: ledger.amountDue,
         createdAt: row.created_at,
         lineItems,
         cancellationRequest: latestCancellationRequest
@@ -339,26 +358,18 @@ function mapDetails(row: BookingDetailsRow): BookingDetailsData {
     return {
         summary,
         clientNotes: row.client_notes,
+        rejectionReason: null,
+        cancellationReason: null,
         subtotalAmount: Number(row.subtotal_amount || 0),
         bookingFeeAmount: Number(row.booking_fee_amount || 0),
         bookingFeeMode: row.booking_fee_mode,
         bookingFeeRate: Number(row.booking_fee_rate || 0),
         depositAmount: Number(row.deposit_amount || 0),
-        amountPaid: Number(row.amount_paid || 0),
-        amountDue: Number(row.amount_due || 0),
+        amountPaid: ledger.totalApplied,
+        amountDue: ledger.amountDue,
         arrivalInfo: null,
         depositStatus: row.deposit_status,
-        payments: sortByCreatedAt(row.booking_payments ?? []).map(
-            (payment) => ({
-                id: payment.id,
-                type: payment.payment_type,
-                method: payment.method,
-                amount: Number(payment.amount || 0),
-                status: payment.status,
-                paidAt: payment.paid_at,
-                createdAt: payment.created_at,
-            }),
-        ),
+        payments,
         policies: sortPolicies(row.booking_policy_acceptances ?? []).map(
             (policy) => ({
                 id: policy.id,
@@ -426,11 +437,79 @@ export async function getBookingDetailsData({
     if (!data) return null;
 
     const details = mapDetails(data);
-    if (details.summary.status !== "confirmed") {
+    const admin = createAdminClient();
+    if (details.summary.status === "cancelled") {
+        const { data: cancellationEvent, error: cancellationError } =
+            await admin
+                .from("booking_events")
+                .select("metadata")
+                .eq("booking_id", details.summary.id)
+                .eq("event_type", "admin_booking_cancelled")
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .maybeSingle()
+                .overrideTypes<{
+                    metadata: Database["public"]["Tables"]["booking_events"]["Row"]["metadata"];
+                } | null>();
+
+        if (cancellationError) {
+            console.error(
+                "[bookings:getCancellationReason]",
+                cancellationError,
+            );
+        }
+
+        const reason =
+            cancellationEvent?.metadata &&
+            typeof cancellationEvent.metadata === "object" &&
+            !Array.isArray(cancellationEvent.metadata) &&
+            typeof cancellationEvent.metadata.reason === "string"
+                ? cancellationEvent.metadata.reason.trim()
+                : "";
+
+        return {
+            ...details,
+            cancellationReason: reason || null,
+        };
+    }
+
+    if (details.summary.status === "rejected") {
+        const { data: rejectionEvent, error: rejectionError } = await admin
+            .from("booking_events")
+            .select("metadata")
+            .eq("booking_id", details.summary.id)
+            .in("event_type", [
+                "admin_booking_rejected",
+                "admin_booking_rejected_deposit_credited",
+                "admin_booking_rejected_deposit_not_received",
+            ])
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle()
+            .overrideTypes<{ metadata: Database["public"]["Tables"]["booking_events"]["Row"]["metadata"] } | null>();
+
+        if (rejectionError) {
+            console.error("[bookings:getRejectionReason]", rejectionError);
+        }
+
+        const reason =
+            rejectionEvent?.metadata &&
+            typeof rejectionEvent.metadata === "object" &&
+            !Array.isArray(rejectionEvent.metadata) &&
+            typeof rejectionEvent.metadata.reason === "string"
+                ? rejectionEvent.metadata.reason.trim()
+                : "";
+
+        return {
+            ...details,
+            rejectionReason: reason || null,
+        };
+    }
+
+    if (!canShowClientArrivalInfo(details.summary.status)) {
         return details;
     }
 
-    const admin = createAdminClient();
     const { data: settings, error: settingsError } = await admin
         .from("booking_settings")
         .select("studio_address, studio_buzzer_code")

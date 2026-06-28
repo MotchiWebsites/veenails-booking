@@ -5,8 +5,10 @@ import { requireAdmin } from "@/features/admin/auth/require-admin";
 import { cancellationTemplate } from "@/features/notifications/email/templates/cancellation-template";
 import { resolveBookingRecipient } from "@/features/notifications/utils/resolve-booking-recipient";
 import { sendTransactionalEmail } from "@/lib/email/brevo";
+import { getAppBaseUrl } from "@/lib/email/config";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Enums } from "@/types/supabase";
+import { syncBookingToGoogleCalendar } from "@/features/integrations/google-calendar/services/sync";
 
 export type AdminCancellationState = { error: string; success: string; messageId: string };
 type Outcome = "credit" | "no_refund";
@@ -127,11 +129,12 @@ export async function cancelAppointmentWithOutcomeAction(
         ]);
         if (eventError) throw eventError;
 
-        revalidatePath("/admin"); revalidatePath("/admin/appointments"); revalidatePath(`/admin/appointments/${bookingId}`); if (booking.user_id) revalidatePath(`/admin/users/${booking.user_id}`); revalidatePath("/booking"); revalidatePath("/dashboard"); revalidatePath("/credits"); revalidatePath("/book");
+        await syncBookingToGoogleCalendar(bookingId);
+        revalidatePath("/admin"); revalidatePath("/admin/appointments"); revalidatePath(`/admin/appointments/${bookingId}`); if (booking.user_id) revalidatePath(`/admin/users/${booking.user_id}`); revalidatePath("/booking"); revalidatePath(`/booking/${booking.booking_reference}`); revalidatePath("/dashboard"); revalidatePath("/credits"); revalidatePath("/book");
 
         const recipient = resolveBookingRecipient(booking);
         const recipientName = recipient.displayName;
-        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+        const siteUrl = getAppBaseUrl();
         const template = cancellationTemplate({ name: recipientName, reference: booking.booking_reference, heading: "Appointment cancelled", appointment: booking.availability_slots ? new Intl.DateTimeFormat("en-CA", { dateStyle: "full", timeStyle: "short" }).format(new Date(booking.availability_slots.starts_at)) : "Not scheduled", reason, outcome: outcomeLabel, message: "Your appointment has been cancelled by the studio.", detailsUrl: booking.user_id && siteUrl ? `${siteUrl}/booking/${booking.booking_reference}` : undefined });
         await sendTransactionalEmail({ to: { email: recipient.email, name: recipientName }, ...template, notificationType: "admin_cancellation", bookingId, userId: booking.user_id });
         return result({ error: "", success: `Appointment cancelled. ${outcomeLabel}.` });

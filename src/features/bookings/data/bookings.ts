@@ -13,6 +13,7 @@ import {
 } from "@/features/bookings/utils/booking-status";
 import { formatBookingDate } from "@/features/bookings/utils/booking-formatters";
 import type { Database } from "@/types/supabase";
+import { calculateBookingLedger } from "@/features/bookings/utils/booking-ledger";
 
 type BookingBaseRow = Pick<
     Database["public"]["Tables"]["bookings"]["Row"],
@@ -47,6 +48,12 @@ type BookingRow = BookingBaseRow & {
             | "active"
             | "removed_at"
             | "created_at"
+        >
+    > | null;
+    booking_payments?: Array<
+        Pick<
+            Database["public"]["Tables"]["booking_payments"]["Row"],
+            "payment_type" | "status" | "amount"
         >
     > | null;
     cancellation_requests?: Array<
@@ -92,6 +99,11 @@ const selectSummary = `
         active,
         removed_at,
         created_at
+    ),
+    booking_payments (
+        payment_type,
+        status,
+        amount
     ),
     cancellation_requests (
         id,
@@ -189,6 +201,14 @@ function mapBookingSummary(row: BookingRow) {
             : calculatedSubtotal;
 
     const finalTotal = Number(row.final_total || 0);
+    const ledger = calculateBookingLedger({
+        appointmentTotal: finalTotal > 0 ? finalTotal : estimatedTotal,
+        payments: (row.booking_payments ?? []).map((payment) => ({
+            type: payment.payment_type,
+            status: payment.status,
+            amount: Number(payment.amount),
+        })),
+    });
     const latestCancellationRequest =
         row.cancellation_requests
             ?.slice()
@@ -209,8 +229,8 @@ function mapBookingSummary(row: BookingRow) {
         finalTotal,
         subtotalAmount: Number(row.subtotal_amount || 0),
         bookingFeeAmount: Number(row.booking_fee_amount || 0),
-        amountPaid: Number(row.amount_paid || 0),
-        amountDue: Number(row.amount_due || 0),
+        amountPaid: ledger.totalApplied,
+        amountDue: ledger.amountDue,
         createdAt: row.created_at,
         lineItems,
         cancellationRequest: latestCancellationRequest

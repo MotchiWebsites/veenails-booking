@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import AppSelect from "@/components/shared/form/AppSelect";
 import ModalShell from "@/components/shared/ui/ModalShell";
 import { useToast } from "@/components/shared/toast/ToastProvider";
@@ -8,6 +9,10 @@ import {
     cancelAppointmentWithOutcomeAction,
     type AdminCancellationState,
 } from "@/features/admin/appointments/actions/admin-cancellation";
+import {
+    reviewCancellationAction,
+    type AdminCancellationReviewState,
+} from "@/features/admin/appointments/actions/admin-appointments";
 import type { AdminAppointmentDetails } from "@/features/admin/appointments/data/admin-appointments";
 import {
     formatInstagramHandle,
@@ -20,6 +25,12 @@ const initial: AdminCancellationState = {
     messageId: "",
 };
 
+const initialReview: AdminCancellationReviewState = {
+    error: "",
+    success: "",
+    messageId: "",
+};
+
 export default function AdminCancellationModal({
     booking,
     onClose,
@@ -27,11 +38,20 @@ export default function AdminCancellationModal({
     booking: AdminAppointmentDetails;
     onClose: () => void;
 }) {
+    const router = useRouter();
     const { error, success } = useToast();
     const [state, action, pending] = useActionState(
         cancelAppointmentWithOutcomeAction,
         initial,
     );
+    const [reviewState, reviewAction, reviewPending] = useActionState(
+        reviewCancellationAction,
+        initialReview,
+    );
+    const pendingRequest =
+        booking.cancellationRequest?.status === "pending"
+            ? booking.cancellationRequest
+            : null;
     const depositReceived = booking.depositStatus === "received";
     const preference = booking.cancellationRequest?.requestedRefundMethod;
     const canIssueCredit = Boolean(booking.userId);
@@ -51,12 +71,47 @@ export default function AdminCancellationModal({
         }
     }, [error, onClose, state.error, state.messageId, state.success, success]);
 
+    useEffect(() => {
+        if (!reviewState.messageId) return;
+        if (reviewState.error) {
+            error(reviewState.error, "Review failed");
+        }
+        if (reviewState.success) {
+            success(reviewState.success, "Cancellation declined");
+            onClose();
+            router.refresh();
+        }
+    }, [
+        error,
+        onClose,
+        reviewState.error,
+        reviewState.messageId,
+        reviewState.success,
+        router,
+        success,
+    ]);
+
     return (
         <ModalShell
-            title="Cancel appointment"
+            title={
+                pendingRequest
+                    ? "Review cancellation request"
+                    : "Cancel appointment"
+            }
             description={`#${booking.bookingReference} · ${booking.clientDisplayName}`}
             onClose={onClose}
         >
+            {pendingRequest ? (
+                <div className="mb-4 rounded-2xl border border-border/60 bg-background p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+                        Client reason
+                    </p>
+                    <p className="mt-2 text-sm leading-relaxed text-foreground">
+                        {pendingRequest.reason}
+                    </p>
+                </div>
+            ) : null}
+
             <form action={action} className="space-y-4">
                 <input type="hidden" name="bookingId" value={booking.id} />
                 <input
@@ -101,13 +156,23 @@ export default function AdminCancellationModal({
                     </p>
                 </div>
                 <label className="block space-y-2">
-                    <span className="label-text">Cancellation reason</span>
+                    <span className="label-text">
+                        {pendingRequest
+                            ? "Approval note"
+                            : "Cancellation reason"}
+                    </span>{" "}
+                    <span className="text-red-500">*</span>
                     <textarea
                         name="reason"
                         required
                         minLength={4}
                         className="input-field min-h-24 resize-y leading-relaxed"
-                        placeholder="Explain why the appointment is being cancelled…"
+                        placeholder={
+                            pendingRequest
+                                ? "Add the reason that will be shared with the client…"
+                                : "Explain why the appointment is being cancelled…"
+                        }
+                        defaultValue={pendingRequest?.reason ?? ""}
                     />
                 </label>
                 {depositReceived ? (
@@ -168,10 +233,51 @@ export default function AdminCancellationModal({
                         className="btn-primary"
                         disabled={pending}
                     >
-                        {pending ? "Cancelling…" : "Confirm cancellation"}
+                        {pending
+                            ? "Processing…"
+                            : pendingRequest
+                              ? "Approve cancellation"
+                              : "Confirm cancellation"}
                     </button>
                 </div>
             </form>
+
+            {pendingRequest ? (
+                <form
+                    action={reviewAction}
+                    className="mt-5 space-y-4 border-t border-border/60 pt-5"
+                >
+                    <input type="hidden" name="bookingId" value={booking.id} />
+                    <input
+                        type="hidden"
+                        name="requestId"
+                        value={pendingRequest.id}
+                    />
+                    <input type="hidden" name="decision" value="rejected" />
+                    <label className="block space-y-2">
+                        <span className="label-text">
+                            Decline reason
+                        </span>{" "}
+                        <span className="text-red-500">*</span>
+                        <textarea
+                            name="reason"
+                            required
+                            minLength={4}
+                            className="input-field min-h-24 resize-y leading-relaxed"
+                            placeholder="Explain why the appointment will remain scheduled…"
+                        />
+                    </label>
+                    <button
+                        type="submit"
+                        className="btn-secondary w-full"
+                        disabled={reviewPending || pending}
+                    >
+                        {reviewPending
+                            ? "Declining…"
+                            : "Decline cancellation request"}
+                    </button>
+                </form>
+            ) : null}
         </ModalShell>
     );
 }

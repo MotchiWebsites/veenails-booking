@@ -2,11 +2,16 @@ import "server-only";
 
 import { appointmentReminderTemplate } from "@/features/notifications/email/templates/appointment-reminder-template";
 import { resolveBookingRecipient } from "@/features/notifications/utils/resolve-booking-recipient";
+import { canShowClientArrivalInfo } from "@/features/bookings/utils/booking-status";
 import {
     getStudioDateKey,
     STUDIO_TIME_ZONE,
     studioDateTimeToDate,
-} from "@/features/admin/availability/utils/slot-time-options";
+} from "@/lib/utils/studio-time";
+import {
+    getAppBaseUrl,
+    getEmailConfig,
+} from "@/lib/email/config";
 import { sendTransactionalEmail } from "@/lib/email/brevo";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/types/supabase";
@@ -16,6 +21,7 @@ type ReminderBookingRow = Pick<
     | "id"
     | "booking_reference"
     | "user_id"
+    | "status"
     | "client_display_name"
     | "client_email"
     | "client_instagram_handle"
@@ -70,7 +76,7 @@ export async function sendAppointmentReminders(now = new Date()) {
         admin
             .from("bookings")
             .select(
-                "id, booking_reference, user_id, client_display_name, client_email, client_instagram_handle, client_preferred_contact_method, availability_slots:slot_id!inner(starts_at, ends_at), profiles:user_id(display_name, email, instagram_handle, preferred_contact_method), booking_line_items(label_snapshot, item_type, active, removed_at)",
+                "id, booking_reference, user_id, status, client_display_name, client_email, client_instagram_handle, client_preferred_contact_method, availability_slots:slot_id!inner(starts_at, ends_at), profiles:user_id(display_name, email, instagram_handle, preferred_contact_method), booking_line_items(label_snapshot, item_type, active, removed_at)",
             )
             .eq("status", "confirmed")
             .gte(
@@ -97,13 +103,16 @@ export async function sendAppointmentReminders(now = new Date()) {
     }
 
     const settings = settingsResult.data;
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
-    const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL?.trim() || null;
+    const siteUrl = getAppBaseUrl();
+    const adminEmail = getEmailConfig().adminNotificationEmail;
     let sent = 0;
     let skipped = 0;
     let failed = 0;
 
     for (const booking of bookingsResult.data ?? []) {
+        if (!canShowClientArrivalInfo(booking.status)) {
+            continue;
+        }
         const recipient = resolveBookingRecipient(booking);
         const services =
             (booking.booking_line_items ?? [])

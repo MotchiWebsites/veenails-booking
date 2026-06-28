@@ -20,6 +20,9 @@ import AdminAppointmentActions from "@/features/admin/appointments/components/Ad
 import AdminDiscountEditor from "@/features/admin/appointments/components/AdminDiscountEditor";
 import AdminCancellationSummary from "@/features/admin/appointments/components/AdminCancellationSummary";
 import AdminCreditForm from "@/features/admin/credits/components/AdminCreditForm";
+import { calculateBookingLedger } from "@/features/bookings/utils/booking-ledger";
+import { normalizeBookingFeeRate } from "@/features/bookings/new-booking/utils";
+import { retryGoogleCalendarSyncAction } from "@/features/integrations/google-calendar/actions/integration";
 
 function ActionButton({
     children,
@@ -49,10 +52,6 @@ export default function AdminAppointmentDetailsPage({
 }) {
     const instagramOnly =
         !booking.clientEmail && Boolean(booking.clientInstagramHandle);
-    const appointmentTotal = Math.max(
-        0,
-        booking.amountPaid + booking.amountDue,
-    );
     const discountItem =
         booking.lineItems.find((item) => item.itemType === "discount") ?? null;
     const discountAmount = Math.abs(discountItem?.lineTotal ?? 0);
@@ -62,6 +61,23 @@ export default function AdminAppointmentDetailsPage({
     const discountLabel = discountItem
         ? discountItem.label.replace(/^Admin\s+/i, "")
         : null;
+    const discountedSubtotal = Math.max(
+        0,
+        subtotalBeforeDiscount - discountAmount,
+    );
+    const appointmentTotal = Math.max(
+        0,
+        discountedSubtotal + booking.bookingFeeAmount,
+    );
+    const bookingFeeRate = normalizeBookingFeeRate(booking.bookingFeeRate);
+    const ledger = calculateBookingLedger({
+        appointmentTotal,
+        payments: booking.payments.map((payment) => ({
+            type: payment.paymentType,
+            status: payment.status,
+            amount: payment.amount,
+        })),
+    });
 
     return (
         <div className="space-y-6">
@@ -100,6 +116,44 @@ export default function AdminAppointmentDetailsPage({
                             <AdminStatusPill label="External client" />
                         ) : null}
                     </div>
+                    <div className="mt-3 flex items-center gap-2 text-xs text-muted">
+                        <span>
+                            Google Calendar:{" "}
+                            {booking.googleSyncState === "synced"
+                                ? "Synced"
+                                : booking.googleSyncState === "issue"
+                                  ? "Sync issue"
+                                  : booking.googleSyncState === "not_connected"
+                                    ? "Not connected"
+                                    : "Pending sync"}
+                        </span>
+                        {booking.googleSyncState === "issue" ? (
+                            <form action={retryGoogleCalendarSyncAction}>
+                                <input
+                                    type="hidden"
+                                    name="entity"
+                                    value="booking"
+                                />
+                                <input
+                                    type="hidden"
+                                    name="entityId"
+                                    value={booking.id}
+                                />
+                                <button
+                                    type="submit"
+                                    className="font-semibold text-dark-green underline-offset-2 hover:underline"
+                                >
+                                    Retry Google sync
+                                </button>
+                            </form>
+                        ) : null}
+                    </div>
+                    {booking.googleSyncState === "issue" ? (
+                        <p className="mt-2 text-xs text-muted">
+                            Calendar sync needs attention. Your booking was still
+                            saved.
+                        </p>
+                    ) : null}
                     {instagramOnly ? (
                         <div className="mt-4 border-l-4 border-pink-main bg-pink-main/10 px-4 py-3 text-sm">
                             <p className="font-semibold text-foreground">
@@ -121,7 +175,7 @@ export default function AdminAppointmentDetailsPage({
                         Amount to charge
                     </p>
                     <p className="mt-2 text-4xl font-semibold">
-                        {formatMoney(booking.amountDue)}
+                        {formatMoney(ledger.amountDue)}
                     </p>
                     <div className="mt-5 space-y-2 border-t border-white/20 pt-4 text-sm">
                         <p className="flex items-center justify-between gap-4">
@@ -140,13 +194,29 @@ export default function AdminAppointmentDetailsPage({
                                 </span>
                             </p>
                         ) : null}
-                        {booking.bookingFeeAmount > 0 ? (
+                        {discountAmount > 0 ? (
                             <p className="flex items-center justify-between gap-4">
                                 <span className="text-white/70">
-                                    Booking fee
+                                    Discounted subtotal
                                 </span>
                                 <span className="font-semibold">
-                                    +{formatMoney(booking.bookingFeeAmount)}
+                                    {formatMoney(discountedSubtotal)}
+                                </span>
+                            </p>
+                        ) : null}
+                        {bookingFeeRate > 0 ? (
+                            <p className="flex items-center justify-between gap-4">
+                                <span className="text-white/70">
+                                    {booking.bookingFeeMode ===
+                                    "included_in_price"
+                                        ? `Booking fee (${bookingFeeRate}% included)`
+                                        : `Booking fee (${bookingFeeRate}%)`}
+                                </span>
+                                <span className="font-semibold">
+                                    {booking.bookingFeeMode ===
+                                    "included_in_price"
+                                        ? "Included"
+                                        : `+${formatMoney(booking.bookingFeeAmount)}`}
                                 </span>
                             </p>
                         ) : null}
@@ -158,16 +228,37 @@ export default function AdminAppointmentDetailsPage({
                                 {formatMoney(appointmentTotal)}
                             </span>
                         </p>
-                        <p className="flex items-center justify-between gap-4">
-                            <span className="text-white/70">Paid</span>
-                            <span className="font-semibold">
-                                {booking.amountPaid > 0 ? "-" : ""}
-                                {formatMoney(booking.amountPaid)}
-                            </span>
-                        </p>
+                        {ledger.cashApplied > 0 ? (
+                            <p className="flex items-center justify-between gap-4">
+                                <span className="text-white/70">
+                                    Deposit/payments
+                                </span>
+                                <span className="font-semibold">
+                                    -{formatMoney(ledger.cashApplied)}
+                                </span>
+                            </p>
+                        ) : null}
+                        {ledger.creditApplied > 0 ? (
+                            <p className="flex items-center justify-between gap-4">
+                                <span className="text-white/70">
+                                    Account credit
+                                </span>
+                                <span className="font-semibold">
+                                    -{formatMoney(ledger.creditApplied)}
+                                </span>
+                            </p>
+                        ) : null}
                     </div>
+                    {ledger.overpayment > 0 ? (
+                        <p className="mt-4 rounded-2xl bg-white/10 p-3 text-xs leading-relaxed text-white/80">
+                            {formatMoney(ledger.overpayment)} will be returned
+                            as studio credit when this appointment is completed.
+                        </p>
+                    ) : null}
                 </div>
             </section>
+
+            <AdminCancellationSummary booking={booking} />
 
             <AdminAppointmentActions booking={booking} />
 
@@ -230,14 +321,11 @@ export default function AdminAppointmentDetailsPage({
                 <AdminDiscountEditor booking={booking} />
             </section>
 
-            <AdminCancellationSummary booking={booking} />
-
             <AdminAppointmentEditor booking={booking} />
 
             <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
                 <div className="space-y-6">
                     <DesignInspo booking={booking} />
-                    <CancellationPanel booking={booking} />
                     <HistoryLog booking={booking} />
                 </div>
                 <div>
@@ -311,27 +399,6 @@ function PaymentsPanel({ booking }: { booking: AdminAppointmentDetails }) {
                     <p className="text-sm text-muted">No payments yet.</p>
                 )}
             </div>
-        </div>
-    );
-}
-
-function CancellationPanel({ booking }: { booking: AdminAppointmentDetails }) {
-    const request = booking.cancellationRequest;
-
-    if (!request) return null;
-
-    return (
-        <div className="rounded-3xl border border-border/60 bg-surface p-5 shadow-sm sm:p-7">
-            <h2 className="text-lg font-semibold text-foreground">
-                Cancellation request
-            </h2>
-            <p className="mt-2 text-sm text-muted">{request.reason}</p>
-            <p className="mt-1 text-sm text-muted">Status: {request.status}</p>
-            {request.adminReason ? (
-                <p className="mt-2 text-sm text-muted">
-                    Admin note: {request.adminReason}
-                </p>
-            ) : null}
         </div>
     );
 }

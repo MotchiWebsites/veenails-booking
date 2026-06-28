@@ -24,6 +24,7 @@ import type {
     RefundMethod,
 } from "@/features/bookings/types/bookings";
 import { cancellationTemplate } from "@/features/notifications/email/templates/cancellation-template";
+import { getAppBaseUrl, getEmailConfig } from "@/lib/email/config";
 import { sendTransactionalEmail } from "@/lib/email/brevo";
 import type {
     BookingSelections,
@@ -715,8 +716,8 @@ export async function requestBookingCancellation(
         requestedRefundMethod === "account_credit"
             ? "Convert deposit to credit"
             : "No refund needed";
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
-    const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL;
+    const siteUrl = getAppBaseUrl();
+    const adminEmail = getEmailConfig().adminNotificationEmail;
     const template = cancellationTemplate({
         name: typedBooking.profiles?.display_name ?? "Client",
         reference: booking.booking_reference,

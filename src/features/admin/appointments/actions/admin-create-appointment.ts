@@ -17,9 +17,11 @@ import { isValidEmail } from "@/features/auth/validation/email";
 import { appointmentStatusTemplate } from "@/features/notifications/email/templates/appointment-status-template";
 import { resolveBookingRecipient } from "@/features/notifications/utils/resolve-booking-recipient";
 import { sendTransactionalEmail } from "@/lib/email/brevo";
+import { getAppBaseUrl } from "@/lib/email/config";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { BookingSelections, DesignTier } from "@/features/bookings/new-booking/types";
 import type { Database, Enums } from "@/types/supabase";
+import { syncBookingToGoogleCalendar } from "@/features/integrations/google-calendar/services/sync";
 
 type BookingLineItemInsert =
     Database["public"]["Tables"]["booking_line_items"]["Insert"];
@@ -416,7 +418,7 @@ export async function createAdminAppointmentAction(
             profiles: profile,
         });
         const recipientName = recipient.displayName;
-        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+        const siteUrl = getAppBaseUrl();
         const appointment = new Intl.DateTimeFormat("en-CA", {
             dateStyle: "full",
             timeStyle: "short",
@@ -436,6 +438,7 @@ export async function createAdminAppointmentAction(
             bookingId: booking.id,
             userId: profile?.id,
         });
+        await syncBookingToGoogleCalendar(booking.id);
 
         return response({
             error: "",

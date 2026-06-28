@@ -12,6 +12,7 @@ import type { AdminAvailabilitySlot } from "@/features/admin/availability/data/a
 import AdminStatusPill from "@/features/admin/components/AdminStatusPill";
 import { formatDateTime } from "@/features/admin/components/admin-formatters";
 import { formatBookingTimeRange } from "@/features/bookings/utils/booking-formatters";
+import { retryGoogleCalendarSyncAction } from "@/features/integrations/google-calendar/actions/integration";
 
 function friendlyStatus(slot: AdminAvailabilitySlot) {
     if (!slot.active) return "Inactive";
@@ -75,6 +76,34 @@ export default function AvailabilitySlotCard({
                             {slot.notes}
                         </p>
                     ) : null}
+                    <div className="mt-2 flex items-center gap-2 text-xs text-muted">
+                        <span>
+                            Google Calendar:{" "}
+                            {slot.googleSyncState === "synced"
+                                ? "Synced"
+                                : slot.googleSyncState === "issue"
+                                  ? "Sync issue"
+                                  : slot.googleSyncState === "not_connected"
+                                    ? "Not connected"
+                                    : "Pending sync"}
+                        </span>
+                        {slot.googleSyncState === "issue" ? (
+                            <form action={retryGoogleCalendarSyncAction}>
+                                <input type="hidden" name="entity" value="slot" />
+                                <input
+                                    type="hidden"
+                                    name="entityId"
+                                    value={slot.id}
+                                />
+                                <button
+                                    type="submit"
+                                    className="font-semibold text-dark-green underline-offset-2 hover:underline"
+                                >
+                                    Retry Google sync
+                                </button>
+                            </form>
+                        ) : null}
+                    </div>
                 </div>
 
                 <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
