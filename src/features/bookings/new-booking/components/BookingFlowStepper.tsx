@@ -1,15 +1,14 @@
 "use client";
 
 import HorizontalStepNav from "@/components/shared/ui/HorizontalStepNav";
-import { bookingSteps } from "@/features/bookings/new-booking/config";
 import type {
     BookingSelections,
     NewBookingStep,
 } from "@/features/bookings/new-booking/types";
 import {
     canOpenStep,
-    getStepNumber,
     getStepStatus,
+    getVisibleBookingSteps,
 } from "@/features/bookings/new-booking/utils";
 
 type BookingFlowStepperProps = {
@@ -23,9 +22,11 @@ export default function BookingFlowStepper({
     selections,
     onStepClick,
 }: BookingFlowStepperProps) {
+    const visibleSteps = getVisibleBookingSteps(selections);
+
     return (
         <HorizontalStepNav
-            items={bookingSteps}
+            items={visibleSteps}
             activeKey={activeStep}
             getKey={(step) => step.id}
             itemClassName="w-44 shrink-0 sm:w-50"
@@ -73,7 +74,9 @@ export default function BookingFlowStepper({
                     >
                         <span className="flex items-center justify-between gap-3">
                             <span className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-muted">
-                                {getStepNumber(step.id)}
+                                {visibleSteps.findIndex(
+                                    (item) => item.id === step.id,
+                                ) + 1}
                             </span>
 
                             <span

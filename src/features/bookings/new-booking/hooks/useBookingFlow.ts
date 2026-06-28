@@ -20,11 +20,13 @@ import {
     getHoldNote,
     getReachableSteps,
     getSelectionSummary,
+    getService,
     getServiceOptionGroups,
     groupSlotsByDay,
     isReviewReady,
     isSlotBookable,
     normalizeBookingFeeRate,
+    requiresDesignTier,
 } from "@/features/bookings/new-booking/utils";
 import {
     readBookingCheckoutDraft,
@@ -114,13 +116,16 @@ export function useBookingFlow({
         }
 
         const timeoutId = window.setTimeout(() => {
+            const service = getService(draft.serviceId);
             setSelections({
                 slotId: draft.slotId,
                 removalId: draft.removalId,
                 serviceId: draft.serviceId,
                 serviceOptionGroupId: draft.serviceOptionGroupId,
                 serviceOptionId: draft.serviceOptionId,
-                designTierId: draft.designTierId,
+                designTierId: requiresDesignTier(service)
+                    ? draft.designTierId
+                    : null,
             });
             setActiveStep("review");
         }, 0);
@@ -174,6 +179,7 @@ export function useBookingFlow({
     );
     const selectedServiceOptionGroupId =
         estimate.serviceOption?.groupId ?? selections.serviceOptionGroupId;
+    const designTierRequired = requiresDesignTier(estimate.service);
     const visibleServiceOptions = useMemo(() => {
         if (!estimate.service) {
             return [];
@@ -283,7 +289,11 @@ export function useBookingFlow({
 
         if (activeStep === "review") {
             setActiveStep(
-                selections.removalId === "removal_only" ? "removal" : "design",
+                selections.removalId === "removal_only"
+                    ? "removal"
+                    : designTierRequired
+                      ? "design"
+                      : "service",
             );
         }
     }
@@ -316,7 +326,7 @@ export function useBookingFlow({
                 return;
             }
 
-            setActiveStep("design");
+            setActiveStep(designTierRequired ? "design" : "review");
             return;
         }
 
@@ -351,7 +361,7 @@ export function useBookingFlow({
                         ? "Choose an appointment type to continue."
                         : null
                 : activeStep === "design"
-                  ? selections.designTierId
+                  ? !designTierRequired || selections.designTierId
                       ? null
                       : "Choose a design tier to continue."
                   : reviewReady
@@ -372,7 +382,9 @@ export function useBookingFlow({
                 serviceId: selections.serviceId,
                 serviceOptionGroupId: selections.serviceOptionGroupId,
                 serviceOptionId: selections.serviceOptionId,
-                designTierId: selections.designTierId,
+                designTierId: designTierRequired
+                    ? selections.designTierId
+                    : null,
                 slotStartsAt: summary.slot.startsAt,
                 slotEndsAt: summary.slot.endsAt,
             });
@@ -400,6 +412,7 @@ export function useBookingFlow({
         depositNote,
         holdNote,
         bookingFeeRate,
+        designTierRequired,
         selectedServiceOptionLabel,
         serviceOptionGroups,
         selectedServiceOptionGroupId,

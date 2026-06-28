@@ -15,6 +15,7 @@ import {
     getService,
     getServiceOption,
     isReviewReady,
+    requiresDesignTier,
 } from "@/features/bookings/new-booking/utils";
 import { isAvailableCredit } from "@/features/credits/lib/credits";
 import {
@@ -267,6 +268,8 @@ function buildLineItems({
     if (draft.removalId !== "removal_only" && service && serviceOption) {
         lineItems.push({
             item_type: "service",
+            source_table: "booking_config",
+            source_id: `${service.id}:${serviceOption.id}`,
             label_snapshot: buildServiceLineItemLabel(service, serviceOption),
             description_snapshot:
                 serviceOption.helperText ?? service.description,
@@ -276,7 +279,11 @@ function buildLineItems({
         });
     }
 
-    if (draft.removalId !== "removal_only" && designTier) {
+    if (
+        draft.removalId !== "removal_only" &&
+        requiresDesignTier(service) &&
+        designTier
+    ) {
         lineItems.push({
             item_type: "design_tier",
             source_table: "design_tiers",
@@ -546,6 +553,24 @@ export async function submitBookingCheckout(
         });
     }
 
+    const removal = getRemovalOption(draft.removalId);
+    const service = getService(draft.serviceId);
+    const serviceOption = getServiceOption(service, draft.serviceOptionId);
+    const designTierRequired =
+        draft.removalId !== "removal_only" && requiresDesignTier(service);
+
+    if (!removal) {
+        return state({
+            error: "Your removal selection is no longer valid. Please start again.",
+        });
+    }
+
+    if (draft.removalId !== "removal_only" && (!service || !serviceOption)) {
+        return state({
+            error: "Your selected service is no longer valid. Please review your booking again.",
+        });
+    }
+
     const admin = createAdminClient();
 
     const [settingsResult, designTiersResult, policiesResult] =
@@ -560,11 +585,16 @@ export async function submitBookingCheckout(
                 .maybeSingle()
                 .overrideTypes<BookingSettingsRow | null>(),
 
-            admin
-                .from("design_tiers")
-                .select("id, name, description, price")
-                .eq("active", true)
-                .overrideTypes<DesignTierRow[]>(),
+            designTierRequired
+                ? admin
+                      .from("design_tiers")
+                      .select("id, name, description, price")
+                      .eq("active", true)
+                      .overrideTypes<DesignTierRow[]>()
+                : Promise.resolve({
+                      data: [] as DesignTierRow[],
+                      error: null,
+                  }),
 
             admin
                 .from("policies")
@@ -621,13 +651,13 @@ export async function submitBookingCheckout(
     );
 
     const selectedDesignTier =
-        draft.designTierId && draft.removalId !== "removal_only"
+        draft.designTierId && designTierRequired
             ? ((designTiersResult.data ?? []).find(
                   (tier) => tier.id === draft.designTierId,
               ) ?? null)
             : null;
 
-    if (draft.removalId !== "removal_only" && !selectedDesignTier) {
+    if (designTierRequired && !selectedDesignTier) {
         return state({
             error: "Your selected design tier is no longer available. Please review your booking again.",
         });
@@ -639,22 +669,6 @@ export async function submitBookingCheckout(
         bookingFeeRate: Number(settings.booking_fee_rate ?? 0),
         holdMinutes: Number(settings.hold_minutes ?? 0),
     } as const;
-
-    const removal = getRemovalOption(draft.removalId);
-    const service = getService(draft.serviceId);
-    const serviceOption = getServiceOption(service, draft.serviceOptionId);
-
-    if (!removal) {
-        return state({
-            error: "Your removal selection is no longer valid. Please start again.",
-        });
-    }
-
-    if (draft.removalId !== "removal_only" && (!service || !serviceOption)) {
-        return state({
-            error: "Your selected service is no longer valid. Please review your booking again.",
-        });
-    }
 
     const estimate = calculateEstimate(draft, normalizedSettings, designTiers);
     const paymentPlan = calculateCheckoutPaymentPlan({
@@ -871,7 +885,11 @@ export async function submitBookingCheckout(
                                 ? null
                                 : serviceOption,
                     }),
-                    designTier: selectedDesignTier?.name ?? null,
+                    design: service
+                        ? requiresDesignTier(service)
+                            ? selectedDesignTier?.name ?? null
+                            : "Technician-designed freestyle set"
+                        : null,
                     depositAmount: paymentPlan.depositDue,
                     creditAmount: creditAmount > 0 ? creditAmount : null,
                     estimatedSubtotal: estimate.subtotal,

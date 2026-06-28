@@ -25,6 +25,7 @@ import {
     getServiceOption,
     getServiceOptionGroups,
     isRemovalOnly,
+    requiresDesignTier,
 } from "@/features/bookings/new-booking/utils";
 import {
     calculateAdminDiscountedPricing,
@@ -41,6 +42,7 @@ const EDITABLE_ITEM_TYPES = new Set([
 
 function comparable(selections: BookingSelections) {
     const removalOnly = isRemovalOnly(selections.removalId);
+    const service = getService(selections.serviceId);
     return JSON.stringify({
         removalId: selections.removalId,
         serviceId: removalOnly ? null : selections.serviceId,
@@ -48,7 +50,10 @@ function comparable(selections: BookingSelections) {
             ? null
             : selections.serviceOptionGroupId,
         serviceOptionId: removalOnly ? null : selections.serviceOptionId,
-        designTierId: removalOnly ? null : selections.designTierId,
+        designTierId:
+            removalOnly || !requiresDesignTier(service)
+                ? null
+                : selections.designTierId,
     });
 }
 
@@ -103,6 +108,8 @@ export default function AdminServiceEditor({
     );
     const optionGroups = getServiceOptionGroups(selectedService);
     const fullService = !isRemovalOnly(selections.removalId);
+    const designTierRequired =
+        fullService && requiresDesignTier(selectedService);
     const estimate = calculateEstimate(
         selections,
         {
@@ -138,7 +145,9 @@ export default function AdminServiceEditor({
         hasChanges &&
         selections.removalId &&
         (isRemovalOnly(selections.removalId) ||
-            (selectedService && selectedOption)),
+            (selectedService &&
+                selectedOption &&
+                (!designTierRequired || selections.designTierId))),
     );
 
     function update(next: Partial<BookingSelections>) {
@@ -207,7 +216,11 @@ export default function AdminServiceEditor({
                 <input
                     type="hidden"
                     name="designTierId"
-                    value={fullService ? (selections.designTierId ?? "") : ""}
+                    value={
+                        designTierRequired
+                            ? (selections.designTierId ?? "")
+                            : ""
+                    }
                 />
 
                 <div className="mb-5">
@@ -247,14 +260,15 @@ export default function AdminServiceEditor({
                     <AppSelect
                         label="Service"
                         value={fullService ? (selections.serviceId ?? "") : ""}
-                        onChange={(serviceId) =>
+                        onChange={(serviceId) => {
                             update({
                                 serviceId:
                                     serviceId as BookingSelections["serviceId"],
                                 serviceOptionGroupId: null,
                                 serviceOptionId: null,
-                            })
-                        }
+                                designTierId: null,
+                            });
+                        }}
                         disabled={!fullService}
                         placeholder={
                             fullService
@@ -326,25 +340,24 @@ export default function AdminServiceEditor({
                             }))}
                     />
 
-                    <AppSelect
-                        label="Design tier (optional)"
-                        value={
-                            fullService ? (selections.designTierId ?? "") : ""
-                        }
-                        onChange={(designTierId) =>
-                            update({ designTierId: designTierId || null })
-                        }
-                        disabled={!fullService}
-                        placeholder={
-                            fullService
-                                ? "No design add-on"
-                                : "Not needed for removal only"
-                        }
-                        options={designTiers.map((tier) => ({
-                            value: tier.id,
-                            label: `${tier.label} · ${formatMoney(tier.price)}`,
-                        }))}
-                    />
+                    {designTierRequired ? (
+                        <AppSelect
+                            label="Design tier"
+                            value={selections.designTierId ?? ""}
+                            onChange={(designTierId) =>
+                                update({ designTierId: designTierId || null })
+                            }
+                            placeholder="Choose design tier"
+                            options={designTiers.map((tier) => ({
+                                value: tier.id,
+                                label: `${tier.label} · ${formatMoney(tier.price)}`,
+                            }))}
+                        />
+                    ) : selectedService ? (
+                        <p className="self-end rounded-2xl bg-background px-4 py-3 text-sm text-muted">
+                            Freestyle design is chosen by the nail technician.
+                        </p>
+                    ) : null}
                 </div>
 
                 {!inferred.reliable ? (

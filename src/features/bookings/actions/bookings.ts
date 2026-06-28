@@ -17,6 +17,7 @@ import {
     getServiceOption,
     getServiceOptionGroups,
     isRemovalOnly,
+    requiresDesignTier,
 } from "@/features/bookings/new-booking/utils";
 import type {
     BookingCancellationActionState,
@@ -145,13 +146,19 @@ function buildEditableLineItems({
     }
 
     if (!isRemovalOnly(selections.removalId)) {
-        if (!service || !serviceOption || !designTier) {
+        if (
+            !service ||
+            !serviceOption ||
+            (requiresDesignTier(service) && !designTier)
+        ) {
             return null;
         }
 
         lineItems.push({
             booking_id: "",
             item_type: "service",
+            source_table: "booking_config",
+            source_id: `${service.id}:${serviceOption.id}`,
             label_snapshot: buildServiceLineItemLabel(service, serviceOption),
             description_snapshot:
                 serviceOption.helperText ?? service.description,
@@ -160,17 +167,19 @@ function buildEditableLineItems({
             active: true,
         });
 
-        lineItems.push({
-            booking_id: "",
-            item_type: "design_tier",
-            source_table: "design_tiers",
-            source_id: designTier.id,
-            label_snapshot: normalizeDesignTierLabel(designTier.name),
-            description_snapshot: designTier.description,
-            quantity: 1,
-            unit_price: Number(designTier.price ?? 0),
-            active: true,
-        });
+        if (requiresDesignTier(service) && designTier) {
+            lineItems.push({
+                booking_id: "",
+                item_type: "design_tier",
+                source_table: "design_tiers",
+                source_id: designTier.id,
+                label_snapshot: normalizeDesignTierLabel(designTier.name),
+                description_snapshot: designTier.description,
+                quantity: 1,
+                unit_price: Number(designTier.price ?? 0),
+                active: true,
+            });
+        }
     }
 
     return lineItems;
@@ -312,11 +321,14 @@ export async function updateBookingServices(
 
     const admin = createAdminClient();
 
-    const { data: designTierRows, error: designTierError } = await admin
-        .from("design_tiers")
-        .select("id, name, description, price")
-        .eq("active", true)
-        .overrideTypes<DesignTierRow[]>();
+    const { data: designTierRows, error: designTierError } =
+        !isRemovalOnly(selections.removalId) && requiresDesignTier(service)
+            ? await admin
+                  .from("design_tiers")
+                  .select("id, name, description, price")
+                  .eq("active", true)
+                  .overrideTypes<DesignTierRow[]>()
+            : { data: [] as DesignTierRow[], error: null };
 
     if (designTierError) {
         console.error("[bookings:edit.design-tiers]", designTierError);
@@ -326,13 +338,19 @@ export async function updateBookingServices(
     }
 
     const selectedDesignTier =
-        !isRemovalOnly(selections.removalId) && selections.designTierId
+        !isRemovalOnly(selections.removalId) &&
+        requiresDesignTier(service) &&
+        selections.designTierId
             ? ((designTierRows ?? []).find(
                   (tier) => tier.id === selections.designTierId,
               ) ?? null)
             : null;
 
-    if (!isRemovalOnly(selections.removalId) && !selectedDesignTier) {
+    if (
+        !isRemovalOnly(selections.removalId) &&
+        requiresDesignTier(service) &&
+        !selectedDesignTier
+    ) {
         return editState({ error: "Choose a valid design tier." });
     }
 
@@ -423,7 +441,11 @@ export async function updateBookingServices(
             serviceOption: isRemovalOnly(selections.removalId)
                 ? null
                 : buildServiceOptionLabel(service, serviceOption),
-            designTier: selectedDesignTier?.name ?? null,
+            design: service
+                ? requiresDesignTier(service)
+                    ? selectedDesignTier?.name ?? null
+                    : "Technician-designed freestyle set"
+                : null,
             estimatedSubtotal: estimate.subtotal,
             estimatedBookingFee: estimate.bookingFee,
             estimatedTotal: estimate.total,

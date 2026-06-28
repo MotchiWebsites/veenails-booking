@@ -1294,6 +1294,7 @@ export type Database = {
           group_id: string
           id: string
           name: string
+          requires_design_tier: boolean
           slug: string
           standalone_booking_allowed: boolean
           updated_at: string
@@ -1306,6 +1307,7 @@ export type Database = {
           group_id: string
           id?: string
           name: string
+          requires_design_tier?: boolean
           slug: string
           standalone_booking_allowed?: boolean
           updated_at?: string
@@ -1318,6 +1320,7 @@ export type Database = {
           group_id?: string
           id?: string
           name?: string
+          requires_design_tier?: boolean
           slug?: string
           standalone_booking_allowed?: boolean
           updated_at?: string

@@ -90,6 +90,10 @@ export function isFullServiceBooking(selections: BookingSelections) {
     );
 }
 
+export function requiresDesignTier(service: ServiceConfig | null | undefined) {
+    return service?.requiresDesignTier === true;
+}
+
 export function isReviewReady(selections: BookingSelections) {
     if (!selections.slotId || !selections.removalId) {
         return false;
@@ -99,10 +103,12 @@ export function isReviewReady(selections: BookingSelections) {
         return true;
     }
 
+    const service = getService(selections.serviceId);
+
     return Boolean(
-        selections.serviceId &&
+        service &&
             selections.serviceOptionId &&
-            selections.designTierId,
+            (!requiresDesignTier(service) || selections.designTierId),
     );
 }
 
@@ -114,7 +120,8 @@ export function getReachableSteps(selections: BookingSelections) {
         design: Boolean(
             isFullServiceBooking(selections) &&
                 selections.serviceId &&
-                selections.serviceOptionId,
+                selections.serviceOptionId &&
+                requiresDesignTier(getService(selections.serviceId)),
         ),
         review: isReviewReady(selections),
     } satisfies Record<NewBookingStep, boolean>;
@@ -144,7 +151,11 @@ export function getStepStatus(
         time: Boolean(selections.slotId),
         removal: Boolean(selections.removalId),
         service: Boolean(selections.serviceId && selections.serviceOptionId),
-        design: Boolean(selections.designTierId),
+        design: Boolean(
+            selections.serviceId &&
+                (!requiresDesignTier(getService(selections.serviceId)) ||
+                    selections.designTierId),
+        ),
         review: isReviewReady(selections),
     } satisfies Record<NewBookingStep, boolean>;
 
@@ -153,8 +164,11 @@ export function getStepStatus(
     }
 
     if (
-        isRemovalOnly(selections.removalId) &&
-        (step === "service" || step === "design")
+        (isRemovalOnly(selections.removalId) &&
+            (step === "service" || step === "design")) ||
+        (step === "design" &&
+            Boolean(selections.serviceId) &&
+            !requiresDesignTier(getService(selections.serviceId)))
     ) {
         return "skipped";
     }
@@ -200,7 +214,7 @@ export function calculateEstimate(
     const service = getService(selections.serviceId);
     const serviceOption = getServiceOption(service, selections.serviceOptionId);
     const designTier =
-        isFullServiceBooking(selections)
+        isFullServiceBooking(selections) && requiresDesignTier(service)
             ? getDesignTier(selections.designTierId, designTiers)
             : null;
 
@@ -321,7 +335,9 @@ export function getSelectionSummary(
     const removal = getRemovalOption(selections.removalId);
     const service = getService(selections.serviceId);
     const serviceOption = getServiceOption(service, selections.serviceOptionId);
-    const designTier = getDesignTier(selections.designTierId, designTiers);
+    const designTier = requiresDesignTier(service)
+        ? getDesignTier(selections.designTierId, designTiers)
+        : null;
 
     return {
         slot,
@@ -334,6 +350,17 @@ export function getSelectionSummary(
 
 export function getStepNumber(step: NewBookingStep) {
     return bookingSteps.findIndex((item) => item.id === step) + 1;
+}
+
+export function getVisibleBookingSteps(selections: BookingSelections) {
+    const service = getService(selections.serviceId);
+
+    return bookingSteps.filter(
+        (step) =>
+            step.id !== "design" ||
+            !service ||
+            requiresDesignTier(service),
+    );
 }
 
 function roundCurrency(value: number) {

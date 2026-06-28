@@ -26,6 +26,7 @@ import {
     getService,
     getServiceOption,
     isRemovalOnly,
+    requiresDesignTier,
 } from "@/features/bookings/new-booking/utils";
 import { formatBookingDateTime } from "@/features/bookings/utils/booking-formatters";
 
@@ -77,6 +78,8 @@ export default function AdminCreateAppointmentPage({
         serviceOptionId,
     );
     const fullService = !isRemovalOnly(removalId);
+    const designTierRequired =
+        fullService && requiresDesignTier(selectedService);
     const selectedProfile = profiles.find((profile) => profile.id === userId);
 
     const selections: BookingSelections = {
@@ -85,7 +88,7 @@ export default function AdminCreateAppointmentPage({
         serviceId: fullService ? serviceId : null,
         serviceOptionGroupId: selectedServiceOption?.groupId ?? null,
         serviceOptionId: fullService ? serviceOptionId || null : null,
-        designTierId: fullService ? designTierId || null : null,
+        designTierId: designTierRequired ? designTierId || null : null,
     };
     const estimate = calculateEstimate(selections, settings, designTiers);
 
@@ -119,6 +122,7 @@ export default function AdminCreateAppointmentPage({
     function handleService(nextServiceId: string) {
         setServiceId(nextServiceId as ServiceConfig["id"]);
         setServiceOptionId("");
+        setDesignTierId("");
     }
 
     return (
@@ -147,7 +151,11 @@ export default function AdminCreateAppointmentPage({
                 <input type="hidden" name="removalId" value={removalId ?? ""} />
                 <input type="hidden" name="serviceId" value={fullService ? serviceId ?? "" : ""} />
                 <input type="hidden" name="serviceOptionId" value={fullService ? serviceOptionId : ""} />
-                <input type="hidden" name="designTierId" value={fullService ? designTierId : ""} />
+                <input
+                    type="hidden"
+                    name="designTierId"
+                    value={designTierRequired ? designTierId : ""}
+                />
 
                 <div className="space-y-6">
                     <section className="rounded-3xl border border-border/60 bg-surface p-5 shadow-sm sm:p-7">
@@ -309,17 +317,18 @@ export default function AdminCreateAppointmentPage({
                                     label: `${buildServiceOptionLabel(selectedService, option) ?? option.label} · ${formatMoney(option.price)}`,
                                 }))}
                             />
-                            <AppSelect
-                                label="Design tier"
-                                value={fullService ? designTierId : ""}
-                                onChange={setDesignTierId}
-                                disabled={!fullService}
-                                placeholder={fullService ? "Choose design tier" : "Not needed"}
-                                options={designTiers.map((tier) => ({
-                                    value: tier.id,
-                                    label: `${tier.label} · ${formatMoney(tier.price)}`,
-                                }))}
-                            />
+                            {designTierRequired ? (
+                                <AppSelect
+                                    label="Design tier"
+                                    value={designTierId}
+                                    onChange={setDesignTierId}
+                                    placeholder="Choose design tier"
+                                    options={designTiers.map((tier) => ({
+                                        value: tier.id,
+                                        label: `${tier.label} · ${formatMoney(tier.price)}`,
+                                    }))}
+                                />
+                            ) : null}
                         </div>
                     </section>
                 </div>
@@ -333,7 +342,16 @@ export default function AdminCreateAppointmentPage({
                         <Summary label="Client" value={clientMode === "existing" ? selectedProfile?.displayName : "External client"} />
                         <Summary label="Time" value={slots.find((slot) => slot.id === slotId) ? formatBookingDateTime(slots.find((slot) => slot.id === slotId)!.startsAt, slots.find((slot) => slot.id === slotId)!.endsAt) : null} />
                         <Summary label="Service" value={estimate.serviceOption ? buildServiceOptionLabel(estimate.service, estimate.serviceOption) : estimate.removal?.summaryLabel ?? null} />
-                        <Summary label="Design" value={estimate.designTier?.label ?? (fullService ? null : "Not needed")} />
+                        <Summary
+                            label="Design"
+                            value={
+                                designTierRequired
+                                    ? estimate.designTier?.label
+                                    : selectedService
+                                      ? "Chosen by nail technician"
+                                      : "Not needed"
+                            }
+                        />
                     </div>
                     <div className="mt-5 rounded-2xl bg-background p-4">
                         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Estimated total</p>

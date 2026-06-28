@@ -1,4 +1,5 @@
 import { removalOptions, services } from "@/features/bookings/new-booking/config";
+import { requiresDesignTier } from "@/features/bookings/new-booking/utils";
 import type { BookingSelections, ServiceConfig, ServiceOption } from "@/features/bookings/new-booking/types";
 import type { AdminAppointmentDetails, AdminLineItem } from "@/features/admin/appointments/data/admin-appointments";
 
@@ -56,10 +57,11 @@ export function inferAdminServiceSelections(
           ) ?? null
         : null;
     const removalOnly = removal?.id === "removal_only";
+    const designTierRequired = requiresDesignTier(inferredService?.service);
     const reliable = Boolean(
         removal &&
             (removalOnly || (!serviceItem || inferredService)) &&
-            (!designItem || designTier),
+            (!designTierRequired || !designItem || designTier),
     );
 
     return {
@@ -72,7 +74,10 @@ export function inferAdminServiceSelections(
                 ? null
                 : inferredService?.option.groupId ?? null,
             serviceOptionId: removalOnly ? null : inferredService?.option.id ?? null,
-            designTierId: removalOnly ? null : designTier?.id ?? null,
+            designTierId:
+                removalOnly || !designTierRequired
+                    ? null
+                    : designTier?.id ?? null,
         },
     };
 }

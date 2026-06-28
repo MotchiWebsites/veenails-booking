@@ -7,6 +7,7 @@ import type { BookingCheckoutDraft } from "@/lib/booking/checkout-draft";
 import {
     formatSlotDate,
     formatSlotTimeRange,
+    requiresDesignTier,
 } from "@/features/bookings/new-booking/utils";
 import type {
     AvailableAppointmentSlot,
@@ -74,10 +75,15 @@ export default function CheckoutSummaryCard({
                             label="Service option"
                             value={serviceOptionLabel ?? "Not selected"}
                         />
-                        <SummaryRow
-                            label="Design tier"
-                            value={estimate.designTier?.label ?? "Not selected"}
-                        />
+                        {requiresDesignTier(service) ? (
+                            <SummaryRow
+                                label="Design tier"
+                                value={
+                                    estimate.designTier?.label ??
+                                    "Not selected"
+                                }
+                            />
+                        ) : null}
                     </>
                 ) : null}
             </div>

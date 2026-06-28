@@ -8,6 +8,7 @@ import {
     getService,
     getServiceOption,
     isRemovalOnly,
+    requiresDesignTier,
 } from "@/features/bookings/new-booking/utils";
 import {
     normalizeInstagramHandle,
@@ -142,6 +143,8 @@ function buildLineItems({
         items.push({
             booking_id: bookingId,
             item_type: "service",
+            source_table: "booking_config",
+            source_id: `${service.id}:${serviceOption.id}`,
             label_snapshot: buildServiceLineItemLabel(service, serviceOption),
             description_snapshot: serviceOption.helperText ?? service.description,
             quantity: 1,
@@ -150,7 +153,11 @@ function buildLineItems({
         });
     }
 
-    if (!isRemovalOnly(selections.removalId) && designTier) {
+    if (
+        !isRemovalOnly(selections.removalId) &&
+        requiresDesignTier(service) &&
+        designTier
+    ) {
         items.push({
             booking_id: bookingId,
             item_type: "design_tier",
@@ -226,8 +233,15 @@ export async function createAdminAppointmentAction(
     const service = getService(selections.serviceId);
     const serviceOption = getServiceOption(service, selections.serviceOptionId);
     if (!removal) return response({ error: "Choose a removal option.", success: "" });
-    if (!isRemovalOnly(selections.removalId) && (!service || !serviceOption || !selections.designTierId)) {
-        return response({ error: "Choose service, option, and design tier.", success: "" });
+    if (!isRemovalOnly(selections.removalId) && (!service || !serviceOption)) {
+        return response({ error: "Choose a valid service and option.", success: "" });
+    }
+    if (
+        !isRemovalOnly(selections.removalId) &&
+        requiresDesignTier(service) &&
+        !selections.designTierId
+    ) {
+        return response({ error: "Choose a design tier.", success: "" });
     }
 
     let createdBookingId: string | null = null;
@@ -283,11 +297,28 @@ export async function createAdminAppointmentAction(
                     booking_fee_rate: number;
                     hold_minutes: number;
                 } | null>(),
-            admin
-                .from("design_tiers")
-                .select("id, name, description, price")
-                .eq("active", true)
-                .overrideTypes<Array<{ id: string; name: string; description: string | null; price: number }>>(),
+            requiresDesignTier(service)
+                ? admin
+                      .from("design_tiers")
+                      .select("id, name, description, price")
+                      .eq("active", true)
+                      .overrideTypes<
+                          Array<{
+                              id: string;
+                              name: string;
+                              description: string | null;
+                              price: number;
+                          }>
+                      >()
+                : Promise.resolve({
+                      data: [] as Array<{
+                          id: string;
+                          name: string;
+                          description: string | null;
+                          price: number;
+                      }>,
+                      error: null,
+                  }),
         ]);
 
         if (settingsResult.error || tiersResult.error) throw settingsResult.error ?? tiersResult.error;
@@ -295,10 +326,16 @@ export async function createAdminAppointmentAction(
         if (!settings) throw new Error("Booking settings are missing.");
 
         const designTier =
-            !isRemovalOnly(selections.removalId) && selections.designTierId
+            !isRemovalOnly(selections.removalId) &&
+            requiresDesignTier(service) &&
+            selections.designTierId
                 ? (tiersResult.data ?? []).find((tier) => tier.id === selections.designTierId) ?? null
                 : null;
-        if (!isRemovalOnly(selections.removalId) && !designTier) {
+        if (
+            !isRemovalOnly(selections.removalId) &&
+            requiresDesignTier(service) &&
+            !designTier
+        ) {
             await admin.from("availability_slots").update({ status: "available" }).eq("id", slot.id);
             return response({ error: "Choose a valid design tier.", success: "" });
         }
@@ -392,6 +429,14 @@ export async function createAdminAppointmentAction(
                 endsAt: slot.ends_at,
                 status: bookingStatus,
                 depositStatus,
+                service:
+                    isRemovalOnly(selections.removalId)
+                        ? removal.label
+                        : service?.label ?? null,
+                design:
+                    service && !requiresDesignTier(service)
+                        ? "Technician-designed freestyle set"
+                        : designTier?.name ?? null,
                 estimatedTotal: estimate.total,
                 clientEmail: mode === "external" ? externalEmail || null : profile?.email ?? null,
                 clientInstagramHandle:

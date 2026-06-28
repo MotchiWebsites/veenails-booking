@@ -44,6 +44,7 @@ export type ServiceConfig = {
     id: "apres_gel_x" | "structured_gel_manicure" | "freestyle";
     label: string;
     description: string;
+    requiresDesignTier: boolean;
     options: readonly ServiceOption[];
 };
 

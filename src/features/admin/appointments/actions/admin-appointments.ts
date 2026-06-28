@@ -5,6 +5,7 @@ import { requireAdmin } from "@/features/admin/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database, Enums, Json } from "@/types/supabase";
 import { removalOptions, services } from "@/features/bookings/new-booking/config";
+import { requiresDesignTier } from "@/features/bookings/new-booking/utils";
 import { appointmentStatusTemplate } from "@/features/notifications/email/templates/appointment-status-template";
 import { cancellationTemplate } from "@/features/notifications/email/templates/cancellation-template";
 import { resolveBookingRecipient } from "@/features/notifications/utils/resolve-booking-recipient";
@@ -1143,9 +1144,20 @@ export async function updateAppointmentServicesAction(
         const service = services.find((item) => item.id === serviceId);
         const serviceOption = service?.options.find((option) => option.id === optionId);
         if (!removal || (removal.id !== "removal_only" && (!service || !serviceOption))) return editState({ error: "Choose valid appointment services." });
+        if (
+            removal.id !== "removal_only" &&
+            requiresDesignTier(service) &&
+            !designTierId
+        ) {
+            return editState({ error: "Choose a design tier." });
+        }
 
         let designTier: { id: string; name: string; description: string | null; price: number } | null = null;
-        if (designTierId && removal.id !== "removal_only") {
+        if (
+            designTierId &&
+            removal.id !== "removal_only" &&
+            requiresDesignTier(service)
+        ) {
             const result = await admin.from("design_tiers").select("id, name, description, price").eq("id", designTierId).eq("active", true).maybeSingle().overrideTypes<typeof designTier>();
             if (result.error || !result.data) return editState({ error: "Choose a valid design tier." });
             designTier = { ...result.data, price: Number(result.data.price) };
@@ -1155,7 +1167,7 @@ export async function updateAppointmentServicesAction(
         if (removal.price > 0) nextItems.push({ booking_id: bookingId, item_type: "removal", label_snapshot: removal.label, description_snapshot: removal.description, quantity: 1, unit_price: removal.price, added_by: user.id });
         if (removal.id !== "removal_only" && service && serviceOption) {
             const optionLabel = "groupLabel" in serviceOption && serviceOption.groupLabel ? `${serviceOption.groupLabel} ${serviceOption.label}` : serviceOption.label;
-            nextItems.push({ booking_id: bookingId, item_type: "service", label_snapshot: service.id === "freestyle" ? service.label : `${service.label} • ${optionLabel}`, description_snapshot: ("helperText" in serviceOption ? serviceOption.helperText : null) ?? service.description, quantity: 1, unit_price: serviceOption.price, added_by: user.id });
+            nextItems.push({ booking_id: bookingId, item_type: "service", label_snapshot: service.id === "freestyle" ? service.label : `${service.label} • ${optionLabel}`, description_snapshot: ("helperText" in serviceOption ? serviceOption.helperText : null) ?? service.description, quantity: 1, unit_price: serviceOption.price, source_table: "booking_config", source_id: `${service.id}:${serviceOption.id}`, added_by: user.id });
         }
         if (designTier) nextItems.push({ booking_id: bookingId, item_type: "design_tier", label_snapshot: designTier.name, description_snapshot: designTier.description, quantity: 1, unit_price: designTier.price, source_table: "design_tiers", source_id: designTier.id, added_by: user.id });
 

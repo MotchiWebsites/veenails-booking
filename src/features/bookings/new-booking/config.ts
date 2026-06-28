@@ -37,6 +37,7 @@ export const services = [
         id: "apres_gel_x",
         label: "Apres Gel-X",
         description: "Choose your set length to match the current pricing menu.",
+        requiresDesignTier: true,
         options: [
             { id: "short", label: "Short", price: 70 },
             { id: "medium", label: "Medium", price: 75 },
@@ -49,6 +50,7 @@ export const services = [
         label: "Structured Gel Manicure",
         description:
             "Pick the length and appointment type that best matches your visit.",
+        requiresDesignTier: true,
         options: [
             {
                 id: "short_base",
@@ -98,7 +100,14 @@ export const services = [
     {
         id: "freestyle",
         label: "Freestyle",
-        description: "One signature freestyle option at the current base price.",
-        options: [{ id: "freestyle", label: "Freestyle", price: 85 }],
+        description: "Design chosen by your nail technician.",
+        requiresDesignTier: false,
+        options: [
+            {
+                id: "freestyle",
+                label: "Technician-designed freestyle set",
+                price: 85,
+            },
+        ],
     },
 ] as const satisfies readonly ServiceConfig[];

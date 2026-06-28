@@ -10,6 +10,7 @@ type BookingSummaryCardProps = {
     serviceLabel: string | null;
     serviceOptionLabel: string | null;
     designTierLabel: string | null;
+    showDesignTier: boolean;
     subtotal: number;
     bookingFee: number;
     bookingFeeIncluded: boolean;
@@ -26,6 +27,7 @@ export default function BookingSummaryCard({
     serviceLabel,
     serviceOptionLabel,
     designTierLabel,
+    showDesignTier,
     subtotal,
     bookingFee,
     bookingFeeIncluded,
@@ -43,10 +45,14 @@ export default function BookingSummaryCard({
             label: "Service option",
             value: serviceOptionLabel ?? "Not selected yet",
         },
-        {
-            label: "Design tier",
-            value: designTierLabel ?? "Not selected yet",
-        },
+        ...(showDesignTier
+            ? [
+                  {
+                      label: "Design tier",
+                      value: designTierLabel ?? "Not selected yet",
+                  },
+              ]
+            : []),
     ];
 
     return (

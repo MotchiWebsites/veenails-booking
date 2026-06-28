@@ -12,6 +12,7 @@ import type {
 import {
     formatSlotShortDate,
     formatSlotTimeRange,
+    requiresDesignTier,
 } from "@/features/bookings/new-booking/utils";
 
 type BookingSummary = {
@@ -65,6 +66,7 @@ export default function ReviewStep({
                 serviceLabel={estimate.service?.label ?? null}
                 serviceOptionLabel={selectedServiceOptionLabel}
                 designTierLabel={estimate.designTier?.label ?? null}
+                showDesignTier={requiresDesignTier(estimate.service)}
                 subtotal={estimate.subtotal}
                 bookingFee={estimate.bookingFee}
                 bookingFeeIncluded={estimate.bookingFeeIncluded}

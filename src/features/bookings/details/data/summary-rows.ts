@@ -41,53 +41,56 @@ export const summaryRows = (
     remainingBalance: number,
     creditUsed: number,
     data: SummaryRowsData,
-): SummaryRow[] => [
-    { label: "Date", value: formatBookingDate(booking.startsAt) },
-    {
-        label: "Time",
-        value: formatBookingTimeRange(booking.startsAt, booking.endsAt),
-    },
-    { label: "Status", value: getBookingStatusLabel(booking.status) },
-    {
-        label: "Services",
-        value: formatShortLineItems(booking.lineItems),
-    },
-    {
-        label: "Design tier",
-        value:
-            booking.lineItems.find((item) => item.itemType === "design_tier")
-                ?.label ?? "Not selected",
-    },
-    {
-        label: "Removal option",
-        value:
-            booking.lineItems.find((item) => item.itemType === "removal")
-                ?.label ?? "No removal",
-    },
-    { label: totalDisplay.label, value: totalDisplay.value },
-    {
-        label: "Remaining balance",
-        value: formatMoney(remainingBalance),
-    },
-    {
-        label: "Deposit/payment status",
-        value: getDepositStatusLabel(data.depositStatus),
-    },
-    {
-        label: "Design inspo",
-        value: getBookingInspoStatusLabel(data.inspoPrompt?.status),
-    },
-    ...(creditUsed > 0
-        ? [{ label: "Credit used", value: formatMoney(creditUsed) }]
-        : []),
-    ...(data.cancellationRequest
-        ? [
-              {
-                  label: "Cancellation request",
-                  value: formatCancellationStatus(
-                      data.cancellationRequest.status,
-                  ),
-              },
-          ]
-        : []),
-];
+): SummaryRow[] => {
+    const designTier = booking.lineItems.find(
+        (item) => item.itemType === "design_tier",
+    );
+
+    return [
+        { label: "Date", value: formatBookingDate(booking.startsAt) },
+        {
+            label: "Time",
+            value: formatBookingTimeRange(booking.startsAt, booking.endsAt),
+        },
+        { label: "Status", value: getBookingStatusLabel(booking.status) },
+        {
+            label: "Services",
+            value: formatShortLineItems(booking.lineItems),
+        },
+        ...(designTier
+            ? [{ label: "Design tier", value: designTier.label }]
+            : []),
+        {
+            label: "Removal option",
+            value:
+                booking.lineItems.find((item) => item.itemType === "removal")
+                    ?.label ?? "No removal",
+        },
+        { label: totalDisplay.label, value: totalDisplay.value },
+        {
+            label: "Remaining balance",
+            value: formatMoney(remainingBalance),
+        },
+        {
+            label: "Deposit/payment status",
+            value: getDepositStatusLabel(data.depositStatus),
+        },
+        {
+            label: "Design inspo",
+            value: getBookingInspoStatusLabel(data.inspoPrompt?.status),
+        },
+        ...(creditUsed > 0
+            ? [{ label: "Credit used", value: formatMoney(creditUsed) }]
+            : []),
+        ...(data.cancellationRequest
+            ? [
+                  {
+                      label: "Cancellation request",
+                      value: formatCancellationStatus(
+                          data.cancellationRequest.status,
+                      ),
+                  },
+              ]
+            : []),
+    ];
+};

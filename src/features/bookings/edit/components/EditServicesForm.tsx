@@ -24,6 +24,7 @@ import {
     getServiceOption,
     getServiceOptionGroups,
     isRemovalOnly,
+    requiresDesignTier,
 } from "@/features/bookings/new-booking/utils";
 import type { BookingEditActionState } from "@/features/bookings/types/bookings";
 import { formatMoney } from "@/features/bookings/utils/booking-formatters";
@@ -70,7 +71,29 @@ function inferSelections(data: BookingDetailsData): BookingSelections {
     let serviceOption: ServiceOption | null = null;
 
     if (serviceItem) {
+        if (
+            serviceItem.sourceTable === "booking_config" &&
+            serviceItem.sourceId
+        ) {
+            const [serviceId, optionId] = serviceItem.sourceId.split(":");
+            const candidateService = services.find(
+                (candidate) => candidate.id === serviceId,
+            );
+            const candidateOption = candidateService?.options.find(
+                (candidate) => candidate.id === optionId,
+            );
+
+            if (candidateService && candidateOption) {
+                service = candidateService;
+                serviceOption = candidateOption;
+            }
+        }
+
         for (const candidateService of services) {
+            if (service && serviceOption) {
+                break;
+            }
+
             const option = candidateService.options.find(
                 (candidateOption) =>
                     buildServiceLineItemLabel(
@@ -121,7 +144,11 @@ function canSaveServiceSelections({
         return true;
     }
 
-    if (!service || !serviceOption || !designTier) {
+    if (
+        !service ||
+        !serviceOption ||
+        (requiresDesignTier(service) && !designTier)
+    ) {
         return false;
     }
 
@@ -140,6 +167,7 @@ function canSaveServiceSelections({
 
 function comparableSelections(selections: BookingSelections) {
     const removalOnly = isRemovalOnly(selections.removalId);
+    const service = getService(selections.serviceId);
 
     return {
         removalId: selections.removalId ?? null,
@@ -150,7 +178,10 @@ function comparableSelections(selections: BookingSelections) {
         serviceOptionId: removalOnly
             ? null
             : (selections.serviceOptionId ?? null),
-        designTierId: removalOnly ? null : (selections.designTierId ?? null),
+        designTierId:
+            removalOnly || !requiresDesignTier(service)
+                ? null
+                : (selections.designTierId ?? null),
     };
 }
 
@@ -230,6 +261,8 @@ export default function EditServicesForm({
         designTiers,
     );
     const fullService = !isRemovalOnly(selections.removalId);
+    const designTierRequired =
+        fullService && requiresDesignTier(selectedService);
     const hasChanges = haveServiceSelectionsChanged(
         selections,
         initialSelections,
@@ -275,7 +308,9 @@ export default function EditServicesForm({
             <input
                 type="hidden"
                 name="designTierId"
-                value={fullService ? (selections.designTierId ?? "") : ""}
+                value={
+                    designTierRequired ? (selections.designTierId ?? "") : ""
+                }
             />
 
             <div className="grid gap-4 xl:grid-cols-2">
@@ -313,7 +348,7 @@ export default function EditServicesForm({
                     }))}
                 />
 
-                {fullService ? (
+                {designTierRequired ? (
                     <AppSelect
                         label="Service"
                         value={selections.serviceId ?? ""}
@@ -438,9 +473,11 @@ export default function EditServicesForm({
                     <p className="text-sm text-muted">
                         Design
                         <span className="mt-1 block font-semibold text-foreground">
-                            {fullService
+                            {designTierRequired
                                 ? (selectedDesignTier?.label ?? "Not selected")
-                                : "Not needed"}
+                                : selectedService
+                                  ? "Chosen by your nail technician"
+                                  : "Not needed"}
                         </span>
                     </p>
                 </div>
