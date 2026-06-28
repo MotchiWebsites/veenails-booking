@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/features/auth/guards/get-user";
 import type {
     BookingSummary,
@@ -144,6 +145,10 @@ export type BookingDetailsData = {
     depositAmount: number;
     amountPaid: number;
     amountDue: number;
+    arrivalInfo: {
+        address: string | null;
+        buzzerCode: string | null;
+    } | null;
     depositStatus: DepositStatus;
     payments: BookingDetailsPayment[];
     policies: BookingDetailsPolicy[];
@@ -257,6 +262,7 @@ function mapLineItems(row: BookingDetailsRow): BookingSummary["lineItems"] {
             id: item.id,
             itemType: item.item_type,
             label: item.label_snapshot,
+            description: item.description_snapshot,
             quantity: Number(item.quantity || 0),
             unitPrice: Number(item.unit_price || 0),
             lineTotal:
@@ -314,6 +320,10 @@ function mapDetails(row: BookingDetailsRow): BookingDetailsData {
         endsAt: slot?.ends_at ?? null,
         estimatedTotal,
         finalTotal,
+        subtotalAmount: Number(row.subtotal_amount || 0),
+        bookingFeeAmount: Number(row.booking_fee_amount || 0),
+        amountPaid: Number(row.amount_paid || 0),
+        amountDue: Number(row.amount_due || 0),
         createdAt: row.created_at,
         lineItems,
         cancellationRequest: latestCancellationRequest
@@ -336,6 +346,7 @@ function mapDetails(row: BookingDetailsRow): BookingDetailsData {
         depositAmount: Number(row.deposit_amount || 0),
         amountPaid: Number(row.amount_paid || 0),
         amountDue: Number(row.amount_due || 0),
+        arrivalInfo: null,
         depositStatus: row.deposit_status,
         payments: sortByCreatedAt(row.booking_payments ?? []).map(
             (payment) => ({
@@ -412,7 +423,38 @@ export async function getBookingDetailsData({
         throw new Error("We couldn't load this booking right now.");
     }
 
-    return data ? mapDetails(data) : null;
+    if (!data) return null;
+
+    const details = mapDetails(data);
+    if (details.summary.status !== "confirmed") {
+        return details;
+    }
+
+    const admin = createAdminClient();
+    const { data: settings, error: settingsError } = await admin
+        .from("booking_settings")
+        .select("studio_address, studio_buzzer_code")
+        .eq("active", true)
+        .order("id", { ascending: true })
+        .limit(1)
+        .maybeSingle()
+        .overrideTypes<{
+            studio_address: string | null;
+            studio_buzzer_code: string | null;
+        } | null>();
+
+    if (settingsError) {
+        console.error("[bookings:getArrivalInfo]", settingsError);
+        return details;
+    }
+
+    return {
+        ...details,
+        arrivalInfo: {
+            address: settings?.studio_address ?? null,
+            buzzerCode: settings?.studio_buzzer_code ?? null,
+        },
+    };
 }
 
 export async function getAvailableEditBookingSlots(): Promise<

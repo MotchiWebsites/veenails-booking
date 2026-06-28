@@ -17,6 +17,10 @@ export async function updateBookingSettingsAction(formData: FormData) {
     const depositAmount = numberFromForm(formData, "depositAmount");
     const bookingFeeRate = numberFromForm(formData, "bookingFeeRate");
     const holdMinutes = numberFromForm(formData, "holdMinutes");
+    const regularEarlyAccessHours = numberFromForm(
+        formData,
+        "regularEarlyAccessHours",
+    );
     const bookingFeeMode = String(
         formData.get("bookingFeeMode") ?? "added_on_top",
     ) as Enums<"fee_mode">;
@@ -24,9 +28,28 @@ export async function updateBookingSettingsAction(formData: FormData) {
         String(formData.get("etransferEmail") ?? "").trim() || null;
     const instagramUrl =
         String(formData.get("instagramUrl") ?? "").trim() || null;
+    const studioAddress =
+        String(formData.get("studioAddress") ?? "").trim() || null;
+    const studioBuzzerCode =
+        String(formData.get("studioBuzzerCode") ?? "").trim() || null;
 
-    if (!id || depositAmount === null || bookingFeeRate === null || holdMinutes === null) {
+    if (
+        !id ||
+        depositAmount === null ||
+        bookingFeeRate === null ||
+        holdMinutes === null ||
+        regularEarlyAccessHours === null
+    ) {
         throw new Error("Booking settings are incomplete.");
+    }
+    if (
+        depositAmount < 0 ||
+        bookingFeeRate < 0 ||
+        holdMinutes < 1 ||
+        regularEarlyAccessHours < 0 ||
+        regularEarlyAccessHours > 168
+    ) {
+        throw new Error("Booking settings contain an invalid value.");
     }
 
     const admin = createAdminClient();
@@ -39,6 +62,9 @@ export async function updateBookingSettingsAction(formData: FormData) {
             hold_minutes: holdMinutes,
             etransfer_email: etransferEmail,
             instagram_url: instagramUrl,
+            regular_early_access_hours: regularEarlyAccessHours,
+            studio_address: studioAddress,
+            studio_buzzer_code: studioBuzzerCode,
         })
         .eq("id", id);
 
@@ -50,4 +76,6 @@ export async function updateBookingSettingsAction(formData: FormData) {
     revalidatePath("/admin/settings");
     revalidatePath("/book");
     revalidatePath("/book/checkout");
+    revalidatePath("/booking");
+    revalidatePath("/dashboard");
 }

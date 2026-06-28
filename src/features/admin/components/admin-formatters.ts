@@ -20,5 +20,10 @@ export function formatDateTime(value: string | null | undefined) {
 export function formatContactMethod(value: string | null | undefined) {
     if (value === "instagram") return "Instagram";
     if (value === "phone") return "Phone";
-    return "Email";
+    if (value === "email") return "Email";
+    return "Not provided";
+}
+
+export function formatInstagramHandle(value: string) {
+    return `@${value.replace(/^@/, "")}`;
 }

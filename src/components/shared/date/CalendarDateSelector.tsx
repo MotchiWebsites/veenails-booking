@@ -24,11 +24,13 @@ export default function CalendarDateSelector({
     defaultValue,
     min = toDateKey(new Date()),
     label = "Appointment Date",
+    onChange,
 }: {
     name: string;
     defaultValue?: string;
     min?: string;
     label?: string;
+    onChange?: (value: string) => void;
 }) {
     const initialDate =
         fromDateKey(defaultValue) ?? fromDateKey(min) ?? new Date();
@@ -121,7 +123,10 @@ export default function CalendarDateSelector({
                             type="button"
                             disabled={disabled}
                             aria-pressed={isSelected}
-                            onClick={() => setSelected(value)}
+                            onClick={() => {
+                                setSelected(value);
+                                onChange?.(value);
+                            }}
                             className={`aspect-square rounded-xl text-sm transition ${
                                 isSelected
                                     ? "bg-dark-green font-semibold text-white shadow-sm"

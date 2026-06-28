@@ -19,6 +19,10 @@ import {
     canEditBookingOnline,
     isUpcomingBooking,
 } from "@/features/bookings/utils/booking-status";
+import {
+    getBookingDiscounts,
+    getBookingSubtotalBeforeDiscount,
+} from "@/features/bookings/utils/booking-pricing";
 import BookingDetailsHeader from "./BookingDetailsHeader";
 import { summaryRows } from "../data/summary-rows";
 import BookingCancellationSummary from "@/features/bookings/details/components/BookingCancellationSummary";
@@ -35,7 +39,9 @@ export default function BookingDetailsPage({
         .filter((payment) => payment.type === "credit")
         .reduce((total, payment) => total + payment.amount, 0);
 
-    const estimatedAmountDue = data.amountDue - data.depositAmount;
+    const discounts = getBookingDiscounts(booking);
+    const subtotalBeforeDiscount = getBookingSubtotalBeforeDiscount(booking);
+    const remainingBalance = Math.max(0, data.amountDue);
     const showInspoAction =
         isUpcomingBooking(booking.status, booking.startsAt) &&
         shouldShowBookingInspoSubmission(data.inspoPrompt?.status);
@@ -93,7 +99,7 @@ export default function BookingDetailsPage({
                     {summaryRows(
                         booking,
                         totalDisplay,
-                        estimatedAmountDue,
+                        remainingBalance,
                         creditUsed,
                         data,
                     ).map((row) => (
@@ -104,6 +110,39 @@ export default function BookingDetailsPage({
                         />
                     ))}
                 </div>
+
+                {data.arrivalInfo ? (
+                    <div className="mt-5 rounded-2xl border border-border/60 bg-surface-2 p-4">
+                        <p className="text-sm font-semibold text-foreground">
+                            Studio arrival information
+                        </p>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                            {data.arrivalInfo.address ? (
+                                <div>
+                                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+                                        Address
+                                    </p>
+                                    <p className="mt-1 text-sm text-foreground">
+                                        {data.arrivalInfo.address}
+                                    </p>
+                                </div>
+                            ) : null}
+                            {data.arrivalInfo.buzzerCode ? (
+                                <div>
+                                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+                                        Buzzer code
+                                    </p>
+                                    <p className="mt-1 text-sm font-semibold text-foreground">
+                                        {data.arrivalInfo.buzzerCode}
+                                    </p>
+                                </div>
+                            ) : null}
+                        </div>
+                        <p className="mt-3 text-sm text-muted">
+                            Please arrive 15 minutes early.
+                        </p>
+                    </div>
+                ) : null}
 
                 {data.clientNotes ? (
                     <div className="mt-5 rounded-2xl bg-background p-4">
@@ -121,8 +160,14 @@ export default function BookingDetailsPage({
                 <BookingDetailsHeader title="Services and pricing" />
                 <div className="mt-4 grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(280px,0.72fr)]">
                     <div className="space-y-3">
-                        {booking.lineItems.length > 0 ? (
-                            booking.lineItems.map((item) => (
+                        {booking.lineItems.some(
+                            (item) => item.itemType !== "discount",
+                        ) ? (
+                            booking.lineItems
+                                .filter(
+                                    (item) => item.itemType !== "discount",
+                                )
+                                .map((item) => (
                                 <div
                                     key={item.id}
                                     className="flex items-start justify-between gap-4 rounded-2xl bg-background p-4"
@@ -139,7 +184,7 @@ export default function BookingDetailsPage({
                                         {formatMoney(item.lineTotal)}
                                     </p>
                                 </div>
-                            ))
+                                ))
                         ) : (
                             <p className="rounded-2xl border border-dashed border-border/60 bg-background p-4 text-sm text-muted">
                                 Service details are still being finalized.
@@ -149,16 +194,29 @@ export default function BookingDetailsPage({
 
                     <div className="rounded-2xl bg-background p-4">
                         <TotalsRow
-                            label="Services subtotal"
-                            value={formatMoney(data.subtotalAmount)}
+                            label="Subtotal"
+                            value={formatMoney(subtotalBeforeDiscount)}
                         />
+                        {discounts.map((discount) => (
+                            <div key={discount.id}>
+                                <TotalsRow
+                                    label={discount.label}
+                                    value={`-${formatMoney(discount.amount)}`}
+                                />
+                                {discount.reason ? (
+                                    <p className="-mt-1 mb-2 text-xs text-muted">
+                                        {discount.reason}
+                                    </p>
+                                ) : null}
+                            </div>
+                        ))}
                         <TotalsRow
                             label="Booking fee"
                             value={formatMoney(data.bookingFeeAmount)}
                         />
                         <TotalsRow
-                            label="Deposit"
-                            value={formatMoney(data.depositAmount * -1)}
+                            label="Amount paid"
+                            value={formatMoney(data.amountPaid)}
                         />
                         {creditUsed > 0 && (
                             <TotalsRow
@@ -173,8 +231,8 @@ export default function BookingDetailsPage({
                                 prominent
                             />
                             <TotalsRow
-                                label="Estimated amount due at appointment"
-                                value={formatMoney(estimatedAmountDue)}
+                                label="Remaining balance"
+                                value={formatMoney(remainingBalance)}
                                 prominent
                             />
                         </div>

@@ -25,10 +25,20 @@ BREVO_API_KEY=
 BREVO_SENDER_EMAIL=
 BREVO_SENDER_NAME="Vee’s Nail Studio"
 ADMIN_NOTIFICATION_EMAIL=
+CRON_SECRET=
 NEXT_PUBLIC_SITE_URL=
 ```
 
-When Brevo is not configured, email attempts are safely recorded as `skipped` in `notification_logs`.
+When Brevo is not configured, email attempts are safely recorded as `failed`
+and can be retried after configuration is fixed. Bookings without an email
+recipient are recorded as `skipped` without calling Brevo.
+
+Vercel calls `/api/cron/appointment-reminders` daily at 12:00 UTC. The route requires
+`Authorization: Bearer <CRON_SECRET>` and sends one deduplicated reminder for
+confirmed appointments on the next studio-calendar day.
+
+See [the transactional email matrix](docs/email-notifications.md) for client
+emails, admin copies, notification types, and deduplication keys.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

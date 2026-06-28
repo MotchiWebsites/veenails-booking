@@ -5,11 +5,11 @@ import AdminStatusPill from "@/features/admin/components/AdminStatusPill";
 import {
     formatBookingDateTime,
     formatContactMethod,
+    formatInstagramHandle,
     formatMoney,
 } from "@/features/admin/components/admin-formatters";
 import {
     getBookingStatusLabel,
-    getDepositStatusLabel,
 } from "@/features/bookings/utils/booking-status";
 import AdminBookingWorkflowButton from "@/features/admin/appointments/components/AdminBookingWorkflowButton";
 
@@ -47,32 +47,21 @@ export default function AdminAppointmentRow({
     booking: AdminAppointmentListItem;
     quickAction?: boolean;
 }) {
-    const clientName =
-        booking.profile?.displayName ??
-        booking.externalClient.displayName ??
-        "External client";
-    const clientEmail = booking.profile?.email ?? booking.externalClient.email;
-    const instagramHandle =
-        booking.profile?.instagramHandle ??
-        booking.externalClient.instagramHandle;
-    const preferredContact =
-        booking.profile?.preferredContactMethod ??
-        booking.externalClient.preferredContactMethod;
+    const instagramHandle = booking.clientInstagramHandle;
+    const preferredContact = booking.clientPreferredContactMethod;
     const contactValue =
         preferredContact === "email"
-            ? clientEmail
+            ? booking.clientEmail
             : preferredContact === "instagram"
               ? instagramHandle
-                  ? `@${instagramHandle}`
+                  ? formatInstagramHandle(instagramHandle)
                   : null
-              : preferredContact === "phone"
-                ? booking.profile?.phone
-                : null;
+              : null;
     const fallbackContact =
-        clientEmail ??
-        (instagramHandle ? `@${instagramHandle}` : null) ??
-        booking.profile?.phone ??
-        "No contact provided";
+        booking.clientEmail ??
+        (instagramHandle ? formatInstagramHandle(instagramHandle) : null) ??
+        booking.clientPhone ??
+        "Contact details unavailable";
     const contact = preferredContact
         ? `${formatContactMethod(preferredContact)} · ${contactValue ?? fallbackContact}`
         : fallbackContact;
@@ -89,6 +78,9 @@ export default function AdminAppointmentRow({
                     <AdminStatusPill
                         label={getBookingStatusLabel(booking.status)}
                     />
+                    {booking.isExternalClient ? (
+                        <AdminStatusPill label="External client" />
+                    ) : null}
                 </div>
                 <p className="text-sm font-semibold text-foreground sm:max-w-52 sm:shrink-0 sm:text-right">
                     {formatBookingDateTime(booking.startsAt, booking.endsAt)}
@@ -96,7 +88,7 @@ export default function AdminAppointmentRow({
             </div>
             <div className="my-2 min-w-0 space-y-1">
                 <p className="wrap-break-word font-medium text-foreground">
-                    {clientName}
+                    {booking.clientDisplayName}
                 </p>
                 <p className="wrap-break-word text-sm text-muted">{contact}</p>
             </div>

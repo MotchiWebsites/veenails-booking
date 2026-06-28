@@ -4,6 +4,10 @@ import StepSectionCard from "@/components/shared/ui/StepSectionCard";
 import TotalsRow from "@/components/shared/ui/TotalsRow";
 import type { BookingDetailsData } from "@/features/bookings/details/data/booking-details";
 import { formatMoney } from "@/features/bookings/utils/booking-formatters";
+import {
+    getBookingDiscounts,
+    getBookingSubtotalBeforeDiscount,
+} from "@/features/bookings/utils/booking-pricing";
 
 function formatPaymentLabel(value: string) {
     return value
@@ -21,6 +25,7 @@ export default function BookingPaymentSummaryCard({
         data.summary.status === "completed" && data.summary.finalTotal > 0
             ? data.summary.finalTotal
             : data.summary.estimatedTotal;
+    const discounts = getBookingDiscounts(data.summary);
 
     return (
         <StepSectionCard
@@ -30,16 +35,25 @@ export default function BookingPaymentSummaryCard({
         >
             <div className="rounded-3xl border border-border/60 bg-background p-4">
                 <TotalsRow
-                    label="Services subtotal"
-                    value={formatMoney(data.subtotalAmount)}
+                    label="Subtotal"
+                    value={formatMoney(
+                        getBookingSubtotalBeforeDiscount(data.summary),
+                    )}
                 />
+                {discounts.map((discount) => (
+                    <TotalsRow
+                        key={discount.id}
+                        label={discount.label}
+                        value={`-${formatMoney(discount.amount)}`}
+                    />
+                ))}
                 <TotalsRow
                     label="Booking fee"
                     value={formatMoney(data.bookingFeeAmount)}
                 />
                 <TotalsRow
-                    label="Deposit"
-                    value={formatMoney(data.depositAmount)}
+                    label="Amount paid"
+                    value={formatMoney(data.amountPaid)}
                 />
                 <div className="mt-4 border-t border-border/60 pt-4">
                     <TotalsRow
@@ -49,6 +63,11 @@ export default function BookingPaymentSummaryCard({
                                 : "Estimated total"
                         }
                         value={formatMoney(displayTotal)}
+                        prominent
+                    />
+                    <TotalsRow
+                        label="Remaining balance"
+                        value={formatMoney(Math.max(0, data.amountDue))}
                         prominent
                     />
                 </div>

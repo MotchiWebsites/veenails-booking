@@ -12,7 +12,7 @@ export default function AdminSettingsPage({
             <AdminPageHeader
                 eyebrow="Admin"
                 title="Settings"
-                description="Manage booking deposit, fee, hold, e-transfer, and Instagram handoff settings."
+                description="Manage booking, priority access, payment, and studio arrival settings."
             />
             {settings ? (
                 <form
@@ -54,14 +54,21 @@ export default function AdminSettingsPage({
                         </select>
                     </label>
                     <label className="space-y-2">
-                        <span className="label-text">Regulars early access (days)</span>
+                        <span className="label-text">
+                            Regulars early access (hours)
+                        </span>
                         <input
                             className="input-field"
                             name="regularEarlyAccessHours"
                             type="number"
                             step="1"
-                            defaultValue={settings.regular_early_access_hours / 24}
+                            min="0"
+                            max="168"
+                            defaultValue={settings.regular_early_access_hours}
                         />
+                        <span className="block text-xs text-muted">
+                            Priority slots become public after this many hours.
+                        </span>
                     </label>
                     <label className="space-y-2">
                         <span className="label-text">Hold minutes</span>
@@ -90,6 +97,32 @@ export default function AdminSettingsPage({
                             type="url"
                             defaultValue={settings.instagram_url ?? ""}
                         />
+                    </label>
+                    <label className="space-y-2">
+                        <span className="label-text">Studio address</span>
+                        <input
+                            className="input-field"
+                            name="studioAddress"
+                            type="text"
+                            defaultValue={settings.studio_address ?? ""}
+                        />
+                        <span className="block text-xs text-muted">
+                            Shown to confirmed clients before their appointment.
+                        </span>
+                    </label>
+                    <label className="space-y-2">
+                        <span className="label-text">Buzzer code</span>
+                        <input
+                            className="input-field"
+                            name="studioBuzzerCode"
+                            type="text"
+                            autoComplete="off"
+                            defaultValue={settings.studio_buzzer_code ?? ""}
+                        />
+                        <span className="block text-xs text-muted">
+                            Shown only to confirmed clients and included in
+                            reminders.
+                        </span>
                     </label>
                     <div className="xl:col-span-2">
                         <button type="submit" className="btn-primary">

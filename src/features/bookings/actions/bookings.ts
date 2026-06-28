@@ -178,7 +178,10 @@ function buildEditableLineItems({
 function parseBookingSelections(formData: FormData): BookingSelections {
     const removalId = getFormString(formData, "removalId");
     const serviceId = getFormString(formData, "serviceId");
-    const serviceOptionGroupId = getFormString(formData, "serviceOptionGroupId");
+    const serviceOptionGroupId = getFormString(
+        formData,
+        "serviceOptionGroupId",
+    );
     const serviceOptionId = getFormString(formData, "serviceOptionId");
     const designTierId = getFormString(formData, "designTierId");
 
@@ -187,7 +190,9 @@ function parseBookingSelections(formData: FormData): BookingSelections {
         removalId: removalId
             ? (removalId as BookingSelections["removalId"])
             : null,
-        serviceId: serviceId ? (serviceId as BookingSelections["serviceId"]) : null,
+        serviceId: serviceId
+            ? (serviceId as BookingSelections["serviceId"])
+            : null,
         serviceOptionGroupId: serviceOptionGroupId || null,
         serviceOptionId: serviceOptionId || null,
         designTierId: designTierId || null,
@@ -199,7 +204,9 @@ async function getOwnedEditableBooking(bookingId: string, userId: string) {
 
     const { data: booking, error } = await supabase
         .from("bookings")
-        .select("id, booking_reference, user_id, status, slot_id, booking_fee_mode, booking_fee_rate, availability_slots:slot_id(starts_at, ends_at)")
+        .select(
+            "id, booking_reference, user_id, status, slot_id, booking_fee_mode, booking_fee_rate, availability_slots:slot_id(starts_at, ends_at)",
+        )
         .eq("id", bookingId)
         .eq("user_id", userId)
         .maybeSingle()
@@ -431,7 +438,8 @@ export async function updateBookingServices(
     revalidatePath("/dashboard");
 
     return editState({
-        success: "Service changes saved. Your estimated total updated automatically.",
+        success:
+            "Service changes saved. Your estimated total updated automatically.",
     });
 }
 
@@ -483,7 +491,13 @@ export async function requestBookingDateChange(
                 : `regulars_first.eq.false,public_access_at.lte.${new Date().toISOString()}`,
         )
         .maybeSingle()
-        .overrideTypes<{ id: string; starts_at: string; ends_at: string | null; regulars_first: boolean; public_access_at: string } | null>();
+        .overrideTypes<{
+            id: string;
+            starts_at: string;
+            ends_at: string | null;
+            regulars_first: boolean;
+            public_access_at: string;
+        } | null>();
 
     if (slotError) {
         console.error("[bookings:edit.request-date.slot]", slotError);
@@ -576,7 +590,9 @@ export async function requestBookingCancellation(
 
     const { data: booking, error: bookingError } = await supabase
         .from("bookings")
-        .select("id, booking_reference, user_id, status, profiles:user_id(display_name, email), availability_slots:slot_id(starts_at, ends_at)")
+        .select(
+            "id, booking_reference, user_id, status, profiles:user_id(display_name, email), availability_slots:slot_id(starts_at, ends_at)",
+        )
         .eq("id", bookingId)
         .eq("user_id", user.id)
         .maybeSingle();
@@ -682,19 +698,50 @@ export async function requestBookingCancellation(
     revalidateBookingPaths(booking.booking_reference);
     revalidatePath("/dashboard");
 
-    const typedBooking = booking as typeof booking & { profiles?: { display_name: string; email: string } | null; availability_slots?: { starts_at: string; ends_at: string | null } | null };
-    const appointment = typedBooking.availability_slots?.starts_at ? new Intl.DateTimeFormat("en-CA", { dateStyle: "full", timeStyle: "short" }).format(new Date(typedBooking.availability_slots.starts_at)) : "Not scheduled";
-    const outcome = requestedRefundMethod === "account_credit" ? "Convert deposit to credit" : "No refund needed";
+    const typedBooking = booking as typeof booking & {
+        profiles?: { display_name: string; email: string } | null;
+        availability_slots?: {
+            starts_at: string;
+            ends_at: string | null;
+        } | null;
+    };
+    const appointment = typedBooking.availability_slots?.starts_at
+        ? new Intl.DateTimeFormat("en-CA", {
+              dateStyle: "full",
+              timeStyle: "short",
+          }).format(new Date(typedBooking.availability_slots.starts_at))
+        : "Not scheduled";
+    const outcome =
+        requestedRefundMethod === "account_credit"
+            ? "Convert deposit to credit"
+            : "No refund needed";
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
-    if (typedBooking.profiles?.email) {
-        const template = cancellationTemplate({ name: typedBooking.profiles.display_name, reference: booking.booking_reference, heading: "Cancellation request received", appointment, reason, outcome, message: "Your cancellation request was sent to the studio for review.", detailsUrl: siteUrl ? `${siteUrl}/booking/${booking.booking_reference}` : undefined });
-        await sendTransactionalEmail({ to: { email: typedBooking.profiles.email, name: typedBooking.profiles.display_name }, ...template, notificationType: "cancellation_request_submitted", bookingId: booking.id, userId: user.id });
-    }
     const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL;
-    if (adminEmail) {
-        const template = cancellationTemplate({ name: "Vee", reference: booking.booking_reference, heading: "New cancellation request", appointment, reason, outcome, message: `${typedBooking.profiles?.display_name ?? "A client"} submitted a cancellation request.`, detailsUrl: siteUrl ? `${siteUrl}/admin/appointments/${booking.id}` : undefined });
-        await sendTransactionalEmail({ to: { email: adminEmail, name: "Vee’s Nail Studio" }, ...template, notificationType: "admin_cancellation_request", bookingId: booking.id, userId: user.id });
-    }
+    const template = cancellationTemplate({
+        name: typedBooking.profiles?.display_name ?? "Client",
+        reference: booking.booking_reference,
+        heading: "Cancellation request received",
+        appointment,
+        reason,
+        outcome,
+        message: "Your cancellation request was sent to the studio for review.",
+        detailsUrl: siteUrl
+            ? `${siteUrl}/booking/${booking.booking_reference}`
+            : undefined,
+    });
+    await sendTransactionalEmail({
+        to: {
+            email: typedBooking.profiles?.email ?? null,
+            name: typedBooking.profiles?.display_name,
+        },
+        bcc: adminEmail
+            ? [{ email: adminEmail, name: "Vee's Nail Studio" }]
+            : undefined,
+        ...template,
+        notificationType: "cancellation_request_submitted",
+        bookingId: booking.id,
+        userId: user.id,
+    });
 
     return state({
         success:

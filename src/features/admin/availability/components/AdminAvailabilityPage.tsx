@@ -6,9 +6,11 @@ import AvailabilitySlotCard from "@/features/admin/availability/components/Avail
 
 function SlotList({
     slots,
+    regularEarlyAccessHours,
     history = false,
 }: {
     slots: AdminAvailabilitySlot[];
+    regularEarlyAccessHours: number;
     history?: boolean;
 }) {
     if (!slots.length)
@@ -23,15 +25,22 @@ function SlotList({
         );
 
     return slots.map((slot) => (
-        <AvailabilitySlotCard key={slot.id} slot={slot} history={history} />
+        <AvailabilitySlotCard
+            key={slot.id}
+            slot={slot}
+            regularEarlyAccessHours={regularEarlyAccessHours}
+            history={history}
+        />
     ));
 }
 
 export default function AdminAvailabilityPage({
     slots,
+    regularEarlyAccessHours,
     nowIso,
 }: {
     slots: AdminAvailabilitySlot[];
+    regularEarlyAccessHours: number;
     nowIso: string;
 }) {
     const now = new Date(nowIso).getTime();
@@ -57,7 +66,9 @@ export default function AdminAvailabilityPage({
                     title="Availability"
                     description="Add open hours or block time without wrestling a browser date picker."
                 />
-                <AvailabilitySlotForm />
+                <AvailabilitySlotForm
+                    regularEarlyAccessHours={regularEarlyAccessHours}
+                />
             </section>
             <section className="space-y-3 rounded-3xl border border-border/60 bg-surface p-5 shadow-sm sm:p-7">
                 <div>
@@ -68,7 +79,10 @@ export default function AdminAvailabilityPage({
                         Open, booked, and blocked time coming up.
                     </p>
                 </div>
-                <SlotList slots={future} />
+                <SlotList
+                    slots={future}
+                    regularEarlyAccessHours={regularEarlyAccessHours}
+                />
             </section>
             <details className="rounded-3xl border border-border/60 bg-surface p-5 shadow-sm sm:p-7">
                 <summary className="cursor-pointer font-semibold text-foreground">
@@ -78,7 +92,11 @@ export default function AdminAvailabilityPage({
                     </span>
                 </summary>
                 <div className="mt-4 space-y-3">
-                    <SlotList slots={inactive} history />
+                    <SlotList
+                        slots={inactive}
+                        regularEarlyAccessHours={regularEarlyAccessHours}
+                        history
+                    />
                 </div>
             </details>
             <details className="rounded-3xl border border-border/60 bg-surface p-5 shadow-sm sm:p-7">
@@ -89,7 +107,11 @@ export default function AdminAvailabilityPage({
                     </span>
                 </summary>
                 <div className="mt-4 space-y-3">
-                    <SlotList slots={past} history />
+                    <SlotList
+                        slots={past}
+                        regularEarlyAccessHours={regularEarlyAccessHours}
+                        history
+                    />
                 </div>
             </details>
         </div>

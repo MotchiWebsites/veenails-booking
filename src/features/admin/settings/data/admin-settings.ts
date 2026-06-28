@@ -13,6 +13,8 @@ export type AdminBookingSettings = Pick<
     | "etransfer_email"
     | "instagram_url"
     | "regular_early_access_hours"
+    | "studio_address"
+    | "studio_buzzer_code"
 >;
 
 export async function getAdminBookingSettings() {
@@ -22,7 +24,7 @@ export async function getAdminBookingSettings() {
     const { data, error } = await admin
         .from("booking_settings")
         .select(
-            "id, active, deposit_amount, booking_fee_rate, booking_fee_mode, hold_minutes, etransfer_email, instagram_url, regular_early_access_hours",
+            "id, active, deposit_amount, booking_fee_rate, booking_fee_mode, hold_minutes, etransfer_email, instagram_url, regular_early_access_hours, studio_address, studio_buzzer_code",
         )
         .order("id", { ascending: true })
         .limit(1)

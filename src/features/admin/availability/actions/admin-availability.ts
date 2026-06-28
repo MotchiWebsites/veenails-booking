@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/features/admin/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { studioDateTimeToDate } from "@/features/admin/availability/utils/slot-time-options";
 import type { Enums } from "@/types/supabase";
 
 const EDITABLE_STATUSES: Enums<"slot_status">[] = ["available", "blocked"];
@@ -25,23 +26,12 @@ function actionState(
 function parseSlotDate(formData: FormData, timeKey: string, optional = false) {
     const date = String(formData.get("date") ?? "");
     const time = String(formData.get(timeKey) ?? "");
-    const offset = Number(formData.get("timezoneOffset") ?? 0);
 
     if (optional && !time) {
         return null;
     }
 
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) {
-        throw new Error("Choose a valid date and time.");
-    }
-
-    const [year, month, day] = date.split("-").map(Number);
-    const [hour, minute] = time.split(":").map(Number);
-    if (minute % 15 !== 0 || hour > 23 || minute > 59) {
-        throw new Error("Times must use 15-minute increments.");
-    }
-
-    return new Date(Date.UTC(year, month - 1, day, hour, minute) + offset * 60_000);
+    return studioDateTimeToDate(date, time);
 }
 
 function parseRequiredSlotDate(formData: FormData, timeKey: string) {
@@ -86,7 +76,11 @@ export async function createAvailabilitySlotAction(
         const endsAt = parseSlotDate(formData, "endTime", true);
         const status = String(formData.get("status") ?? "available") as Enums<"slot_status">;
         const notes = String(formData.get("notes") ?? "").trim() || null;
-        const regularsFirst = formData.getAll("regularsFirst").includes("on");
+        const accessMode =
+            String(formData.get("accessMode") ?? "priority") === "everyone"
+                ? "everyone"
+                : "priority";
+        const regularsFirst = accessMode === "priority";
 
         if ((endsAt && startsAt >= endsAt) || startsAt < new Date()) {
             return actionState({ error: "Choose a valid future start time.", success: "" });
@@ -105,7 +99,7 @@ export async function createAvailabilitySlotAction(
             .maybeSingle()
             .overrideTypes<{ regular_early_access_hours: number } | null>();
         const earlyAccessHours = Math.min(
-            48,
+            168,
             Math.max(0, Number(settings?.regular_early_access_hours ?? 24)),
         );
         const publicAccessAt =
@@ -129,6 +123,9 @@ export async function createAvailabilitySlotAction(
 
         revalidatePath("/admin");
         revalidatePath("/admin/availability");
+        revalidatePath("/book");
+        revalidatePath("/booking");
+        revalidatePath("/dashboard");
 
         return actionState({ error: "", success: "Availability added." });
     } catch (error) {
@@ -137,13 +134,17 @@ export async function createAvailabilitySlotAction(
     }
 }
 
-export async function updateAvailabilitySlotAction(formData: FormData) {
+async function updateAvailabilitySlot(formData: FormData) {
     await requireAdmin();
     const slotId = String(formData.get("slotId") ?? "");
     const startsAt = parseRequiredSlotDate(formData, "startTime");
     const endsAt = parseSlotDate(formData, "endTime", true);
     const status = String(formData.get("status") ?? "available") as Enums<"slot_status">;
     const notes = String(formData.get("notes") ?? "").trim() || null;
+    const accessMode =
+        String(formData.get("accessMode") ?? "priority") === "everyone"
+            ? "everyone"
+            : "priority";
 
     if (!slotId || (endsAt && startsAt >= endsAt) || startsAt < new Date()) {
         throw new Error("Choose a valid future start time.");
@@ -152,9 +153,65 @@ export async function updateAvailabilitySlotAction(formData: FormData) {
 
     const admin = createAdminClient();
     await assertNoOverlap(admin, startsAt, endsAt, slotId);
+    const [currentResult, settingsResult] = await Promise.all([
+        admin
+            .from("availability_slots")
+            .select("id, regulars_first, public_access_at")
+            .eq("id", slotId)
+            .eq("active", true)
+            .in("status", EDITABLE_STATUSES)
+            .maybeSingle()
+            .overrideTypes<{
+                id: string;
+                regulars_first: boolean;
+                public_access_at: string;
+            } | null>(),
+        admin
+            .from("booking_settings")
+            .select("regular_early_access_hours")
+            .eq("id", 1)
+            .maybeSingle()
+            .overrideTypes<{ regular_early_access_hours: number } | null>(),
+    ]);
+
+    if (
+        currentResult.error ||
+        settingsResult.error ||
+        !currentResult.data
+    ) {
+        console.error(
+            "[admin:availability:update-data]",
+            currentResult.error ?? settingsResult.error,
+        );
+        throw new Error("Only open or blocked future slots can be edited.");
+    }
+
+    const regularsFirst = accessMode === "priority" && status === "available";
+    const earlyAccessHours = Math.min(
+        168,
+        Math.max(
+            0,
+            Number(settingsResult.data?.regular_early_access_hours ?? 24),
+        ),
+    );
+    const publicAccessAt = regularsFirst
+        ? currentResult.data.regulars_first
+            ? currentResult.data.public_access_at
+            : new Date(
+                  Date.now() + earlyAccessHours * 60 * 60 * 1000,
+              ).toISOString()
+        : new Date().toISOString();
+
     const { data, error } = await admin
         .from("availability_slots")
-        .update({ starts_at: startsAt.toISOString(), ends_at: endsAt?.toISOString() ?? null, status, notes })
+        .update({
+            starts_at: startsAt.toISOString(),
+            ends_at: endsAt?.toISOString() ?? null,
+            status,
+            notes,
+            regulars_first: regularsFirst,
+            public_access_at: publicAccessAt,
+        })
         .eq("id", slotId)
         .eq("active", true)
         .in("status", EDITABLE_STATUSES)
@@ -168,6 +225,31 @@ export async function updateAvailabilitySlotAction(formData: FormData) {
 
     revalidatePath("/admin");
     revalidatePath("/admin/availability");
+    revalidatePath("/book");
+    revalidatePath("/booking");
+    revalidatePath("/dashboard");
+}
+
+export async function updateAvailabilitySlotAction(
+    _previousState: AvailabilityActionState,
+    formData: FormData,
+): Promise<AvailabilityActionState> {
+    try {
+        await updateAvailabilitySlot(formData);
+        return actionState({
+            error: "",
+            success: "Availability updated.",
+        });
+    } catch (error) {
+        console.error("[admin:availability:update]", error);
+        return actionState({
+            error:
+                error instanceof Error
+                    ? error.message
+                    : "We couldn't update that availability slot.",
+            success: "",
+        });
+    }
 }
 
 export async function deactivateAvailabilitySlotAction(formData: FormData) {
@@ -189,4 +271,43 @@ export async function deactivateAvailabilitySlotAction(formData: FormData) {
     }
 
     revalidatePath("/admin/availability");
+    revalidatePath("/book");
+    revalidatePath("/booking");
+    revalidatePath("/dashboard");
+}
+
+export async function releasePriorityAvailabilitySlotAction(formData: FormData) {
+    await requireAdmin();
+    const slotId = String(formData.get("slotId") ?? "");
+    if (!slotId) return;
+
+    const admin = createAdminClient();
+    const now = new Date().toISOString();
+    const { data, error } = await admin
+        .from("availability_slots")
+        .update({
+            regulars_first: false,
+            public_access_at: now,
+        })
+        .eq("id", slotId)
+        .eq("active", true)
+        .eq("status", "available")
+        .eq("regulars_first", true)
+        .gt("starts_at", now)
+        .gt("public_access_at", now)
+        .select("id")
+        .maybeSingle();
+
+    if (error || !data) {
+        if (error) {
+            console.error("[admin:availability:release-priority]", error);
+        }
+        throw new Error("This priority slot is no longer awaiting release.");
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/admin/availability");
+    revalidatePath("/book");
+    revalidatePath("/booking");
+    revalidatePath("/dashboard");
 }

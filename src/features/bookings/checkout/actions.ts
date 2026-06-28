@@ -878,15 +878,21 @@ export async function submitBookingCheckout(
 
         const appointment = new Intl.DateTimeFormat("en-CA", { dateStyle: "full", timeStyle: "short" }).format(new Date(lockedSlot.starts_at));
         const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
-        if (bookingProfile?.email) {
-            const template = appointmentStatusTemplate({ name: bookingProfile.display_name, reference: bookingReference, status: "requested", appointment, message: "Your booking request was submitted and your deposit was marked as sent.", detailsUrl: siteUrl ? `${siteUrl}/booking/${bookingReference}` : undefined });
-            await sendTransactionalEmail({ to: { email: bookingProfile.email, name: bookingProfile.display_name }, ...template, notificationType: "booking_requested", bookingId: booking.id, userId: user.id });
-        }
         const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL;
-        if (adminEmail) {
-            const template = appointmentStatusTemplate({ name: "Vee", reference: bookingReference, status: "new request", appointment, message: `${bookingProfile?.display_name ?? "A client"} submitted a new booking request.`, detailsUrl: siteUrl ? `${siteUrl}/admin/appointments/${booking.id}` : undefined });
-            await sendTransactionalEmail({ to: { email: adminEmail, name: "Vee’s Nail Studio" }, ...template, notificationType: "admin_new_booking", bookingId: booking.id, userId: user.id });
-        }
+        const template = appointmentStatusTemplate({ name: bookingProfile?.display_name ?? "Client", reference: bookingReference, status: "requested", appointment, message: "Your booking request was submitted and your deposit was marked as sent.", detailsUrl: siteUrl ? `${siteUrl}/booking/${bookingReference}` : undefined });
+        await sendTransactionalEmail({
+            to: {
+                email: bookingProfile?.email ?? null,
+                name: bookingProfile?.display_name,
+            },
+            bcc: adminEmail
+                ? [{ email: adminEmail, name: "Vee's Nail Studio" }]
+                : undefined,
+            ...template,
+            notificationType: "booking_requested",
+            bookingId: booking.id,
+            userId: user.id,
+        });
 
         revalidatePath("/booking");
         revalidatePath("/book");

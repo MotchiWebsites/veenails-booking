@@ -22,6 +22,10 @@ type BookingBaseRow = Pick<
     | "deposit_status"
     | "estimated_total"
     | "final_total"
+    | "subtotal_amount"
+    | "booking_fee_amount"
+    | "amount_paid"
+    | "amount_due"
     | "created_at"
 >;
 
@@ -36,6 +40,7 @@ type BookingRow = BookingBaseRow & {
             | "id"
             | "item_type"
             | "label_snapshot"
+            | "description_snapshot"
             | "quantity"
             | "unit_price"
             | "line_total"
@@ -67,6 +72,10 @@ const selectSummary = `
     deposit_status,
     estimated_total,
     final_total,
+    subtotal_amount,
+    booking_fee_amount,
+    amount_paid,
+    amount_due,
     created_at,
     availability_slots:slot_id (
         starts_at,
@@ -76,6 +85,7 @@ const selectSummary = `
         id,
         item_type,
         label_snapshot,
+        description_snapshot,
         quantity,
         unit_price,
         line_total,
@@ -160,6 +170,7 @@ function mapBookingSummary(row: BookingRow) {
             id: item.id,
             itemType: item.item_type,
             label: item.label_snapshot,
+            description: item.description_snapshot,
             quantity: Number(item.quantity || 0),
             unitPrice: Number(item.unit_price || 0),
             lineTotal:
@@ -196,6 +207,10 @@ function mapBookingSummary(row: BookingRow) {
         endsAt: row.availability_slots?.ends_at ?? null,
         estimatedTotal,
         finalTotal,
+        subtotalAmount: Number(row.subtotal_amount || 0),
+        bookingFeeAmount: Number(row.booking_fee_amount || 0),
+        amountPaid: Number(row.amount_paid || 0),
+        amountDue: Number(row.amount_due || 0),
         createdAt: row.created_at,
         lineItems,
         cancellationRequest: latestCancellationRequest

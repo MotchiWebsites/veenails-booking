@@ -508,6 +508,8 @@ export type Database = {
           id: number
           instagram_url: string | null
           regular_early_access_hours: number
+          studio_address: string | null
+          studio_buzzer_code: string | null
           updated_at: string
         }
         Insert: {
@@ -521,6 +523,8 @@ export type Database = {
           id?: number
           instagram_url?: string | null
           regular_early_access_hours?: number
+          studio_address?: string | null
+          studio_buzzer_code?: string | null
           updated_at?: string
         }
         Update: {
@@ -534,6 +538,8 @@ export type Database = {
           id?: number
           instagram_url?: string | null
           regular_early_access_hours?: number
+          studio_address?: string | null
+          studio_buzzer_code?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -957,38 +963,32 @@ export type Database = {
       }
       gallery_images: {
         Row: {
-          active: boolean | null
+          active: boolean
           alt: string
-          caption: string | null
           created_at: string
           display_order: number
           group_id: string
           id: string
-          size: string
           src: string
           updated_at: string
         }
         Insert: {
-          active?: boolean | null
+          active?: boolean
           alt: string
-          caption?: string | null
           created_at?: string
           display_order?: number
           group_id: string
           id?: string
-          size?: string
           src: string
           updated_at?: string
         }
         Update: {
-          active?: boolean | null
+          active?: boolean
           alt?: string
-          caption?: string | null
           created_at?: string
           display_order?: number
           group_id?: string
           id?: string
-          size?: string
           src?: string
           updated_at?: string
         }
@@ -1045,6 +1045,7 @@ export type Database = {
         Row: {
           booking_id: string | null
           created_at: string
+          deduplication_key: string | null
           error_message: string | null
           id: string
           notification_type: string
@@ -1059,6 +1060,7 @@ export type Database = {
         Insert: {
           booking_id?: string | null
           created_at?: string
+          deduplication_key?: string | null
           error_message?: string | null
           id?: string
           notification_type: string
@@ -1073,6 +1075,7 @@ export type Database = {
         Update: {
           booking_id?: string | null
           created_at?: string
+          deduplication_key?: string | null
           error_message?: string | null
           id?: string
           notification_type?: string

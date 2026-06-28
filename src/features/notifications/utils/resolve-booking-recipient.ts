@@ -19,7 +19,7 @@ export type BookingRecipient = {
     email: string | null;
     instagramHandle: string | null;
     preferredContactMethod: ContactMethod | null;
-    displayName: string | null;
+    displayName: string;
 };
 
 function clean(value: string | null | undefined) {
@@ -55,6 +55,7 @@ export function resolveBookingRecipient(
         preferredContactMethod,
         displayName:
             clean(booking.profiles?.display_name) ??
-            clean(booking.client_display_name),
+            clean(booking.client_display_name) ??
+            "External client",
     };
 }

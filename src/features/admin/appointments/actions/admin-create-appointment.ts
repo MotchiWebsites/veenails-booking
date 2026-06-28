@@ -378,7 +378,11 @@ export async function createAdminAppointmentAction(
             actor_type: "admin",
             actor_user_id: adminUser.id,
             event_type: "admin_booking_created",
-            message: `Admin created appointment for ${mode === "external" ? "external client" : "existing customer"}.`,
+            message: `Admin created appointment for ${
+                mode === "external"
+                    ? externalName
+                    : profile?.display_name ?? "client"
+            }.`,
             metadata: {
                 mode,
                 slotId: slot.id,
@@ -411,7 +415,7 @@ export async function createAdminAppointmentAction(
             client_preferred_contact_method: preferredContact,
             profiles: profile,
         });
-        const recipientName = recipient.displayName ?? "Client";
+        const recipientName = recipient.displayName;
         const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
         const appointment = new Intl.DateTimeFormat("en-CA", {
             dateStyle: "full",

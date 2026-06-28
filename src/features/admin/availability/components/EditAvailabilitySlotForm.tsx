@@ -1,46 +1,101 @@
 "use client";
 
 import { FiX } from "react-icons/fi";
+import { useRouter } from "next/navigation";
 import CalendarDateSelector from "@/components/shared/date/CalendarDateSelector";
-import { updateAvailabilitySlotAction } from "@/features/admin/availability/actions/admin-availability";
+import AppSelect from "@/components/shared/form/AppSelect";
+import TimeSelect from "@/components/shared/form/TimeSelect";
+import { useToast } from "@/components/shared/toast/ToastProvider";
+import {
+    updateAvailabilitySlotAction,
+    type AvailabilityActionState,
+} from "@/features/admin/availability/actions/admin-availability";
 import type { AdminAvailabilitySlot } from "@/features/admin/availability/data/admin-availability";
+import {
+    getSlotTimeOptions,
+    getStudioDateKey,
+    getStudioDateTimeParts,
+} from "@/features/admin/availability/utils/slot-time-options";
+import {
+    useActionState,
+    useEffect,
+    useMemo,
+    useState,
+} from "react";
 
-function localParts(value: string | null) {
-    if (!value) {
-        return { date: "", time: "" };
-    }
-
-    const date = new Date(value);
-
-    return {
-        date: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`,
-        time: `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`,
-    };
-}
-
-const TIMES = Array.from({ length: 65 }, (_, index) => {
-    const minutes = 7 * 60 + index * 15;
-    const hours = Math.floor(minutes / 60);
-    const minute = minutes % 60;
-
-    return {
-        value: `${String(hours).padStart(2, "0")}:${String(minute).padStart(2, "0")}`,
-        label: new Date(2000, 0, 1, hours, minute).toLocaleTimeString(
-            "en-CA",
-            { hour: "numeric", minute: "2-digit" },
-        ),
-    };
-});
+const initialState: AvailabilityActionState = {
+    error: "",
+    success: "",
+    messageId: "",
+};
 
 export default function EditAvailabilitySlotForm({
     slot,
+    regularEarlyAccessHours,
     onClose,
 }: {
     slot: AdminAvailabilitySlot;
+    regularEarlyAccessHours: number;
     onClose: () => void;
 }) {
-    const start = localParts(slot.startsAt);
-    const end = localParts(slot.endsAt);
+    const router = useRouter();
+    const { error: showError, success: showSuccess } = useToast();
+    const [state, formAction, pending] = useActionState(
+        updateAvailabilitySlotAction,
+        initialState,
+    );
+    const start = getStudioDateTimeParts(new Date(slot.startsAt));
+    const end = slot.endsAt
+        ? getStudioDateTimeParts(new Date(slot.endsAt))
+        : { date: start.date, time: "" };
+    const [selectedDate, setSelectedDate] = useState(start.date);
+    const [startTime, setStartTime] = useState(start.time);
+    const [endTime, setEndTime] = useState(end.time);
+    const startTimeOptions = useMemo(
+        () => getSlotTimeOptions({ selectedDate }),
+        [selectedDate],
+    );
+    const selectedStartTime = startTimeOptions.some(
+        (option) => option.value === startTime,
+    )
+        ? startTime
+        : (startTimeOptions[0]?.value ?? "");
+    const endTimeOptions = useMemo(
+        () =>
+            getSlotTimeOptions({
+                selectedDate,
+                afterTime: selectedStartTime,
+            }),
+        [selectedDate, selectedStartTime],
+    );
+    const selectedEndTime = endTimeOptions.some(
+        (option) => option.value === endTime,
+    )
+        ? endTime
+        : "";
+
+    useEffect(() => {
+        if (!state.messageId) return;
+
+        if (state.error) {
+            showError(state.error, "Availability not updated");
+            return;
+        }
+
+        if (state.success) {
+            showSuccess(state.success, "Availability updated");
+            router.refresh();
+            window.setTimeout(onClose, 0);
+        }
+    }, [
+        onClose,
+        router,
+        showError,
+        showSuccess,
+        state.error,
+        state.messageId,
+        state.success,
+    ]);
 
     return (
         <div
@@ -64,51 +119,38 @@ export default function EditAvailabilitySlotForm({
                 </button>
             </div>
 
-            <form action={updateAvailabilitySlotAction}>
+            <form action={formAction}>
                 <input type="hidden" name="slotId" value={slot.id} />
-                <input
-                    type="hidden"
-                    name="timezoneOffset"
-                    value={new Date().getTimezoneOffset()}
-                />
-
-                <div className="grid items-start gap-5 xl:grid-cols-[minmax(18rem,25rem)_minmax(0,1fr)]">
+                <div className="grid items-start gap-5 lg:grid-cols-[minmax(18rem,25rem)_minmax(0,1fr)]">
                     <CalendarDateSelector
                         name="date"
                         defaultValue={start.date}
+                        min={getStudioDateKey()}
+                        onChange={setSelectedDate}
                     />
 
                     <div className="space-y-4 rounded-2xl border border-border/60 bg-surface p-4 sm:p-5">
                         <div className="grid gap-4 sm:grid-cols-2">
-                            <label className="space-y-2">
-                                <span className="label-text">Start time</span>
-                                <select
-                                    name="startTime"
-                                    defaultValue={start.time}
-                                    className="input-field"
-                                >
-                                    {TIMES.map((time) => (
-                                        <option key={time.value} value={time.value}>
-                                            {time.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-                            <label className="space-y-2">
-                            <span className="label-text">End time (optional)</span>
-                            <select
+                            <TimeSelect
+                                name="startTime"
+                                label="Start time"
+                                value={selectedStartTime}
+                                options={startTimeOptions}
+                                onChange={(value) => {
+                                    setStartTime(value);
+                                    setEndTime("");
+                                }}
+                                disabled={startTimeOptions.length === 0}
+                            />
+                            <TimeSelect
                                 name="endTime"
-                                defaultValue={end.time}
-                                className="input-field"
-                            >
-                                <option value="">No end time</option>
-                                {TIMES.map((time) => (
-                                        <option key={time.value} value={time.value}>
-                                            {time.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
+                                label="End time (optional)"
+                                value={selectedEndTime}
+                                options={endTimeOptions}
+                                onChange={setEndTime}
+                                optional
+                                disabled={!selectedStartTime}
+                            />
                         </div>
 
                         <label className="block space-y-2">
@@ -122,6 +164,25 @@ export default function EditAvailabilitySlotForm({
                                 <option value="blocked">Blocked</option>
                             </select>
                         </label>
+
+                        <AppSelect
+                            name="accessMode"
+                            label="Booking access"
+                            defaultValue={
+                                slot.regularsFirst ? "priority" : "everyone"
+                            }
+                            options={[
+                                {
+                                    value: "priority",
+                                    label: "Priority access",
+                                },
+                                {
+                                    value: "everyone",
+                                    label: "Everyone immediately",
+                                },
+                            ]}
+                            helperText={`Choose “Everyone immediately” to release this slot to all customers now. Priority access uses the configured ${regularEarlyAccessHours}-hour early-access window.`}
+                        />
 
                         <label className="block space-y-2">
                             <span className="label-text">Internal note</span>
@@ -139,11 +200,16 @@ export default function EditAvailabilitySlotForm({
                                 type="button"
                                 onClick={onClose}
                                 className="btn-secondary"
+                                disabled={pending}
                             >
                                 Cancel
                             </button>
-                            <button type="submit" className="btn-primary">
-                                Save changes
+                            <button
+                                type="submit"
+                                className="btn-primary"
+                                disabled={pending}
+                            >
+                                {pending ? "Saving..." : "Save changes"}
                             </button>
                         </div>
                     </div>
