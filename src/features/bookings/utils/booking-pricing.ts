@@ -13,7 +13,10 @@ export function getBookingDiscounts(booking: BookingSummary) {
 
 export function getBookingSubtotalBeforeDiscount(booking: BookingSummary) {
     return booking.lineItems
-        .filter((item) => item.itemType !== "discount")
+        .filter(
+            (item) =>
+                item.itemType !== "discount" && item.itemType !== "fee",
+        )
         .reduce((total, item) => total + item.lineTotal, 0);
 }
 

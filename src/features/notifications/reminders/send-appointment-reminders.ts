@@ -2,7 +2,6 @@ import "server-only";
 
 import { appointmentReminderTemplate } from "@/features/notifications/email/templates/appointment-reminder-template";
 import { resolveBookingRecipient } from "@/features/notifications/utils/resolve-booking-recipient";
-import { canShowClientArrivalInfo } from "@/features/bookings/utils/booking-status";
 import {
     getStudioDateKey,
     STUDIO_TIME_ZONE,
@@ -87,15 +86,12 @@ export async function sendAppointmentReminders(now = new Date()) {
             .overrideTypes<ReminderBookingRow[]>(),
         admin
             .from("booking_settings")
-            .select("studio_address, studio_buzzer_code")
+            .select("instagram_url")
             .eq("active", true)
             .order("id", { ascending: true })
             .limit(1)
             .maybeSingle()
-            .overrideTypes<{
-                studio_address: string | null;
-                studio_buzzer_code: string | null;
-            } | null>(),
+            .overrideTypes<{ instagram_url: string | null } | null>(),
     ]);
 
     if (bookingsResult.error || settingsResult.error) {
@@ -110,9 +106,6 @@ export async function sendAppointmentReminders(now = new Date()) {
     let failed = 0;
 
     for (const booking of bookingsResult.data ?? []) {
-        if (!canShowClientArrivalInfo(booking.status)) {
-            continue;
-        }
         const recipient = resolveBookingRecipient(booking);
         const services =
             (booking.booking_line_items ?? [])
@@ -135,8 +128,7 @@ export async function sendAppointmentReminders(now = new Date()) {
             startTime: timeFormatter.format(startsAt),
             endTime: endsAt ? timeFormatter.format(endsAt) : null,
             serviceSummary: services,
-            studioAddress: settings?.studio_address ?? null,
-            buzzerCode: settings?.studio_buzzer_code ?? null,
+            instagramUrl: settings?.instagram_url ?? null,
             detailsUrl:
                 booking.user_id && siteUrl
                     ? `${siteUrl}/booking/${booking.booking_reference}`

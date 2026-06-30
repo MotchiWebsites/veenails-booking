@@ -3,6 +3,11 @@ import {
     emailLayout,
     escapeHtml,
 } from "@/features/notifications/email/templates/layout";
+import {
+    INSTAGRAM_ARRIVAL_FALLBACK,
+    INSTAGRAM_ARRIVAL_MESSAGE,
+    normalizeInstagramUrl,
+} from "@/features/bookings/utils/instagram-contact";
 
 export function appointmentReminderTemplate({
     name,
@@ -11,8 +16,7 @@ export function appointmentReminderTemplate({
     startTime,
     endTime,
     serviceSummary,
-    studioAddress,
-    buzzerCode,
+    instagramUrl,
     detailsUrl,
 }: {
     name: string;
@@ -21,8 +25,7 @@ export function appointmentReminderTemplate({
     startTime: string;
     endTime: string | null;
     serviceSummary: string;
-    studioAddress: string | null;
-    buzzerCode: string | null;
+    instagramUrl: string | null;
     detailsUrl?: string;
 }) {
     const subject = `Appointment reminder · ${reference}`;
@@ -33,10 +36,13 @@ export function appointmentReminderTemplate({
         ["Services", serviceSummary],
     ];
 
-    if (studioAddress) rows.push(["Studio address", studioAddress]);
-    if (buzzerCode) rows.push(["Buzzer code", buzzerCode]);
-
-    const arrivalNote = "Please arrive 15 minutes early.";
+    const safeInstagramUrl = normalizeInstagramUrl(instagramUrl);
+    const arrivalNote = safeInstagramUrl
+        ? INSTAGRAM_ARRIVAL_MESSAGE
+        : INSTAGRAM_ARRIVAL_FALLBACK;
+    const arrivalHtml = safeInstagramUrl
+        ? `<p><strong>${escapeHtml(INSTAGRAM_ARRIVAL_MESSAGE)}</strong></p><p><a href="${escapeHtml(safeInstagramUrl)}" target="_blank" rel="noopener noreferrer">Message us on Instagram</a></p>`
+        : `<p><strong>${escapeHtml(INSTAGRAM_ARRIVAL_FALLBACK)}</strong></p>`;
 
     return {
         subject,
@@ -54,7 +60,7 @@ export function appointmentReminderTemplate({
         html: emailLayout({
             heading: "Your appointment is tomorrow",
             preview: subject,
-            body: `<p>Hi ${escapeHtml(name)},</p><p>A quick reminder that your appointment is tomorrow.</p>${detailBlock(rows)}<p><strong>${escapeHtml(arrivalNote)}</strong></p>`,
+            body: `<p>Hi ${escapeHtml(name)},</p><p>A quick reminder that your appointment is tomorrow.</p>${detailBlock(rows)}${arrivalHtml}`,
             cta: detailsUrl
                 ? { label: "View appointment", href: detailsUrl }
                 : undefined,

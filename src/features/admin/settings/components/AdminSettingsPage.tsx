@@ -21,8 +21,6 @@ function settingsSignature(settings: AdminBookingSettings) {
         ["holdMinutes", String(settings.hold_minutes)],
         ["etransferEmail", settings.etransfer_email ?? ""],
         ["instagramUrl", settings.instagram_url ?? ""],
-        ["studioAddress", settings.studio_address ?? ""],
-        ["studioBuzzerCode", settings.studio_buzzer_code ?? ""],
     ]).toString();
 }
 
@@ -43,6 +41,9 @@ export default function AdminSettingsPage({
         settings ? settingsSignature(settings) : "",
     );
     const [dirty, setDirty] = useState(false);
+    const [bookingFeeMode, setBookingFeeMode] = useState(
+        settings?.booking_fee_mode ?? "included_in_price",
+    );
     const [pending, startSaving] = useTransition();
     const toast = useToast();
     const router = useRouter();
@@ -73,7 +74,7 @@ export default function AdminSettingsPage({
             <AdminPageHeader
                 eyebrow="Admin"
                 title="Settings"
-                description="Manage booking, priority access, payment, and studio arrival settings."
+                description="Manage booking, priority access, payment, and client contact settings."
             />
             {settings ? (
                 <form
@@ -100,6 +101,8 @@ export default function AdminSettingsPage({
                             name="bookingFeeRate"
                             type="number"
                             step="0.01"
+                            min="0"
+                            max="100"
                             defaultValue={settings.booking_fee_rate}
                         />
                     </label>
@@ -109,12 +112,25 @@ export default function AdminSettingsPage({
                             className="input-field"
                             name="bookingFeeMode"
                             defaultValue={settings.booking_fee_mode}
+                            onChange={(event) =>
+                                setBookingFeeMode(
+                                    event.target
+                                        .value as AdminBookingSettings["booking_fee_mode"],
+                                )
+                            }
                         >
-                            <option value="added_on_top">Added on top</option>
                             <option value="included_in_price">
-                                Included in price
+                                Included in price (studio absorbs fee)
+                            </option>
+                            <option value="added_on_top">
+                                Added separately to client total
                             </option>
                         </select>
+                        <span className="block text-xs leading-relaxed text-muted">
+                            {bookingFeeMode === "included_in_price"
+                                ? "Clients see the appointment price only. The studio absorbs the booking fee."
+                                : "The booking fee is shown separately and added to the client’s total."}
+                        </span>
                     </label>
                     <label className="space-y-2">
                         <span className="label-text">
@@ -140,6 +156,7 @@ export default function AdminSettingsPage({
                             name="holdMinutes"
                             type="number"
                             step="1"
+                            min="1"
                             defaultValue={settings.hold_minutes}
                         />
                     </label>
@@ -160,31 +177,9 @@ export default function AdminSettingsPage({
                             type="url"
                             defaultValue={settings.instagram_url ?? ""}
                         />
-                    </label>
-                    <label className="space-y-2">
-                        <span className="label-text">Studio address</span>
-                        <input
-                            className="input-field"
-                            name="studioAddress"
-                            type="text"
-                            defaultValue={settings.studio_address ?? ""}
-                        />
                         <span className="block text-xs text-muted">
-                            Shown to confirmed clients before their appointment.
-                        </span>
-                    </label>
-                    <label className="space-y-2">
-                        <span className="label-text">Buzzer code</span>
-                        <input
-                            className="input-field"
-                            name="studioBuzzerCode"
-                            type="text"
-                            autoComplete="off"
-                            defaultValue={settings.studio_buzzer_code ?? ""}
-                        />
-                        <span className="block text-xs text-muted">
-                            Shown only to confirmed clients and included in
-                            reminders.
+                            Used for the arrival-details contact button shown to
+                            confirmed clients.
                         </span>
                     </label>
                     <div className="mt-2 flex flex-col gap-3 border-t border-border/60 pt-5 sm:flex-row sm:items-center sm:justify-end xl:col-span-2">

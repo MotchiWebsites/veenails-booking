@@ -32,6 +32,8 @@ export type AdminAvailabilitySlot = {
     notes: string | null;
     createdAt: string;
     canReleasePriority: boolean;
+    priorityReleased: boolean;
+    bulkSelectable: boolean;
     bookingId: string | null;
     googleSyncState: "synced" | "pending" | "issue" | "not_connected";
 };
@@ -66,6 +68,12 @@ export async function getAdminAvailabilityPageData() {
     }
 
     const now = Date.now();
+    const activeBookingStatuses = new Set<Enums<"booking_status">>([
+        "held",
+        "requested",
+        "confirmed",
+        "cancellation_requested",
+    ]);
 
     return {
         slots: (slotsResult.data ?? []).map((slot) => {
@@ -78,6 +86,10 @@ export async function getAdminAvailabilityPageData() {
                             new Date(a.created_at).getTime(),
                     )[0] ?? null;
             const occupied = !["available", "blocked"].includes(slot.status);
+            const hasActiveBooking = (slot.bookings ?? []).some((booking) =>
+                activeBookingStatuses.has(booking.status),
+            );
+            const future = new Date(slot.starts_at).getTime() > now;
 
             return {
                 id: slot.id,
@@ -95,6 +107,14 @@ export async function getAdminAvailabilityPageData() {
                     slot.regulars_first &&
                     new Date(slot.starts_at).getTime() > now &&
                     new Date(slot.public_access_at).getTime() > now,
+                priorityReleased:
+                    slot.regulars_first &&
+                    new Date(slot.public_access_at).getTime() <= now,
+                bulkSelectable:
+                    future &&
+                    slot.active &&
+                    slot.status === "available" &&
+                    !hasActiveBooking,
                 bookingId: occupied ? latestBooking?.id ?? null : null,
                 googleSyncState:
                     (slot.google_calendar_sync_error === "not_connected"

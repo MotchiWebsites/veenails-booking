@@ -16,7 +16,6 @@ import {
     getBookingTotalDisplay,
 } from "@/features/bookings/utils/booking-formatters";
 import {
-    canShowClientArrivalInfo,
     canEditBookingOnline,
     isUpcomingBooking,
 } from "@/features/bookings/utils/booking-status";
@@ -29,6 +28,7 @@ import BookingDetailsHeader from "./BookingDetailsHeader";
 import { summaryRows } from "../data/summary-rows";
 import BookingCancellationSummary from "@/features/bookings/details/components/BookingCancellationSummary";
 import { normalizeBookingFeeRate } from "@/features/bookings/new-booking/utils";
+import StudioArrivalContactCard from "./StudioArrivalContactCard";
 
 export default function BookingDetailsPage({
     data,
@@ -128,38 +128,10 @@ export default function BookingDetailsPage({
 
             <div className="py-6">
                 <BookingDetailsHeader title="Appointment summary" />
-                {canShowClientArrivalInfo(booking.status) &&
-                data.arrivalInfo ? (
-                    <div className="mt-5 rounded-2xl border border-border/60 bg-surface-2 p-4">
-                        <p className="text-sm font-semibold text-foreground">
-                            Studio arrival information
-                        </p>
-                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                            {data.arrivalInfo.address ? (
-                                <div>
-                                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-                                        Address
-                                    </p>
-                                    <p className="mt-1 text-sm text-foreground">
-                                        {data.arrivalInfo.address}
-                                    </p>
-                                </div>
-                            ) : null}
-                            {data.arrivalInfo.buzzerCode ? (
-                                <div>
-                                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-                                        Buzzer code
-                                    </p>
-                                    <p className="mt-1 text-sm font-semibold text-foreground">
-                                        {data.arrivalInfo.buzzerCode}
-                                    </p>
-                                </div>
-                            ) : null}
-                        </div>
-                        <p className="mt-3 text-sm text-muted">
-                            Please arrive 15 minutes early.
-                        </p>
-                    </div>
+                {data.arrivalContact ? (
+                    <StudioArrivalContactCard
+                        instagramUrl={data.arrivalContact.instagramUrl}
+                    />
                 ) : null}
 
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -178,39 +150,6 @@ export default function BookingDetailsPage({
                     ))}
                 </div>
 
-                {data.arrivalInfo ? (
-                    <div className="mt-5 rounded-2xl border border-border/60 bg-surface-2 p-4">
-                        <p className="text-sm font-semibold text-foreground">
-                            Studio arrival information
-                        </p>
-                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                            {data.arrivalInfo.address ? (
-                                <div>
-                                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-                                        Address
-                                    </p>
-                                    <p className="mt-1 text-sm text-foreground">
-                                        {data.arrivalInfo.address}
-                                    </p>
-                                </div>
-                            ) : null}
-                            {data.arrivalInfo.buzzerCode ? (
-                                <div>
-                                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-                                        Buzzer code
-                                    </p>
-                                    <p className="mt-1 text-sm font-semibold text-foreground">
-                                        {data.arrivalInfo.buzzerCode}
-                                    </p>
-                                </div>
-                            ) : null}
-                        </div>
-                        <p className="mt-3 text-sm text-muted">
-                            Please arrive 15 minutes early.
-                        </p>
-                    </div>
-                ) : null}
-
                 {data.clientNotes ? (
                     <div className="mt-5 rounded-2xl bg-background p-4">
                         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted">
@@ -228,10 +167,19 @@ export default function BookingDetailsPage({
                 <div className="mt-4 grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(280px,0.72fr)]">
                     <div className="space-y-3">
                         {booking.lineItems.some(
-                            (item) => item.itemType !== "discount",
+                            (item) =>
+                                item.itemType !== "discount" &&
+                                (item.itemType !== "fee" ||
+                                    data.bookingFeeMode === "added_on_top"),
                         ) ? (
                             booking.lineItems
-                                .filter((item) => item.itemType !== "discount")
+                                .filter(
+                                    (item) =>
+                                        item.itemType !== "discount" &&
+                                        (item.itemType !== "fee" ||
+                                            data.bookingFeeMode ===
+                                                "added_on_top"),
+                                )
                                 .map((item) => (
                                     <div
                                         key={item.id}
@@ -281,18 +229,13 @@ export default function BookingDetailsPage({
                                 value={formatMoney(discountedSubtotal)}
                             />
                         ) : null}
-                        <TotalsRow
-                            label={
-                                data.bookingFeeMode === "included_in_price"
-                                    ? `Booking fee (${bookingFeeRate}% included)`
-                                    : `Booking fee (${bookingFeeRate}%)`
-                            }
-                            value={
-                                data.bookingFeeMode === "included_in_price"
-                                    ? "Included"
-                                    : `+${formatMoney(data.bookingFeeAmount)}`
-                            }
-                        />
+                        {data.bookingFeeMode === "added_on_top" &&
+                        bookingFeeRate > 0 ? (
+                            <TotalsRow
+                                label={`Booking fee (${bookingFeeRate}%)`}
+                                value={`+${formatMoney(data.bookingFeeAmount)}`}
+                            />
+                        ) : null}
                         <div className="mt-4 border-t border-border/60 pt-4">
                             <TotalsRow
                                 label={totalDisplay.label}

@@ -209,13 +209,13 @@ export default function AdminAppointmentDetailsPage({
                                 <span className="text-white/70">
                                     {booking.bookingFeeMode ===
                                     "included_in_price"
-                                        ? `Booking fee (${bookingFeeRate}% included)`
+                                        ? `Internal booking fee (${bookingFeeRate}% studio absorbed)`
                                         : `Booking fee (${bookingFeeRate}%)`}
                                 </span>
                                 <span className="font-semibold">
                                     {booking.bookingFeeMode ===
                                     "included_in_price"
-                                        ? "Included"
+                                        ? "Studio absorbed"
                                         : `+${formatMoney(booking.bookingFeeAmount)}`}
                                 </span>
                             </p>

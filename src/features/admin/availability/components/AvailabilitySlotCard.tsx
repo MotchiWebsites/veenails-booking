@@ -13,6 +13,7 @@ import AdminStatusPill from "@/features/admin/components/AdminStatusPill";
 import { formatDateTime } from "@/features/admin/components/admin-formatters";
 import { formatBookingTimeRange } from "@/features/bookings/utils/booking-formatters";
 import { retryGoogleCalendarSyncAction } from "@/features/integrations/google-calendar/actions/integration";
+import AvailabilitySlotSelectionCheckbox from "@/features/admin/availability/components/AvailabilitySlotSelectionCheckbox";
 
 function friendlyStatus(slot: AdminAvailabilitySlot) {
     if (!slot.active) return "Inactive";
@@ -27,10 +28,14 @@ export default function AvailabilitySlotCard({
     slot,
     regularEarlyAccessHours,
     history = false,
+    selected = false,
+    onSelectedChange,
 }: {
     slot: AdminAvailabilitySlot;
     regularEarlyAccessHours: number;
     history?: boolean;
+    selected?: boolean;
+    onSelectedChange?: (checked: boolean) => void;
 }) {
     const [editing, setEditing] = useState(false);
     const canEdit =
@@ -53,21 +58,35 @@ export default function AvailabilitySlotCard({
     return (
         <article
             className={`overflow-hidden rounded-2xl border bg-background transition-colors ${
-                editing ? "border-dark-green/30" : "border-border/60"
+                editing || selected
+                    ? "border-dark-green/40"
+                    : "border-border/60"
             }`}
         >
             <div className="flex flex-col gap-4 p-4 sm:p-5 xl:flex-row xl:items-center xl:justify-between">
                 <div className="min-w-0">
+                    {slot.bulkSelectable && onSelectedChange ? (
+                        <div className="mb-3">
+                            <AvailabilitySlotSelectionCheckbox
+                                slotId={slot.id}
+                                checked={selected}
+                                onCheckedChange={onSelectedChange}
+                            />
+                        </div>
+                    ) : null}
                     <p className="font-semibold text-foreground">
                         {formatDateTime(slot.startsAt)}
                         {slot.endsAt
                             ? ` · ${formatBookingTimeRange(slot.startsAt, slot.endsAt)}`
                             : ""}
                     </p>
-                    {slot.status === "available" && slot.active ? (
+                    {slot.regularsFirst ||
+                    (slot.status === "available" && slot.active) ? (
                         <p className="mt-1 text-sm text-muted">
                             {slot.regularsFirst
-                                ? `Priority access · Public after ${formatDateTime(slot.publicAccessAt)}`
+                                ? slot.priorityReleased
+                                    ? `Priority access · Released to everyone ${formatDateTime(slot.publicAccessAt)}`
+                                    : `Priority access · Public after ${formatDateTime(slot.publicAccessAt)}`
                                 : "Released to everyone"}
                         </p>
                     ) : null}

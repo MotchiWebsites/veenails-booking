@@ -7,7 +7,6 @@ import type {
     DepositStatus,
 } from "@/features/bookings/types/bookings";
 import type { DesignTier } from "@/features/bookings/new-booking/types";
-import { canShowClientArrivalInfo } from "@/features/bookings/utils/booking-status";
 import type { Database, Enums } from "@/types/supabase";
 import { calculateBookingLedger } from "@/features/bookings/utils/booking-ledger";
 
@@ -149,9 +148,8 @@ export type BookingDetailsData = {
     depositAmount: number;
     amountPaid: number;
     amountDue: number;
-    arrivalInfo: {
-        address: string | null;
-        buzzerCode: string | null;
+    arrivalContact: {
+        instagramUrl: string | null;
     } | null;
     depositStatus: DepositStatus;
     payments: BookingDetailsPayment[];
@@ -367,7 +365,7 @@ function mapDetails(row: BookingDetailsRow): BookingDetailsData {
         depositAmount: Number(row.deposit_amount || 0),
         amountPaid: ledger.totalApplied,
         amountDue: ledger.amountDue,
-        arrivalInfo: null,
+        arrivalContact: null,
         depositStatus: row.deposit_status,
         payments,
         policies: sortPolicies(row.booking_policy_acceptances ?? []).map(
@@ -506,32 +504,28 @@ export async function getBookingDetailsData({
         };
     }
 
-    if (!canShowClientArrivalInfo(details.summary.status)) {
+    if (details.summary.status !== "confirmed") {
         return details;
     }
 
     const { data: settings, error: settingsError } = await admin
         .from("booking_settings")
-        .select("studio_address, studio_buzzer_code")
+        .select("instagram_url")
         .eq("active", true)
         .order("id", { ascending: true })
         .limit(1)
         .maybeSingle()
-        .overrideTypes<{
-            studio_address: string | null;
-            studio_buzzer_code: string | null;
-        } | null>();
+        .overrideTypes<{ instagram_url: string | null } | null>();
 
     if (settingsError) {
-        console.error("[bookings:getArrivalInfo]", settingsError);
+        console.error("[bookings:getArrivalContact]", settingsError);
         return details;
     }
 
     return {
         ...details,
-        arrivalInfo: {
-            address: settings?.studio_address ?? null,
-            buzzerCode: settings?.studio_buzzer_code ?? null,
+        arrivalContact: {
+            instagramUrl: settings?.instagram_url ?? null,
         },
     };
 }

@@ -206,12 +206,12 @@ export default function AdminDiscountEditor({
                         <SummaryRow
                             label={
                                 booking.bookingFeeMode === "included_in_price"
-                                    ? `Booking fee (${bookingFeeRate}% included)`
+                                    ? `Internal booking fee (${bookingFeeRate}% studio absorbed)`
                                     : `Booking fee (${bookingFeeRate}%)`
                             }
                             value={
                                 booking.bookingFeeMode === "included_in_price"
-                                    ? "Included"
+                                    ? "Studio absorbed"
                                     : `+${formatMoney(pricing.bookingFee)}`
                             }
                         />

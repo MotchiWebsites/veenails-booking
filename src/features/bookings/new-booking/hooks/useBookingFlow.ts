@@ -146,7 +146,7 @@ export function useBookingFlow({
                   }
                 : {
                       depositAmount: 0,
-                      bookingFeeMode: "added_on_top" as const,
+                      bookingFeeMode: "included_in_price" as const,
                       bookingFeeRate: DEFAULT_BOOKING_FEE_RATE,
                       holdMinutes: 0,
                   },

@@ -93,24 +93,19 @@ export default function CheckoutSummaryCard({
                     label="Estimated subtotal"
                     value={formatAmount(estimate.subtotal)}
                 />
-                {bookingFeeRate > 0 ? (
+                {!estimate.bookingFeeIncluded && bookingFeeRate > 0 ? (
                     <TotalsRow
-                        label={
-                            estimate.bookingFeeIncluded
-                                ? "Booking fee (included)"
-                                : `Booking fee (${bookingFeeRate}%)`
-                        }
-                        value={
-                            estimate.bookingFeeIncluded
-                                ? "Included in total"
-                                : formatAmount(estimate.bookingFee, true)
-                        }
+                        label={`Booking fee (${bookingFeeRate}%)`}
+                        value={formatAmount(estimate.bookingFee, true)}
                     />
                 ) : null}
                 <div className="mt-4 border-t border-border/60 pt-4">
                     <TotalsRow
                         label="Estimated total"
-                        value={formatAmount(estimate.total, bookingFeeRate > 0)}
+                        value={formatAmount(
+                            estimate.total,
+                            !estimate.bookingFeeIncluded && bookingFeeRate > 0,
+                        )}
                         prominent
                     />
                 </div>

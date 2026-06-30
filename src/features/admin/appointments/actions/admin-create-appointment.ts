@@ -23,6 +23,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { BookingSelections, DesignTier } from "@/features/bookings/new-booking/types";
 import type { Database, Enums } from "@/types/supabase";
 import { syncBookingToGoogleCalendar } from "@/features/integrations/google-calendar/services/sync";
+import { calculateCheckoutPaymentPlan } from "@/features/bookings/utils/booking-ledger";
 
 type BookingLineItemInsert =
     Database["public"]["Tables"]["booking_line_items"]["Insert"];
@@ -358,6 +359,10 @@ export async function createAdminAppointmentAction(
             },
             designTiers,
         );
+        const paymentPlan = calculateCheckoutPaymentPlan({
+            appointmentTotal: estimate.total,
+            configuredDeposit: Number(settings.deposit_amount ?? 0),
+        });
         const bookingReference = await generateBookingReference(admin);
 
         const { data: booking, error: bookingError } = await admin
@@ -368,13 +373,9 @@ export async function createAdminAppointmentAction(
                 slot_id: slot.id,
                 status: bookingStatus,
                 deposit_status: depositStatus,
-                deposit_amount: Number(settings.deposit_amount ?? 0),
+                deposit_amount: paymentPlan.depositDue,
                 booking_fee_rate: Number(settings.booking_fee_rate ?? 0),
                 booking_fee_mode: settings.booking_fee_mode,
-                estimated_total: estimate.total,
-                subtotal_amount: estimate.subtotal,
-                booking_fee_amount: estimate.bookingFee,
-                amount_due: estimate.total,
                 final_total: 0,
                 client_display_name: mode === "external" ? externalName : null,
                 client_email: mode === "external" ? externalEmail || null : null,
@@ -397,13 +398,13 @@ export async function createAdminAppointmentAction(
         const { error: lineItemError } = await admin.from("booking_line_items").insert(lineItems);
         if (lineItemError) throw lineItemError;
 
-        if (depositStatus !== "pending" && Number(settings.deposit_amount ?? 0) > 0) {
+        if (depositStatus !== "pending" && paymentPlan.depositDue > 0) {
             const { error: paymentError } = await admin.from("booking_payments").insert({
                 booking_id: booking.id,
                 user_id: profile?.id ?? null,
                 payment_type: "deposit",
                 method: "etransfer",
-                amount: Number(settings.deposit_amount ?? 0),
+                amount: paymentPlan.depositDue,
                 status: depositStatus === "received" ? "received" : "marked_sent",
                 paid_at: depositStatus === "received" ? new Date().toISOString() : null,
                 marked_by: adminUser.id,

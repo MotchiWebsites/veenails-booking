@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/features/admin/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { Enums } from "@/types/supabase";
+import { normalizeInstagramUrl } from "@/features/bookings/utils/instagram-contact";
 
 export type AdminSettingsActionState = {
     error: string;
@@ -26,17 +26,12 @@ export async function updateBookingSettingsAction(formData: FormData) {
         formData,
         "regularEarlyAccessHours",
     );
-    const bookingFeeMode = String(
-        formData.get("bookingFeeMode") ?? "added_on_top",
-    ) as Enums<"fee_mode">;
+    const bookingFeeMode = String(formData.get("bookingFeeMode") ?? "");
     const etransferEmail =
         String(formData.get("etransferEmail") ?? "").trim() || null;
-    const instagramUrl =
+    const instagramUrlInput =
         String(formData.get("instagramUrl") ?? "").trim() || null;
-    const studioAddress =
-        String(formData.get("studioAddress") ?? "").trim() || null;
-    const studioBuzzerCode =
-        String(formData.get("studioBuzzerCode") ?? "").trim() || null;
+    const instagramUrl = normalizeInstagramUrl(instagramUrlInput);
 
     if (
         !id ||
@@ -50,28 +45,46 @@ export async function updateBookingSettingsAction(formData: FormData) {
             success: "",
         };
     }
+
+    if (
+        bookingFeeMode !== "included_in_price" &&
+        bookingFeeMode !== "added_on_top"
+    ) {
+        return {
+            error: "Choose a valid booking fee mode.",
+            success: "",
+        };
+    }
+
+    if (instagramUrlInput && !instagramUrl) {
+        return {
+            error: "Enter a valid Instagram URL.",
+            success: "",
+        };
+    }
+
+    if (etransferEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(etransferEmail)) {
+        return {
+            error: "Enter a valid e-transfer email.",
+            success: "",
+        };
+    }
+
     if (
         depositAmount < 0 ||
         bookingFeeRate < 0 ||
+        bookingFeeRate > 100 ||
         holdMinutes < 1 ||
+        !Number.isInteger(holdMinutes) ||
         regularEarlyAccessHours < 0 ||
-        regularEarlyAccessHours > 168
+        regularEarlyAccessHours > 168 ||
+        !Number.isInteger(regularEarlyAccessHours)
     ) {
         return {
             error: "Booking settings contain an invalid value.",
             success: "",
         };
     }
-    if (
-        depositAmount < 0 ||
-        bookingFeeRate < 0 ||
-        holdMinutes < 1 ||
-        regularEarlyAccessHours < 0 ||
-        regularEarlyAccessHours > 168
-    ) {
-        throw new Error("Booking settings contain an invalid value.");
-    }
-
     const admin = createAdminClient();
     const { error } = await admin
         .from("booking_settings")
@@ -83,8 +96,6 @@ export async function updateBookingSettingsAction(formData: FormData) {
             etransfer_email: etransferEmail,
             instagram_url: instagramUrl,
             regular_early_access_hours: regularEarlyAccessHours,
-            studio_address: studioAddress,
-            studio_buzzer_code: studioBuzzerCode,
         })
         .eq("id", id);
 

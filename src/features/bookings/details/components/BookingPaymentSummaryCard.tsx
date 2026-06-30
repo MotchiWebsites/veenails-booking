@@ -72,18 +72,13 @@ export default function BookingPaymentSummaryCard({
                         value={formatMoney(discountedSubtotal)}
                     />
                 ) : null}
-                <TotalsRow
-                    label={
-                        data.bookingFeeMode === "included_in_price"
-                            ? `Booking fee (${bookingFeeRate}% included)`
-                            : `Booking fee (${bookingFeeRate}%)`
-                    }
-                    value={
-                        data.bookingFeeMode === "included_in_price"
-                            ? "Included"
-                            : `+${formatMoney(data.bookingFeeAmount)}`
-                    }
-                />
+                {data.bookingFeeMode === "added_on_top" &&
+                bookingFeeRate > 0 ? (
+                    <TotalsRow
+                        label={`Booking fee (${bookingFeeRate}%)`}
+                        value={`+${formatMoney(data.bookingFeeAmount)}`}
+                    />
+                ) : null}
                 <div className="mt-4 border-t border-border/60 pt-4">
                     <TotalsRow
                         label={

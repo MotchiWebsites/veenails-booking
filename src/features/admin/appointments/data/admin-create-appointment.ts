@@ -136,7 +136,7 @@ export async function getAdminCreateAppointmentData() {
               }
             : {
                   depositAmount: 0,
-                  bookingFeeMode: "added_on_top" as const,
+                  bookingFeeMode: "included_in_price" as const,
                   bookingFeeRate: 0,
                   holdMinutes: 0,
               },
