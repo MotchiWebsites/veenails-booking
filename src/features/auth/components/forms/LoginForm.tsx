@@ -17,7 +17,11 @@ const initialState = {
     messageId: "",
 };
 
-export default function LoginForm() {
+export default function LoginForm({
+    initialAuthError,
+}: {
+    initialAuthError?: string;
+}) {
     const { error } = useToast();
 
     const [email, setEmail] = useState("");
@@ -33,6 +37,46 @@ export default function LoginForm() {
             error(state.error, "Sign in failed");
         }
     }, [error, state.error, state.messageId]);
+
+    useEffect(() => {
+        if (initialAuthError === "session") {
+            error(
+                "Your saved sign-in session expired. Please sign in again. If this repeats, clear this site’s saved data.",
+                "Session expired",
+                "AUTH-SESSION",
+            );
+        } else if (initialAuthError === "pkce") {
+            error(
+                "Your email was verified, but this browser couldn’t restore the signup session. Sign in with the password you created to continue.",
+                "Email verified",
+                "AUTH-PKCE",
+            );
+        } else if (initialAuthError === "expired") {
+            error(
+                "This verification link is invalid or expired. Request a new email and try again.",
+                "Link expired",
+                "AUTH-LINK-EXPIRED",
+            );
+        } else if (initialAuthError === "missing") {
+            error(
+                "This sign-in link is incomplete. Please start the sign-in process again.",
+                "Invalid link",
+                "AUTH-LINK-MISSING",
+            );
+        } else if (initialAuthError === "provider") {
+            error(
+                "The sign-in provider didn’t complete the request. Please try again.",
+                "Sign in cancelled",
+                "AUTH-PROVIDER",
+            );
+        } else if (initialAuthError === "callback") {
+            error(
+                "We couldn’t finish signing you in. Please try again.",
+                "Sign in failed",
+                "AUTH-CALLBACK",
+            );
+        }
+    }, [error, initialAuthError]);
 
     return (
         <div className="space-y-5">

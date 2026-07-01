@@ -4,6 +4,7 @@ export type AppToast = {
     id: string;
     title?: string;
     message: string;
+    code?: string;
     variant: ToastVariant;
     duration: number;
     paused: boolean;

@@ -6,17 +6,13 @@ import { routes } from "@/constants/routes";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isValidEmail } from "@/features/auth/validation/email";
-import { getFriendlyAuthError } from "@/features/auth/lib/auth-errors";
+import {
+    getAuthErrorLogDetails,
+    getFriendlyAuthError,
+} from "@/features/auth/lib/auth-errors";
 import { maskEmail } from "@/features/auth/lib/mask-email";
 
-import { normalizeNorthAmericanPhone } from "@/features/auth/validation/phone";
 import { getPasswordErrorMessage } from "@/features/auth/validation/password";
-import {
-    normalizeInstagramHandle,
-    parsePreferredContactMethod,
-    validateContactPreference,
-    validateInstagramHandle,
-} from "@/features/profile/validation/profile";
 
 function getBaseUrl() {
     return (
@@ -30,6 +26,7 @@ export type AuthActionState = {
     error?: string;
     success?: string;
     messageId?: string;
+    suggestedSignIn?: "email" | "google";
 };
 
 function createMessageId() {
@@ -52,21 +49,59 @@ export async function signInWithPassword(
         };
     }
 
-    const supabase = await createClient();
+    let error;
+    let destination: string = routes.dashboard;
 
-    const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-    });
+    try {
+        const supabase = await createClient();
+        const result = await supabase.auth.signInWithPassword({
+            email,
+            password,
+        });
 
-    if (error) {
+        error = result.error;
+
+        if (!error && result.data.user) {
+            const { data: profile, error: profileError } = await supabase
+                .from("profiles")
+                .select("profile_completed_at")
+                .eq("id", result.data.user.id)
+                .maybeSingle();
+
+            if (profileError) {
+                console.error("[auth-signin] Profile status lookup failed", {
+                    code: profileError.code,
+                    message: profileError.message,
+                });
+            } else if (!profile?.profile_completed_at) {
+                destination = routes.completeProfile;
+            }
+        }
+    } catch (caughtError) {
+        console.error(
+            "[auth-signin] Unexpected sign-in failure",
+            getAuthErrorLogDetails(caughtError),
+        );
+
         return {
-            error: getFriendlyAuthError(error.message),
+            error: getFriendlyAuthError(caughtError, "AUTH-SIGNIN"),
             messageId: createMessageId(),
         };
     }
 
-    redirect(routes.dashboard);
+    if (error) {
+        console.warn(
+            "[auth-signin] Sign-in rejected",
+            getAuthErrorLogDetails(error),
+        );
+
+        return {
+            error: getFriendlyAuthError(error, "AUTH-SIGNIN"),
+            messageId: createMessageId(),
+        };
+    }
+
+    redirect(destination);
 }
 
 export async function signUpWithPassword(
@@ -74,36 +109,11 @@ export async function signUpWithPassword(
     formData: FormData,
 ): Promise<AuthActionState> {
     const fullName = String(formData.get("fullName") || "").trim();
-
-    const rawPhone = String(formData.get("phone") || "").trim();
-    const phone = rawPhone ? normalizeNorthAmericanPhone(rawPhone) : null;
-    if (rawPhone && !phone) {
-        return {
-            error: "Please enter a valid +1 phone number.",
-            messageId: createMessageId(),
-        };
-    }
-
     const email = String(formData.get("email") || "")
         .trim()
         .toLowerCase();
-    const rawInstagramHandle = String(
-        formData.get("instagramHandle") || "",
-    ).trim();
-    const instagramHandle = normalizeInstagramHandle(rawInstagramHandle);
-    const preferredContactMethod = parsePreferredContactMethod(
-        String(formData.get("preferredContactMethod") || "email"),
-    );
     const password = String(formData.get("password") || "");
     const confirmPassword = String(formData.get("confirmPassword") || "");
-    const acceptedTerms = formData.get("acceptedTerms") === "on";
-
-    if (!acceptedTerms) {
-        return {
-            error: "Please accept the Terms of Service and Privacy Policy to continue.",
-            messageId: createMessageId(),
-        };
-    }
 
     if (!fullName || !email || !password || !confirmPassword) {
         return {
@@ -115,35 +125,6 @@ export async function signUpWithPassword(
     if (!isValidEmail(email)) {
         return {
             error: "Please enter a valid email address.",
-            messageId: createMessageId(),
-        };
-    }
-
-    const instagramError = validateInstagramHandle(rawInstagramHandle);
-
-    if (instagramError) {
-        return {
-            error: instagramError,
-            messageId: createMessageId(),
-        };
-    }
-
-    if (!instagramHandle) {
-        return {
-            error: "Instagram handle is required.",
-            messageId: createMessageId(),
-        };
-    }
-
-    const contactPreferenceError = validateContactPreference({
-        preferredContactMethod,
-        phone,
-        instagramHandle,
-    });
-
-    if (contactPreferenceError) {
-        return {
-            error: contactPreferenceError,
             messageId: createMessageId(),
         };
     }
@@ -163,7 +144,6 @@ export async function signUpWithPassword(
         };
     }
 
-    const supabase = await createClient();
     // Check server-side whether the email already has a profile/account.
     try {
         const adminSupabase = createAdminClient();
@@ -177,70 +157,109 @@ export async function signUpWithPassword(
 
         if (profileError) {
             console.error("[signup] profile lookup failed", {
-                email,
+                email: maskEmail(email),
                 error: profileError.message,
             });
         }
 
         if (existingProfile) {
+            const {
+                data: { user: existingUser },
+                error: userLookupError,
+            } = await adminSupabase.auth.admin.getUserById(existingProfile.id);
+
+            if (userLookupError) {
+                console.error("[auth-signup] Existing user lookup failed", {
+                    userId: existingProfile.id,
+                    ...getAuthErrorLogDetails(userLookupError),
+                });
+            }
+
+            const providers = new Set(
+                existingUser?.identities?.map((identity) => identity.provider) ??
+                    [],
+            );
+            const metadataProviders = existingUser?.app_metadata.providers;
+
+            if (Array.isArray(metadataProviders)) {
+                for (const provider of metadataProviders) {
+                    if (typeof provider === "string") {
+                        providers.add(provider);
+                    }
+                }
+            }
+
+            if (providers.has("google")) {
+                return {
+                    error: "This email is already connected to Google. Continue with Google to sign in; your existing profile and bookings will stay connected. (Code: AUTH-USE-GOOGLE)",
+                    messageId: createMessageId(),
+                    suggestedSignIn: "google",
+                };
+            }
+
             return {
-                error: "An account with this email already exists. Please sign in instead.",
+                error: "An account with this email already exists. Sign in with your password, or continue with Google. (Code: AUTH-ACCOUNT-EXISTS)",
                 messageId: createMessageId(),
+                suggestedSignIn: "email",
             };
         }
     } catch (err) {
-        console.error("[signup] profile check error", { email, err });
+        console.error("[signup] profile check error", {
+            email: maskEmail(email),
+            error: getAuthErrorLogDetails(err),
+        });
     }
 
-    const { data: signupData, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-            emailRedirectTo: `${getBaseUrl()}/auth/callback`,
-            data: {
-                full_name: fullName,
-                display_name: fullName,
-                phone: phone,
-                instagram_handle: instagramHandle,
-                preferred_contact_method: preferredContactMethod,
-            },
-        },
-    });
+    let signupData;
+    let signupError;
 
-    if (error) {
+    try {
+        const supabase = await createClient();
+        const result = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                emailRedirectTo: `${getBaseUrl()}/auth/callback`,
+                data: {
+                    full_name: fullName,
+                    display_name: fullName,
+                },
+            },
+        });
+
+        signupData = result.data;
+        signupError = result.error;
+    } catch (caughtError) {
+        console.error(
+            "[auth-signup] Unexpected signup failure",
+            getAuthErrorLogDetails(caughtError),
+        );
+
         return {
-            error: getFriendlyAuthError(error.message),
+            error: getFriendlyAuthError(caughtError, "AUTH-SIGNUP"),
             messageId: createMessageId(),
         };
     }
 
-    if (signupData.user?.id) {
-        const adminSupabase = createAdminClient();
-        const { error: profileUpsertError } = await adminSupabase
-            .from("profiles")
-            .upsert(
-                {
-                    id: signupData.user.id,
-                    email,
-                    display_name: fullName,
-                    phone,
-                    instagram_handle: instagramHandle,
-                    preferred_contact_method: preferredContactMethod ?? "email",
-                },
-                { onConflict: "id" },
-            );
+    if (signupError) {
+        console.warn(
+            "[auth-signup] Signup rejected",
+            getAuthErrorLogDetails(signupError),
+        );
 
-        if (profileUpsertError) {
-            console.error("[signup] profile contact upsert failed", {
-                userId: signupData.user.id,
-                error: profileUpsertError.message,
-            });
-        }
+        return {
+            error: getFriendlyAuthError(signupError, "AUTH-SIGNUP"),
+            messageId: createMessageId(),
+        };
+    }
+
+    if (signupData.session) {
+        redirect(routes.completeProfile);
     }
 
     return {
         success:
-            "Account created. Please check your email to confirm your account before signing in.",
+            "Account created. Check your email to confirm it, then complete your profile.",
         messageId: createMessageId(),
     };
 }
@@ -379,7 +398,7 @@ export async function updatePassword(
             });
 
             return {
-                error: getFriendlyAuthError(error.message),
+                error: getFriendlyAuthError(error, "AUTH-PASSWORD"),
                 messageId: createMessageId(),
             };
         }
@@ -401,9 +420,22 @@ export async function updatePassword(
 }
 
 export async function signOut() {
-    const supabase = await createClient();
+    try {
+        const supabase = await createClient();
+        const { error } = await supabase.auth.signOut({ scope: "local" });
 
-    await supabase.auth.signOut();
+        if (error) {
+            console.warn(
+                "[auth-signout] Sign-out returned an error",
+                getAuthErrorLogDetails(error),
+            );
+        }
+    } catch (error) {
+        console.error(
+            "[auth-signout] Unexpected sign-out failure",
+            getAuthErrorLogDetails(error),
+        );
+    }
 
     redirect(routes.home);
 }

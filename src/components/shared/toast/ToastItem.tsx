@@ -117,6 +117,12 @@ export default function ToastItem({
                     ) : null}
 
                     <p className="text-sm leading-relaxed">{toast.message}</p>
+
+                    {toast.code ? (
+                        <p className="mt-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] opacity-65">
+                            Reference: {toast.code}
+                        </p>
+                    ) : null}
                 </div>
 
                 <div className="flex items-start gap-1">

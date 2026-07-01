@@ -43,6 +43,7 @@ export default function AuthResultScreen({
     primaryActionHref,
     secondaryActionLabel,
     secondaryActionHref,
+    secondaryActionOnClick,
     icon,
 }: {
     variant?: "success" | "warning" | "error" | "info";
@@ -52,6 +53,7 @@ export default function AuthResultScreen({
     primaryActionHref?: string;
     secondaryActionLabel?: string;
     secondaryActionHref?: string;
+    secondaryActionOnClick?: () => void;
     icon?: React.ReactNode;
 }) {
     const styles = variantMap[variant] || variantMap.info;
@@ -88,7 +90,21 @@ export default function AuthResultScreen({
                     </Link>
                 ) : null}
 
-                {!primaryActionHref && !secondaryActionHref ? (
+                {!secondaryActionHref &&
+                secondaryActionLabel &&
+                secondaryActionOnClick ? (
+                    <button
+                        type="button"
+                        onClick={secondaryActionOnClick}
+                        className="btn-secondary w-full sm:w-auto"
+                    >
+                        {secondaryActionLabel}
+                    </button>
+                ) : null}
+
+                {!primaryActionHref &&
+                !secondaryActionHref &&
+                !secondaryActionOnClick ? (
                     <Link href="/" className="btn-ghost w-full sm:w-auto">
                         Home
                     </Link>

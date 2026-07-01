@@ -12,15 +12,6 @@ import UserAvatar from "@/components/dashboard/UserAvatar";
 import { useClickAway } from "@/lib/hooks/use-click-away";
 import SignOutButton from "@/components/shared/auth/SignOutButton";
 
-function getDisplayName(user: User) {
-    return (
-        user.user_metadata?.full_name ||
-        user.user_metadata?.display_name ||
-        user.email?.split("@")[0] ||
-        "Client"
-    );
-}
-
 const menuItems = [
     {
         href: "/book",
@@ -42,11 +33,15 @@ const menuItems = [
     },
 ];
 
-export default function DashboardUserMenu({ user }: { user: User }) {
+export default function DashboardUserMenu({
+    user,
+    displayName,
+}: {
+    user: User;
+    displayName: string;
+}) {
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement | null>(null);
-
-    const displayName = getDisplayName(user);
 
     useClickAway({
         ref,
@@ -63,7 +58,11 @@ export default function DashboardUserMenu({ user }: { user: User }) {
                 aria-label="Open account menu"
                 className="group flex items-center gap-2 rounded-full border border-border bg-surface p-1.5 pr-2 shadow-sm transition-all duration-200 hover:bg-surface-2 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
-                <UserAvatar user={user} showText={false} />
+                <UserAvatar
+                    user={user}
+                    displayName={displayName}
+                    showText={false}
+                />
 
                 <FiChevronDown
                     className={`hidden h-4 w-4 text-muted transition-transform duration-200 sm:block ${

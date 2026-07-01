@@ -2,15 +2,14 @@
 
 import { useActionState, useEffect, useState } from "react";
 import AppForm from "@/components/shared/form/AppForm";
-import AppSelect from "@/components/shared/form/AppSelect";
-import FormField from "@/components/shared/form/FormField";
 import { useToast } from "@/components/shared/toast/ToastProvider";
 import { updateProfile } from "@/features/profile/actions/profile";
-import {
-    normalizeInstagramHandle,
-    type PreferredContactMethod,
-} from "@/features/profile/validation/profile";
+import type { PreferredContactMethod } from "@/features/profile/validation/profile";
 import { CiHeart } from "react-icons/ci";
+import { formatNorthAmericanPhone } from "@/features/auth/validation/phone";
+import ProfileDetailsFields, {
+    isProfileDetailsValid,
+} from "@/features/profile/components/ProfileDetailsFields";
 
 const initialState = {
     error: "",
@@ -34,39 +33,24 @@ export default function ProfileForm({
     const { error, success } = useToast();
 
     const [nameValue, setNameValue] = useState(displayName);
-
-    const formatPhone = (val: string | null) => {
-        if (!val) return "";
-        const digits = val.replace(/\D/g, "").slice(0, 10);
-        if (digits.length <= 3) return digits;
-        if (digits.length <= 6)
-            return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-        return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-    };
-
-    const [phoneValue, setPhoneValue] = useState(formatPhone(phone));
+    const [phoneValue, setPhoneValue] = useState(
+        formatNorthAmericanPhone(phone ?? ""),
+    );
     const [instagramValue, setInstagramValue] = useState(instagramHandle ?? "");
     const [preferredContactValue, setPreferredContactValue] =
         useState<PreferredContactMethod>(preferredContactMethod ?? "email");
-    const normalizedInstagramHandle = normalizeInstagramHandle(instagramValue);
-    const instagramHandleValid =
-        Boolean(normalizedInstagramHandle) &&
-        /^[a-z0-9._]{1,30}$/.test(normalizedInstagramHandle ?? "");
-    const contactPreferenceValid =
-        preferredContactValue === "email" ||
-        (preferredContactValue === "phone" && phoneValue.trim().length > 0) ||
-        (preferredContactValue === "instagram" &&
-            Boolean(normalizedInstagramHandle));
 
     const [state, formAction, pending] = useActionState(
         updateProfile,
         initialState,
     );
 
-    const canSubmit =
-        nameValue.trim().length > 0 &&
-        instagramHandleValid &&
-        contactPreferenceValid;
+    const canSubmit = isProfileDetailsValid({
+        displayName: nameValue,
+        phone: phoneValue,
+        instagramHandle: instagramValue,
+        preferredContactMethod: preferredContactValue,
+    });
 
     useEffect(() => {
         if (!state.messageId) return;
@@ -112,74 +96,17 @@ export default function ProfileForm({
 
             <div className="mt-6">
                 <AppForm action={formAction}>
-                    <FormField
-                        id="displayName"
-                        name="displayName"
-                        label="Display name"
-                        type="text"
-                        autoComplete="name"
-                        required
-                        placeholder="Your name"
-                        value={nameValue}
-                        onValueChange={setNameValue}
-                        enterKeyHint="next"
-                        enterBehavior="next"
-                    />
-
-                    <FormField
-                        id="phone"
-                        name="phone"
-                        label="Phone number"
-                        type="tel"
-                        autoComplete="tel"
-                        required={false}
-                        placeholder="(416) 123-4567"
-                        inputMode="tel"
-                        value={phoneValue}
-                        onValueChange={(v: string) =>
-                            setPhoneValue(formatPhone(v))
+                    <ProfileDetailsFields
+                        displayName={nameValue}
+                        onDisplayNameChange={setNameValue}
+                        phone={phoneValue}
+                        onPhoneChange={setPhoneValue}
+                        instagramHandle={instagramValue}
+                        onInstagramHandleChange={setInstagramValue}
+                        preferredContactMethod={preferredContactValue}
+                        onPreferredContactMethodChange={
+                            setPreferredContactValue
                         }
-                        enterKeyHint="done"
-                    />
-
-                    <FormField
-                        id="instagramHandle"
-                        name="instagramHandle"
-                        label="Instagram handle"
-                        type="text"
-                        autoComplete="off"
-                        required
-                        placeholder="e.g., vee.nailsstudio"
-                        value={instagramValue}
-                        onValueChange={(value) =>
-                            setInstagramValue(value.toLowerCase())
-                        }
-                        enterKeyHint="next"
-                        enterBehavior="next"
-                        error={
-                            !instagramHandleValid
-                                ? "Use lowercase letters, numbers, periods, or underscores only."
-                                : undefined
-                        }
-                        hintContent="We use this to contact you about design inspo and your appointment."
-                    />
-
-                    <AppSelect
-                        label="Preferred contact method"
-                        name="preferredContactMethod"
-                        required
-                        value={preferredContactValue}
-                        onChange={(value) =>
-                            setPreferredContactValue(
-                                value as PreferredContactMethod,
-                            )
-                        }
-                        options={[
-                            { value: "email", label: "Email" },
-                            { value: "phone", label: "Phone" },
-                            { value: "instagram", label: "Instagram" },
-                        ]}
-                        helperText="This helps the studio contact you about your appointment."
                     />
 
                     <button

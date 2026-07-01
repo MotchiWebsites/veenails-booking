@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/features/auth/guards/require-admin";
 import AdminShell from "@/features/admin/components/AdminShell";
 import { buildMetadata } from "@/lib/seo/metadata";
+import { requireCompleteProfile } from "@/features/auth/guards/require-complete-profile";
 
 export const metadata = buildMetadata({
     title: "Admin Dashboard",
@@ -14,7 +15,8 @@ export default async function AdminLayout({
 }: {
     children: React.ReactNode;
 }) {
-    await requireAdmin();
+    const { user } = await requireAdmin();
+    await requireCompleteProfile(user.id);
 
     return <AdminShell>{children}</AdminShell>;
 }

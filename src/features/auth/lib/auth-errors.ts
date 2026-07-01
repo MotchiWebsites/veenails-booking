@@ -1,5 +1,102 @@
-export function getFriendlyAuthError(message?: string) {
-    const normalized = message?.toLowerCase() ?? "";
+type AuthErrorLike = {
+    code?: string;
+    message?: string;
+    name?: string;
+    status?: number;
+};
+
+function asAuthError(error?: unknown): AuthErrorLike {
+    if (typeof error === "string") {
+        return { message: error };
+    }
+
+    if (!error || typeof error !== "object") {
+        return {};
+    }
+
+    const candidate = error as Record<string, unknown>;
+
+    return {
+        code:
+            typeof candidate.code === "string" ? candidate.code : undefined,
+        message:
+            typeof candidate.message === "string"
+                ? candidate.message
+                : undefined,
+        name:
+            typeof candidate.name === "string" ? candidate.name : undefined,
+        status:
+            typeof candidate.status === "number"
+                ? candidate.status
+                : undefined,
+    };
+}
+
+export function isSessionAuthError(error?: unknown) {
+    const details = asAuthError(error);
+    const normalized = details.message?.toLowerCase() ?? "";
+
+    return (
+        details.code === "refresh_token_not_found" ||
+        details.code === "refresh_token_already_used" ||
+        details.code === "session_not_found" ||
+        details.code === "session_expired" ||
+        normalized.includes("invalid refresh token") ||
+        normalized.includes("refresh token is not valid") ||
+        normalized.includes("refresh token not found") ||
+        normalized.includes("refresh token already used")
+    );
+}
+
+export function isPkceAuthError(error?: unknown) {
+    const details = asAuthError(error);
+    const normalized = details.message?.toLowerCase() ?? "";
+
+    return (
+        details.code === "pkce_code_verifier_not_found" ||
+        details.code === "bad_code_verifier" ||
+        details.code === "flow_state_not_found" ||
+        details.code === "flow_state_expired" ||
+        normalized.includes("code verifier") ||
+        normalized.includes("pkce")
+    );
+}
+
+export function getAuthErrorLogDetails(error?: unknown) {
+    const details = asAuthError(error);
+
+    return {
+        name: details.name ?? "UnknownAuthError",
+        code: details.code ?? "unknown",
+        status: details.status ?? null,
+        message: details.message ?? "Unknown authentication error",
+    };
+}
+
+export function getFriendlyAuthError(error?: unknown, fallbackCode?: string) {
+    const details = asAuthError(error);
+    const normalized = details.message?.toLowerCase() ?? "";
+
+    if (isSessionAuthError(error)) {
+        return "Your saved sign-in session expired. Refresh the page and try again. If it continues, clear this site’s saved data. (Code: AUTH-SESSION)";
+    }
+
+    if (
+        details.code === "flow_state_not_found" ||
+        details.code === "flow_state_expired" ||
+        details.code === "bad_oauth_state" ||
+        details.code === "bad_oauth_callback"
+    ) {
+        return "This sign-in link is no longer valid. Start again from the sign-in page. (Code: AUTH-CALLBACK)";
+    }
+
+    if (
+        details.code === "unexpected_failure" &&
+        normalized.includes("database error")
+    ) {
+        return "We couldn’t finish setting up your account. Please try again. If it continues, share code AUTH-DATABASE.";
+    }
+
     // reauthentication required when updating sensitive fields (password)
     if (
         normalized.includes("password update requires reauthentication") ||
@@ -89,5 +186,7 @@ export function getFriendlyAuthError(message?: string) {
         return "Your current password is incorrect.";
     }
 
-    return "Something went wrong. Please try again.";
+    return fallbackCode
+        ? `Something went wrong. Please try again. (Code: ${fallbackCode})`
+        : "Something went wrong. Please try again.";
 }

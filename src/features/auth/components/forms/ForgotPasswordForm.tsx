@@ -15,7 +15,13 @@ const initialState = {
     messageId: "",
 };
 
-export default function ForgotPasswordForm() {
+function ForgotPasswordFormContent({
+    initialAuthError,
+    onReset,
+}: {
+    initialAuthError?: string;
+    onReset: () => void;
+}) {
     const [email, setEmail] = useState("");
 
     const emailValid = useMemo(() => isValidEmail(email), [email]);
@@ -40,6 +46,28 @@ export default function ForgotPasswordForm() {
         }
     }, [error, success, state.error, state.messageId, state.success]);
 
+    useEffect(() => {
+        if (initialAuthError === "expired") {
+            error(
+                "This password reset link is invalid, expired, or already used. Request a new link below.",
+                "Reset link expired",
+                "AUTH-RESET-EXPIRED",
+            );
+        } else if (initialAuthError === "missing") {
+            error(
+                "This password reset link is incomplete. Request a new link below.",
+                "Invalid reset link",
+                "AUTH-RESET-MISSING",
+            );
+        } else if (initialAuthError) {
+            error(
+                "We couldn’t verify that password reset link. Request a new link below.",
+                "Reset link failed",
+                "AUTH-RESET",
+            );
+        }
+    }, [error, initialAuthError]);
+
     if (state.success) {
         return (
             <AuthResultScreen
@@ -50,8 +78,8 @@ export default function ForgotPasswordForm() {
                 }
                 primaryActionLabel="Back to Sign In"
                 primaryActionHref={routes.login}
-                secondaryActionLabel="Try another email"
-                secondaryActionHref={routes.forgotPassword}
+                secondaryActionLabel="Edit Email"
+                secondaryActionOnClick={onReset}
             />
         );
     }
@@ -91,5 +119,21 @@ export default function ForgotPasswordForm() {
                 </p>
             ) : null}
         </AppForm>
+    );
+}
+
+export default function ForgotPasswordForm({
+    initialAuthError,
+}: {
+    initialAuthError?: string;
+}) {
+    const [formVersion, setFormVersion] = useState(0);
+
+    return (
+        <ForgotPasswordFormContent
+            key={formVersion}
+            initialAuthError={initialAuthError}
+            onReset={() => setFormVersion((version) => version + 1)}
+        />
     );
 }

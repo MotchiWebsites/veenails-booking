@@ -12,19 +12,15 @@ import SignOutButton from "@/components/shared/auth/SignOutButton";
 
 export default function DashboardSidebar({
     user,
+    displayName,
     collapsed,
     onToggle,
 }: {
     user: User;
+    displayName: string;
     collapsed: boolean;
     onToggle: () => void;
 }) {
-    const displayName =
-        user.user_metadata?.full_name ||
-        user.user_metadata?.display_name ||
-        user.email ||
-        "Client";
-
     const firstName = String(displayName).split(" ")[0];
 
     return (
@@ -141,6 +137,7 @@ export default function DashboardSidebar({
                 >
                     <UserAvatar
                         user={user}
+                        displayName={displayName}
                         showText={!collapsed}
                     />
                 </div>

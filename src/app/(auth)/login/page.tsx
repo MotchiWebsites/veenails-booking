@@ -12,7 +12,18 @@ export const metadata = buildMetadata({
     noIndex: true,
 });
 
-export default function LoginPage() {
+type LoginPageProps = {
+    searchParams: Promise<{
+        authError?: string | string[];
+    }>;
+};
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+    const params = await searchParams;
+    const authError = Array.isArray(params.authError)
+        ? params.authError[0]
+        : params.authError;
+
     return (
         <Reveal>
             <AuthCard
@@ -42,7 +53,7 @@ export default function LoginPage() {
                     </>
                 }
             >
-                <LoginForm />
+                <LoginForm initialAuthError={authError} />
             </AuthCard>
         </Reveal>
     );

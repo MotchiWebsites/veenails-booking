@@ -5,24 +5,20 @@ import AuthResultScreen from "@/features/auth/components/AuthResultScreen";
 import Link from "next/link";
 import { routes } from "@/constants/routes";
 
-import { signUpWithPassword } from "@/features/auth/actions/auth";
-import { formatNorthAmericanPhone } from "@/features/auth/validation/phone";
+import {
+    signUpWithPassword,
+    type AuthActionState,
+} from "@/features/auth/actions/auth";
 import { isValidPassword } from "@/features/auth/validation/password";
 import { isValidEmail } from "@/features/auth/validation/email";
 
 import AppForm from "@/components/shared/form/AppForm";
-import AppSelect from "@/components/shared/form/AppSelect";
-import FormCheckbox from "@/components/shared/form/FormCheckbox";
 import FormField from "@/components/shared/form/FormField";
 import GoogleSignInButton from "@/features/auth/components/GoogleSignInButton";
 import PasswordRequirements from "@/components/shared/form/PasswordRequirements";
 import { useToast } from "@/components/shared/toast/ToastProvider";
-import {
-    normalizeInstagramHandle,
-    type PreferredContactMethod,
-} from "@/features/profile/validation/profile";
 
-const initialState = {
+const initialState: AuthActionState = {
     error: "",
     success: "",
     messageId: "",
@@ -32,40 +28,20 @@ export default function SignupForm() {
     const { error, success } = useToast();
 
     const [fullName, setFullName] = useState("");
-    const [phone, setPhone] = useState("");
-    const [instagramHandle, setInstagramHandle] = useState("");
-    const [preferredContactMethod, setPreferredContactMethod] =
-        useState<PreferredContactMethod>("email");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
-    const [acceptedTerms, setAcceptedTerms] = useState(false);
 
     const emailValid = useMemo(() => isValidEmail(email), [email]);
     const passwordValid = useMemo(() => isValidPassword(password), [password]);
     const passwordsMatch =
         password === confirmPassword && confirmPassword.length > 0;
-    const normalizedInstagramHandle = normalizeInstagramHandle(instagramHandle);
-    const instagramHandleValid = useMemo(
-        () =>
-            Boolean(normalizedInstagramHandle) &&
-            /^[a-z0-9._]{1,30}$/.test(normalizedInstagramHandle ?? ""),
-        [normalizedInstagramHandle],
-    );
-    const contactPreferenceValid =
-        preferredContactMethod === "email" ||
-        (preferredContactMethod === "phone" && phone.trim().length > 0) ||
-        (preferredContactMethod === "instagram" &&
-            Boolean(normalizedInstagramHandle));
 
     const canSubmit =
         fullName.trim().length > 0 &&
         emailValid &&
         passwordValid &&
-        passwordsMatch &&
-        instagramHandleValid &&
-        contactPreferenceValid &&
-        acceptedTerms;
+        passwordsMatch;
 
     const [state, formAction, pending] = useActionState(
         signUpWithPassword,
@@ -89,7 +65,7 @@ export default function SignupForm() {
                 variant="success"
                 title="Check your email"
                 description={
-                    "We sent a confirmation link to your email. Open it to finish creating your booking account."
+                    "We sent a confirmation link to your email. Open it to verify your account and complete your profile."
                 }
                 primaryActionLabel="Go to Sign In"
                 primaryActionHref={routes.login}
@@ -129,64 +105,6 @@ export default function SignupForm() {
                     onValueChange={setFullName}
                     enterKeyHint="next"
                     enterBehavior="next"
-                />
-
-                <FormField
-                    id="phone"
-                    name="phone"
-                    label="Phone number"
-                    type="tel"
-                    autoComplete="tel"
-                    required={false}
-                    placeholder="(416) 123-4567"
-                    value={phone}
-                    onValueChange={(value) =>
-                        setPhone(formatNorthAmericanPhone(value))
-                    }
-                    inputMode="tel"
-                    enterKeyHint="next"
-                    enterBehavior="next"
-                    hintContent="This is optional, but providing a phone number can help us reach you if there are any issues with your booking."
-                />
-
-                <FormField
-                    id="instagramHandle"
-                    name="instagramHandle"
-                    label="Instagram handle"
-                    type="text"
-                    autoComplete="off"
-                    required
-                    placeholder="e.g., vee.nailsstudio"
-                    value={instagramHandle}
-                    onValueChange={(value) =>
-                        setInstagramHandle(value.toLowerCase())
-                    }
-                    enterKeyHint="next"
-                    enterBehavior="next"
-                    error={
-                        !instagramHandleValid
-                            ? "Use lowercase letters, numbers, periods, or underscores only."
-                            : undefined
-                    }
-                    hintContent="We use this to contact you about design inspo and your appointment."
-                />
-
-                <AppSelect
-                    label="Preferred contact method"
-                    name="preferredContactMethod"
-                    value={preferredContactMethod}
-                    onChange={(value) =>
-                        setPreferredContactMethod(
-                            value as PreferredContactMethod,
-                        )
-                    }
-                    options={[
-                        { value: "email", label: "Email" },
-                        { value: "phone", label: "Phone" },
-                        { value: "instagram", label: "Instagram" },
-                    ]}
-                    required
-                    helperText="This helps the studio contact you about your appointment."
                 />
 
                 <FormField
@@ -246,14 +164,6 @@ export default function SignupForm() {
                     enterKeyHint="done"
                 />
 
-                <FormCheckbox
-                    id="acceptedTerms"
-                    name="acceptedTerms"
-                    checked={acceptedTerms}
-                    onCheckedChange={setAcceptedTerms}
-                    required
-                />
-
                 <button
                     type="submit"
                     disabled={pending || !canSubmit}
@@ -262,18 +172,19 @@ export default function SignupForm() {
                     {pending ? "Creating account..." : "Create Account"}
                 </button>
 
-                {state.error &&
-                state.error.toLowerCase().includes("already") ? (
+                {state.suggestedSignIn ? (
                     <div className="text-center">
                         <p className="text-sm text-muted">
-                            An account with this email already exists.
+                            {state.suggestedSignIn === "google"
+                                ? "This email already uses Google sign-in. Use “Continue with Google” above—your profile and bookings are safe."
+                                : "This account already exists. Sign in with your password, or use Google with the same email."}
                         </p>
                         <div className="mt-2">
                             <Link
                                 href={routes.login}
                                 className="btn-ghost w-full sm:w-auto"
                             >
-                                Sign in instead
+                                Go to Sign In
                             </Link>
                         </div>
                     </div>

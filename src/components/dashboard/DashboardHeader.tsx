@@ -6,26 +6,17 @@ import DashboardUserMenu from "@/components/dashboard/DashboardUserMenu";
 import Link from "next/link";
 import AdminViewToggle from "@/components/shared/navigation/AdminViewToggle";
 
-function getDisplayName(user: User) {
-    return (
-        user.user_metadata?.full_name ||
-        user.user_metadata?.display_name ||
-        user.email?.split("@")[0] ||
-        "Client"
-    );
-}
-
 export default function DashboardHeader({
     user,
+    displayName,
     isAdmin,
     onOpenMobileSidebar,
 }: {
     user: User;
+    displayName: string;
     isAdmin: boolean;
     onOpenMobileSidebar: () => void;
 }) {
-    const displayName = getDisplayName(user);
-
     return (
         <header className="sticky top-0 z-30 border-b border-border/60 bg-background/85 px-5 py-4 backdrop-blur sm:px-6 lg:px-8">
             <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
@@ -58,7 +49,10 @@ export default function DashboardHeader({
 
                 <div className="flex items-center gap-3">
                     <AdminViewToggle isAdmin={isAdmin} />
-                    <DashboardUserMenu user={user} />
+                    <DashboardUserMenu
+                        user={user}
+                        displayName={displayName}
+                    />
                 </div>
             </div>
         </header>

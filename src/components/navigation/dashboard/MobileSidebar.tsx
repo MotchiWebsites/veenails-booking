@@ -18,17 +18,13 @@ export default function MobileSidebar({
     open,
     onClose,
     user,
+    displayName,
 }: {
     open: boolean;
     onClose: () => void;
     user: User;
+    displayName: string;
 }) {
-    const displayName =
-        user.user_metadata?.full_name ||
-        user.user_metadata?.display_name ||
-        user.email ||
-        "Client";
-
     const firstName = String(displayName).split(" ")[0];
 
     const shouldReduceMotion = useReducedMotion();
@@ -144,7 +140,10 @@ export default function MobileSidebar({
 
                         <div className="space-y-3 border-t border-border/60 pt-4">
                             <div className="rounded-2xl bg-background p-3">
-                                <UserAvatar user={user} />
+                                <UserAvatar
+                                    user={user}
+                                    displayName={displayName}
+                                />
                             </div>
 
                             <DashboardNavItem

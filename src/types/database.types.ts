@@ -1391,11 +1391,15 @@ export type Database = {
           display_name: string
           email: string
           id: string
-          instagram_handle: string
+          instagram_handle: string | null
           is_regular: boolean
+          legal_version: string | null
           phone: string | null
           preferred_contact_method: Database["public"]["Enums"]["preferred_contact_method"]
+          privacy_accepted_at: string | null
+          profile_completed_at: string | null
           regular_since: string | null
+          terms_accepted_at: string | null
           updated_at: string
         }
         Insert: {
@@ -1403,11 +1407,15 @@ export type Database = {
           display_name: string
           email: string
           id: string
-          instagram_handle: string
+          instagram_handle?: string | null
           is_regular?: boolean
+          legal_version?: string | null
           phone?: string | null
           preferred_contact_method?: Database["public"]["Enums"]["preferred_contact_method"]
+          privacy_accepted_at?: string | null
+          profile_completed_at?: string | null
           regular_since?: string | null
+          terms_accepted_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -1415,11 +1423,15 @@ export type Database = {
           display_name?: string
           email?: string
           id?: string
-          instagram_handle?: string
+          instagram_handle?: string | null
           is_regular?: boolean
+          legal_version?: string | null
           phone?: string | null
           preferred_contact_method?: Database["public"]["Enums"]["preferred_contact_method"]
+          privacy_accepted_at?: string | null
+          profile_completed_at?: string | null
           regular_since?: string | null
+          terms_accepted_at?: string | null
           updated_at?: string
         }
         Relationships: []

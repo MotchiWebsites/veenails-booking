@@ -18,7 +18,13 @@ export async function updateSession(request: NextRequest) {
             getAll() {
                 return request.cookies.getAll();
             },
-            setAll(cookiesToSet) {
+            setAll(cookiesToSet, headers) {
+                // Make refreshed tokens available to the route or Server Action
+                // handling this same request.
+                cookiesToSet.forEach(({ name, value }) => {
+                    request.cookies.set(name, value);
+                });
+
                 supabaseResponse = NextResponse.next({
                     request,
                 });
@@ -26,11 +32,28 @@ export async function updateSession(request: NextRequest) {
                 cookiesToSet.forEach(({ name, value, options }) => {
                     supabaseResponse.cookies.set(name, value, options);
                 });
+
+                // Supabase marks responses that update auth cookies as private
+                // and non-cacheable so a CDN cannot replay another user's session.
+                Object.entries(headers).forEach(([name, value]) => {
+                    supabaseResponse.headers.set(name, value);
+                });
             },
         },
     });
 
-    await supabase.auth.getUser();
+    const { error } = await supabase.auth.getClaims();
+
+    // A missing session is the normal logged-out state, not an operational
+    // failure worth sending to the logs.
+    if (error && error.name !== "AuthSessionMissingError") {
+        console.warn("[auth-proxy] Session validation failed", {
+            path: request.nextUrl.pathname,
+            code: error.code,
+            status: error.status,
+            message: error.message,
+        });
+    }
 
     return supabaseResponse;
 }

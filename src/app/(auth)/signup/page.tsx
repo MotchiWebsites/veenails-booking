@@ -16,8 +16,9 @@ export default function SignupPage() {
     return (
         <Reveal>
             <AuthCard
+                eyebrow="Step 1 of 2"
                 title="Create your account"
-                description="Set up your booking account to request appointments and receive updates."
+                description="Start with your sign-in details. After verification, we’ll ask how the studio should contact you."
                 topAction={
                     <>
                         Already have an account?{" "}

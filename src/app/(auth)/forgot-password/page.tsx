@@ -12,7 +12,20 @@ export const metadata = buildMetadata({
     noIndex: true,
 });
 
-export default function ForgotPasswordPage() {
+type ForgotPasswordPageProps = {
+    searchParams: Promise<{
+        authError?: string | string[];
+    }>;
+};
+
+export default async function ForgotPasswordPage({
+    searchParams,
+}: ForgotPasswordPageProps) {
+    const params = await searchParams;
+    const authError = Array.isArray(params.authError)
+        ? params.authError[0]
+        : params.authError;
+
     return (
         <Reveal>
             <AuthCard
@@ -31,7 +44,7 @@ export default function ForgotPasswordPage() {
                     </>
                 }
             >
-                <ForgotPasswordForm />
+                <ForgotPasswordForm initialAuthError={authError} />
             </AuthCard>
         </Reveal>
     );

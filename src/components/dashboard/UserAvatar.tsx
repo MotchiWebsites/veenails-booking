@@ -3,19 +3,15 @@ import { FiUser } from "react-icons/fi";
 
 export default function UserAvatar({
     user,
+    displayName,
     showText = true,
     showGreeting = false,
 }: {
     user: User;
+    displayName: string;
     showText?: boolean;
     showGreeting?: boolean;
 }) {
-    const displayName =
-        user.user_metadata?.full_name ||
-        user.user_metadata?.display_name ||
-        user.email ||
-        "Client";
-
     const firstName = String(displayName).split(" ")[0];
     const initial = String(displayName).charAt(0).toUpperCase();
 

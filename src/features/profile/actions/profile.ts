@@ -173,6 +173,24 @@ export async function updateProfile(
             };
         }
 
+        const { error: metadataError } = await supabase.auth.updateUser({
+            data: {
+                display_name: displayName,
+                full_name: displayName,
+                name: displayName,
+            },
+        });
+
+        if (metadataError) {
+            // The profile-to-Auth database trigger remains the consistency
+            // guarantee even if refreshing this session's metadata fails.
+            logProfileActionError(
+                "updateProfile.updateAuthMetadata",
+                metadataError,
+                { userId: user.id },
+            );
+        }
+
         revalidatePath("/profile");
         revalidatePath("/dashboard");
 
