@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/features/admin/auth/require-admin";
 import {
+    buildServiceOptionLabel,
     calculateEstimate,
     getRemovalOption,
     getService,
@@ -21,12 +22,10 @@ import { sendTransactionalEmail } from "@/lib/email/brevo";
 import { getAppBaseUrl } from "@/lib/email/config";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { BookingSelections, DesignTier } from "@/features/bookings/new-booking/types";
-import type { Database, Enums } from "@/types/supabase";
+import type { Enums } from "@/types/supabase";
 import { syncBookingToGoogleCalendar } from "@/features/integrations/google-calendar/services/sync";
 import { calculateCheckoutPaymentPlan } from "@/features/bookings/utils/booking-ledger";
-
-type BookingLineItemInsert =
-    Database["public"]["Tables"]["booking_line_items"]["Insert"];
+import { buildBookingServiceLineItems } from "@/features/bookings/utils/booking-line-items";
 
 type CreateState = {
     error: string;
@@ -78,18 +77,6 @@ async function generateBookingReference(admin: ReturnType<typeof createAdminClie
     throw new Error("Unable to generate booking reference.");
 }
 
-function buildServiceLineItemLabel(
-    service: NonNullable<ReturnType<typeof getService>>,
-    serviceOption: NonNullable<ReturnType<typeof getServiceOption>>,
-) {
-    if (service.id === "freestyle") return service.label;
-    const optionLabel =
-        serviceOption.groupLabel && service.id === "structured_gel_manicure"
-            ? `${serviceOption.groupLabel} ${serviceOption.label}`
-            : serviceOption.label;
-    return `${service.label} • ${optionLabel}`;
-}
-
 function parseSelections(formData: FormData): BookingSelections {
     const removalId = text(formData, "removalId");
     const serviceId = text(formData, "serviceId");
@@ -104,75 +91,6 @@ function parseSelections(formData: FormData): BookingSelections {
         serviceOptionId: serviceOptionId || null,
         designTierId: designTierId || null,
     };
-}
-
-function normalizeDesignTierLabel(label: string) {
-    if (/^design tier/i.test(label)) return label;
-    if (/^tier\s+/i.test(label)) return `Design ${label}`;
-    return label;
-}
-
-function buildLineItems({
-    bookingId,
-    adminUserId,
-    selections,
-    designTier,
-}: {
-    bookingId: string;
-    adminUserId: string;
-    selections: BookingSelections;
-    designTier: { id: string; name: string; description: string | null; price: number } | null;
-}): BookingLineItemInsert[] {
-    const removal = getRemovalOption(selections.removalId);
-    const service = getService(selections.serviceId);
-    const serviceOption = getServiceOption(service, selections.serviceOptionId);
-    const items: BookingLineItemInsert[] = [];
-
-    if (removal && removal.price > 0) {
-        items.push({
-            booking_id: bookingId,
-            item_type: "removal",
-            label_snapshot: removal.label,
-            description_snapshot: removal.description,
-            quantity: 1,
-            unit_price: removal.price,
-            added_by: adminUserId,
-        });
-    }
-
-    if (!isRemovalOnly(selections.removalId) && service && serviceOption) {
-        items.push({
-            booking_id: bookingId,
-            item_type: "service",
-            source_table: "booking_config",
-            source_id: `${service.id}:${serviceOption.id}`,
-            label_snapshot: buildServiceLineItemLabel(service, serviceOption),
-            description_snapshot: serviceOption.helperText ?? service.description,
-            quantity: 1,
-            unit_price: serviceOption.price,
-            added_by: adminUserId,
-        });
-    }
-
-    if (
-        !isRemovalOnly(selections.removalId) &&
-        requiresDesignTier(service) &&
-        designTier
-    ) {
-        items.push({
-            booking_id: bookingId,
-            item_type: "design_tier",
-            source_table: "design_tiers",
-            source_id: designTier.id,
-            label_snapshot: normalizeDesignTierLabel(designTier.name),
-            description_snapshot: designTier.description,
-            quantity: 1,
-            unit_price: designTier.price,
-            added_by: adminUserId,
-        });
-    }
-
-    return items;
 }
 
 export async function createAdminAppointmentAction(
@@ -387,13 +305,18 @@ export async function createAdminAppointmentAction(
         if (bookingError) throw bookingError;
         createdBookingId = booking.id;
 
-        const lineItems = buildLineItems({
-            bookingId: booking.id,
-            adminUserId: adminUser.id,
+        const lineItemDrafts = buildBookingServiceLineItems({
             selections,
             designTier: designTier ? { ...designTier, price: Number(designTier.price ?? 0) } : null,
         });
-        if (lineItems.length === 0) throw new Error("Appointment needs at least one service or removal.");
+        if (!lineItemDrafts || lineItemDrafts.length === 0) {
+            throw new Error("Appointment needs at least one service or removal.");
+        }
+        const lineItems = lineItemDrafts.map((item) => ({
+            ...item,
+            booking_id: booking.id,
+            added_by: adminUser.id,
+        }));
 
         const { error: lineItemError } = await admin.from("booking_line_items").insert(lineItems);
         if (lineItemError) throw lineItemError;
@@ -430,10 +353,15 @@ export async function createAdminAppointmentAction(
                 endsAt: slot.ends_at,
                 status: bookingStatus,
                 depositStatus,
+                removal: removal.label,
                 service:
                     isRemovalOnly(selections.removalId)
-                        ? removal.label
+                        ? null
                         : service?.label ?? null,
+                serviceOption:
+                    isRemovalOnly(selections.removalId)
+                        ? null
+                        : buildServiceOptionLabel(service, serviceOption),
                 design:
                     service && !requiresDesignTier(service)
                         ? "Technician-designed freestyle set"

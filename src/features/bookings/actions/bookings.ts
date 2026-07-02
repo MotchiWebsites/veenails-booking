@@ -30,13 +30,9 @@ import { sendTransactionalEmail } from "@/lib/email/brevo";
 import type {
     BookingSelections,
     DesignTier,
-    ServiceConfig,
-    ServiceOption,
 } from "@/features/bookings/new-booking/types";
 import type { Database } from "@/types/supabase";
-
-type BookingLineItemInsert =
-    Database["public"]["Tables"]["booking_line_items"]["Insert"];
+import { buildBookingServiceLineItems } from "@/features/bookings/utils/booking-line-items";
 
 type DesignTierRow = Pick<
     Database["public"]["Tables"]["design_tiers"]["Row"],
@@ -78,34 +74,6 @@ function getFormString(formData: FormData, key: string) {
     return typeof value === "string" ? value.trim() : "";
 }
 
-function normalizeDesignTierLabel(label: string) {
-    if (/^design tier/i.test(label)) {
-        return label;
-    }
-
-    if (/^tier\s+/i.test(label)) {
-        return `Design ${label}`;
-    }
-
-    return label;
-}
-
-function buildServiceLineItemLabel(
-    service: ServiceConfig,
-    serviceOption: ServiceOption,
-) {
-    if (service.id === "freestyle") {
-        return service.label;
-    }
-
-    const optionLabel =
-        serviceOption.groupLabel && service.id === "structured_gel_manicure"
-            ? `${serviceOption.groupLabel} ${serviceOption.label}`
-            : serviceOption.label;
-
-    return `${service.label} • ${optionLabel}`;
-}
-
 function mapDesignTiers(rows: DesignTierRow[]): DesignTier[] {
     return rows.map((tier) => ({
         id: tier.id,
@@ -115,74 +83,6 @@ function mapDesignTiers(rows: DesignTierRow[]): DesignTier[] {
         imageSrc: null,
         imageAlt: `${tier.name} design tier preview`,
     }));
-}
-
-function buildEditableLineItems({
-    selections,
-    designTier,
-}: {
-    selections: BookingSelections;
-    designTier: DesignTierRow | null;
-}): BookingLineItemInsert[] | null {
-    const removal = getRemovalOption(selections.removalId);
-    const service = getService(selections.serviceId);
-    const serviceOption = getServiceOption(service, selections.serviceOptionId);
-    const lineItems: BookingLineItemInsert[] = [];
-
-    if (!removal) {
-        return null;
-    }
-
-    if (removal.price > 0) {
-        lineItems.push({
-            booking_id: "",
-            item_type: "removal",
-            label_snapshot: removal.label,
-            description_snapshot: removal.description,
-            quantity: 1,
-            unit_price: removal.price,
-            active: true,
-        });
-    }
-
-    if (!isRemovalOnly(selections.removalId)) {
-        if (
-            !service ||
-            !serviceOption ||
-            (requiresDesignTier(service) && !designTier)
-        ) {
-            return null;
-        }
-
-        lineItems.push({
-            booking_id: "",
-            item_type: "service",
-            source_table: "booking_config",
-            source_id: `${service.id}:${serviceOption.id}`,
-            label_snapshot: buildServiceLineItemLabel(service, serviceOption),
-            description_snapshot:
-                serviceOption.helperText ?? service.description,
-            quantity: 1,
-            unit_price: serviceOption.price,
-            active: true,
-        });
-
-        if (requiresDesignTier(service) && designTier) {
-            lineItems.push({
-                booking_id: "",
-                item_type: "design_tier",
-                source_table: "design_tiers",
-                source_id: designTier.id,
-                label_snapshot: normalizeDesignTierLabel(designTier.name),
-                description_snapshot: designTier.description,
-                quantity: 1,
-                unit_price: Number(designTier.price ?? 0),
-                active: true,
-            });
-        }
-    }
-
-    return lineItems;
 }
 
 function parseBookingSelections(formData: FormData): BookingSelections {
@@ -354,7 +254,7 @@ export async function updateBookingServices(
         return editState({ error: "Choose a valid design tier." });
     }
 
-    const nextLineItems = buildEditableLineItems({
+    const nextLineItems = buildBookingServiceLineItems({
         selections,
         designTier: selectedDesignTier,
     });

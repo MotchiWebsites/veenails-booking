@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { getUser } from "@/features/auth/guards/get-user";
 import type {
-    BookingSelections,
     DesignTier,
     ServiceConfig,
     ServiceOption,
@@ -29,6 +28,7 @@ import { appointmentStatusTemplate } from "@/features/notifications/email/templa
 import { sendTransactionalEmail } from "@/lib/email/brevo";
 import { getAppBaseUrl, getEmailConfig } from "@/lib/email/config";
 import { calculateCheckoutPaymentPlan } from "@/features/bookings/utils/booking-ledger";
+import { buildBookingServiceLineItems } from "@/features/bookings/utils/booking-line-items";
 
 type BookingSettingsRow = Pick<
     Database["public"]["Tables"]["booking_settings"]["Row"],
@@ -50,9 +50,6 @@ type PolicyRow = Pick<
     "id" | "title" | "description"
 >;
 
-type BookingLineItemInsert =
-    Database["public"]["Tables"]["booking_line_items"]["Insert"];
-
 type UserCreditRow = Pick<
     Database["public"]["Tables"]["user_credits"]["Row"],
     "id" | "amount" | "active" | "expires_at" | "used_at" | "created_at"
@@ -72,11 +69,6 @@ type CreditReversal =
           used_at: string | null;
       }
     | { id: string; kind: "amount"; amount: number };
-
-type BookingLineItemDraft = Omit<
-    BookingLineItemInsert,
-    "booking_id" | "id" | "created_at" | "updated_at"
->;
 
 const BOOKING_REFERENCE_PREFIX = "VEE";
 const BOOKING_REFERENCE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -211,92 +203,6 @@ async function generateBookingReference(
     throw new Error(
         "Unable to generate a unique booking reference after multiple attempts.",
     );
-}
-
-function normalizeDesignTierLabel(label: string) {
-    if (/^design tier/i.test(label)) {
-        return label;
-    }
-
-    if (/^tier\s+/i.test(label)) {
-        return `Design ${label}`;
-    }
-
-    return label;
-}
-
-function buildServiceLineItemLabel(
-    service: ServiceConfig,
-    serviceOption: ServiceOption,
-) {
-    if (service.id === "freestyle") {
-        return service.label;
-    }
-
-    const optionLabel =
-        serviceOption.groupLabel && service.id === "structured_gel_manicure"
-            ? `${serviceOption.groupLabel} ${serviceOption.label}`
-            : serviceOption.label;
-
-    return `${service.label} • ${optionLabel}`;
-}
-
-function buildLineItems({
-    draft,
-    designTier,
-}: {
-    draft: BookingSelections;
-    designTier: DesignTierRow | null;
-}): BookingLineItemDraft[] {
-    const removal = getRemovalOption(draft.removalId);
-    const service = getService(draft.serviceId);
-    const serviceOption = getServiceOption(service, draft.serviceOptionId);
-
-    const lineItems: BookingLineItemDraft[] = [];
-
-    if (removal && removal.price > 0) {
-        lineItems.push({
-            item_type: "removal",
-            label_snapshot: removal.label,
-            description_snapshot: removal.description,
-            quantity: 1,
-            unit_price: removal.price,
-            active: true,
-        });
-    }
-
-    if (draft.removalId !== "removal_only" && service && serviceOption) {
-        lineItems.push({
-            item_type: "service",
-            source_table: "booking_config",
-            source_id: `${service.id}:${serviceOption.id}`,
-            label_snapshot: buildServiceLineItemLabel(service, serviceOption),
-            description_snapshot:
-                serviceOption.helperText ?? service.description,
-            quantity: 1,
-            unit_price: serviceOption.price,
-            active: true,
-        });
-    }
-
-    if (
-        draft.removalId !== "removal_only" &&
-        requiresDesignTier(service) &&
-        designTier
-    ) {
-        lineItems.push({
-            item_type: "design_tier",
-            source_table: "design_tiers",
-            source_id: designTier.id,
-            label_snapshot: normalizeDesignTierLabel(designTier.name),
-            description_snapshot: designTier.description,
-            quantity: 1,
-            unit_price: Number(designTier.price ?? 0),
-            active: true,
-        });
-    }
-
-    return lineItems;
 }
 
 function buildCheckoutEventServiceMetadata({
@@ -681,12 +587,12 @@ export async function submitBookingCheckout(
         Date.now() + normalizedSettings.holdMinutes * 60_000,
     ).toISOString();
 
-    const lineItems = buildLineItems({
-        draft,
+    const lineItems = buildBookingServiceLineItems({
+        selections: draft,
         designTier: selectedDesignTier,
     });
 
-    if (lineItems.length === 0) {
+    if (!lineItems || lineItems.length === 0) {
         return state({
             error: "Your booking does not include any valid services. Please review your selections.",
         });
@@ -803,13 +709,11 @@ export async function submitBookingCheckout(
 
         bookingId = booking.id;
 
-        const lineItemsToInsert: BookingLineItemInsert[] = lineItems.map(
-            (item) => ({
-                ...item,
-                booking_id: booking.id,
-                added_by: user.id,
-            }),
-        );
+        const lineItemsToInsert = lineItems.map((item) => ({
+            ...item,
+            booking_id: booking.id,
+            added_by: user.id,
+        }));
 
         const { error: lineItemError } = await admin
             .from("booking_line_items")

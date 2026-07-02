@@ -17,6 +17,7 @@ import {
 } from "@/features/admin/appointments/utils/admin-discount";
 import { completeBookingWithSettlement } from "@/features/admin/appointments/utils/complete-booking";
 import { calculateBookingLedger } from "@/features/bookings/utils/booking-ledger";
+import { buildBookingServiceLineItems } from "@/features/bookings/utils/booking-line-items";
 import {
     syncBookingRescheduleToGoogleCalendar,
     syncBookingToGoogleCalendar,
@@ -1163,13 +1164,33 @@ export async function updateAppointmentServicesAction(
             designTier = { ...result.data, price: Number(result.data.price) };
         }
 
-        const nextItems: Array<{ booking_id: string; item_type: Enums<"booking_line_item_type">; label_snapshot: string; description_snapshot?: string | null; quantity: number; unit_price: number; source_table?: string; source_id?: string; added_by: string }> = [];
-        if (removal.price > 0) nextItems.push({ booking_id: bookingId, item_type: "removal", label_snapshot: removal.label, description_snapshot: removal.description, quantity: 1, unit_price: removal.price, added_by: user.id });
-        if (removal.id !== "removal_only" && service && serviceOption) {
-            const optionLabel = "groupLabel" in serviceOption && serviceOption.groupLabel ? `${serviceOption.groupLabel} ${serviceOption.label}` : serviceOption.label;
-            nextItems.push({ booking_id: bookingId, item_type: "service", label_snapshot: service.id === "freestyle" ? service.label : `${service.label} • ${optionLabel}`, description_snapshot: ("helperText" in serviceOption ? serviceOption.helperText : null) ?? service.description, quantity: 1, unit_price: serviceOption.price, source_table: "booking_config", source_id: `${service.id}:${serviceOption.id}`, added_by: user.id });
+        const nextItemDrafts = buildBookingServiceLineItems({
+            selections: {
+                slotId: null,
+                removalId: removal.id,
+                serviceId:
+                    removal.id === "removal_only" ? null : service?.id ?? null,
+                serviceOptionGroupId:
+                    serviceOption && "groupId" in serviceOption
+                        ? serviceOption.groupId ?? null
+                        : null,
+                serviceOptionId:
+                    removal.id === "removal_only"
+                        ? null
+                        : serviceOption?.id ?? null,
+                designTierId:
+                    removal.id === "removal_only" ? null : designTier?.id ?? null,
+            },
+            designTier,
+        });
+        if (!nextItemDrafts || nextItemDrafts.length === 0) {
+            return editState({ error: "Choose valid appointment services." });
         }
-        if (designTier) nextItems.push({ booking_id: bookingId, item_type: "design_tier", label_snapshot: designTier.name, description_snapshot: designTier.description, quantity: 1, unit_price: designTier.price, source_table: "design_tiers", source_id: designTier.id, added_by: user.id });
+        const nextItems = nextItemDrafts.map((item) => ({
+            ...item,
+            booking_id: bookingId,
+            added_by: user.id,
+        }));
 
         const now = new Date().toISOString();
         const editableTypes: Enums<"booking_line_item_type">[] = ["service", "design_tier", "removal"];
